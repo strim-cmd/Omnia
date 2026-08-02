@@ -1,0 +1,216 @@
+# Omnia
+
+> **Your AI. Your Keys. Your Choice.**
+
+A beautiful, privacy-first native AI workspace for OpenAI-compatible APIs.
+
+<p align="center">
+
+![Platform](https://img.shields.io/badge/Platform-iOS%20%7C%20iPadOS%20%7C%20macOS-blue)
+![Swift](https://img.shields.io/badge/Swift-6-orange)
+![SwiftUI](https://img.shields.io/badge/SwiftUI-Native-success)
+![License](https://img.shields.io/badge/License-MIT-lightgrey)
+
+</p>
+
+---
+
+## Overview
+
+Omnia is a native Apple platform application that allows users to connect to any OpenAI-compatible AI provider.
+
+Unlike traditional AI applications, Omnia does not provide AI models.
+
+Instead, Omnia gives users a beautiful, fast and privacy-focused interface to their own infrastructure.
+
+No subscriptions.
+
+No proxy servers.
+
+No vendor lock-in.
+
+Your endpoint.
+
+Your API key.
+
+Your conversations.
+
+---
+
+## Philosophy
+
+Omnia is built around four simple principles.
+
+- 🔒 Privacy First
+- 🍎 Native First
+- ⚡ Performance First
+- ✨ Simplicity First
+
+We believe the AI client should disappear into the background, allowing users to focus entirely on the conversation.
+
+---
+
+## Why Omnia?
+
+Today's AI ecosystem is fragmented.
+
+| Service | Locked Provider |
+|----------|-----------------|
+| ChatGPT | OpenAI |
+| Claude | Anthropic |
+| Gemini | Google |
+
+Omnia changes this.
+
+One application.
+
+Unlimited providers.
+
+Your choice.
+
+---
+
+## Features
+
+### Current
+
+- Multiple AI Providers
+- OpenAI Compatible API
+- Streaming Responses
+- Markdown Rendering
+- Code Highlighting
+- Local Conversation Storage
+- Multiple Conversations
+- Multiple Connections
+
+### Planned
+
+- Attachments
+- Vision Models
+- Voice
+- Prompt Library
+- Workspaces
+- Plugins
+
+---
+
+## Supported Providers
+
+Any OpenAI-compatible endpoint including:
+
+- OpenAI
+- OmniRoute
+- Ollama
+- OpenRouter
+- LM Studio
+- LocalAI
+- vLLM
+- Groq
+- Together AI
+
+---
+
+## Architecture
+
+Omnia follows a strict layered architecture.
+
+```
+Presentation
+      ↓
+Application
+      ↓
+Domain
+      ↓
+Infrastructure
+      ↓
+Foundation
+```
+
+More information is available in the Architecture documentation.
+
+---
+
+## Documentation
+
+Project documentation is organized into dedicated sections.
+
+```text
+Documentation/
+
+Product/
+Architecture/
+Design/
+Development/
+API/
+Quality/
+RFC/
+ADR/
+```
+
+---
+
+## Project Status
+
+Current phase:
+
+> 🚧 Sprint 0 — Repository Foundation
+
+No production code has been written yet.
+
+The current focus is building a long-term engineering foundation.
+
+---
+
+## Contributing
+
+We welcome contributions.
+
+Please read:
+
+- CONTRIBUTING.md
+- Documentation/
+- RFC process
+
+before opening a Pull Request.
+
+---
+
+## Roadmap
+
+See:
+
+Documentation/Product/Roadmap/
+
+---
+
+## Security
+
+Security issues should **never** be reported publicly.
+
+Please see:
+
+SECURITY.md
+
+---
+
+## License
+
+MIT License
+
+---
+
+## Our Promise
+
+Omnia will never:
+
+- collect analytics by default
+- proxy AI requests
+- store API keys remotely
+- monetize conversations
+- inject advertisements
+
+Your AI.
+
+Your infrastructure.
+
+Your data.
