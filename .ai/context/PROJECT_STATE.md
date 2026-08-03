@@ -57,7 +57,7 @@ milestones:
       - 136 tests passing.
 
 next_tasks:
-  - Kick off Domain Sprint 1 (Domain implementation per the implementation roadmap)
+  - Kick off Domain Sprint 1 (spec + freeze + implementation per Documentation/Product/Roadmap/DOMAIN_SPRINT_1_ROADMAP.md)
   - Implement remaining DES-001 Phase 3 primitives when required (shared value types, typed-error abstraction)
   - Keep the package building and its tests green at every step
 
