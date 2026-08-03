@@ -30,6 +30,8 @@ completed:
   - SemanticVersion value type (DES-001 Phase 3 justified instance)
   - Foundation Sprint 2 – Implementation
   - OmniaFoundation package complete (Identifier, Environment, Lifecycle, Logging, Clock, Cancellation, SemanticVersion; 136 tests green)
+  - Domain Sprint 1 – Implementation (DES-009 phases 1-8): value objects, capability contract and provider model, configuration model, credential storage protocol, aggregates, repository protocols, domain services and policies
+  - OmniaDomain package complete (value objects, capability contract, configuration model, credential storage protocol, aggregates, four repository protocols, two domain services, two policies; 218 tests green)
 
 milestones:
   Foundation API Freeze v1:
@@ -64,9 +66,24 @@ milestones:
       - Public API frozen.
       - Future API changes require specification revision.
       - Implementation proceeds against frozen contracts.
+  Domain Sprint 1 – Implementation:
+    Status: Complete
+    Scope:
+      - DES-009 Phase 1 value objects
+      - DES-009 Phase 2 capability contract and provider model
+      - DES-009 Phase 3 configuration model and resolution policy
+      - DES-009 Phase 4 credential storage protocol
+      - DES-009 Phase 5 aggregates
+      - DES-009 Phase 6 repository protocols
+      - DES-009 Phase 7 domain services and policies
+      - DES-009 Phase 8 package verification
+    Outcome:
+      - OmniaDomain package implemented against the frozen contract.
+      - OmniaDomain depends only on OmniaFoundation; dependency graph acyclic; no forbidden imports.
+      - 218 tests passing.
 
 next_tasks:
-  - Implement the OmniaDomain package (Stage 2) against the frozen Domain API contract (DES-009) per Documentation/Product/Roadmap/DOMAIN_SPRINT_1_ROADMAP.md
+  - Implement the OmniaInfrastructure package (Stage 2) against the frozen Domain API contract per Documentation/Product/Roadmap/DOMAIN_SPRINT_1_ROADMAP.md Non-Goals (deferred)
   - Implement remaining DES-001 Phase 3 primitives when required (shared value types, typed-error abstraction)
   - Keep the package building and its tests green at every step
 

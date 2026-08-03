@@ -183,6 +183,8 @@ before opening a Pull Request.
 
 See:
 
+- [Domain Sprint 1 (DES-009 implementation)](Documentation/Product/Roadmap/DOMAIN_SPRINT_1_ROADMAP.md)
+
 Documentation/Product/Roadmap/
 
 ---
