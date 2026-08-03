@@ -1,12 +1,12 @@
 version: 0.1.0-alpha
 
-phase: Foundation
+phase: Domain
 
 status: Active
 
-current_sprint: Foundation Sprint 2 – Implementation
+current_sprint: Domain Sprint 1
 
-current_milestone: Foundation Sprint 2 – Implementation
+current_milestone: Domain Sprint 1
 
 repository_foundation: Complete
 ai_foundation: Complete
@@ -14,6 +14,7 @@ product_foundation: Complete
 architecture_foundation: Complete
 design_foundation: Complete
 foundation_api: Frozen (v1)
+omnia_foundation: Complete
 
 completed:
   - Repository Foundation
@@ -26,6 +27,8 @@ completed:
   - Foundation Phase 1 complete (Identifier, Environment, Lifecycle)
   - Foundation Phase 2 primitives (Logging, Clock, Cancellation)
   - SemanticVersion value type (DES-001 Phase 3 justified instance)
+  - Foundation Sprint 2 – Implementation
+  - OmniaFoundation package complete (Identifier, Environment, Lifecycle, Logging, Clock, Cancellation, SemanticVersion; 136 tests green)
 
 milestones:
   Foundation API Freeze v1:
@@ -43,9 +46,19 @@ milestones:
       - Public API frozen.
       - Future API changes require specification revision.
       - Implementation proceeds against frozen contracts.
+  Foundation Sprint 2 – Implementation:
+    Status: Complete
+    Scope:
+      - DES-001 Phase 1 primitives (Identifier, Environment, Lifecycle)
+      - DES-001 Phase 2 primitives (Logging, Clock, Cancellation)
+      - DES-001 Phase 3 justified instance (SemanticVersion)
+    Outcome:
+      - OmniaFoundation package implemented.
+      - 136 tests passing.
 
 next_tasks:
-  - Implement the remaining DES-001 Phase 3 primitives (shared value types, typed-error abstraction)
+  - Kick off Domain Sprint 1 (Domain implementation per the implementation roadmap)
+  - Implement remaining DES-001 Phase 3 primitives when required (shared value types, typed-error abstraction)
   - Keep the package building and its tests green at every step
 
 blocked: []
