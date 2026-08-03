@@ -13,7 +13,7 @@ related_documents:
   - .ai/agents/AGENT_SPECIFICATION.md
   - .ai/agents/ChiefArchitect.md
   - .ai/pipelines/README.md
-  - .ai/workflows/README.md
+  - .ai/prompts/workflows/README.md
   - .ai/standards/
 supersedes: []
 tags:
@@ -203,5 +203,5 @@ Evolution must not break compatibility: new components and gate types are added 
 - `.ai/agents/AGENT_SPECIFICATION.md` — the agent contract
 - `.ai/agents/ChiefArchitect.md` — reference agent implementation (AGENT-001)
 - `.ai/pipelines/README.md` — the pipelines directory purpose
-- `.ai/workflows/README.md` — the workflows directory purpose
+- `.ai/prompts/workflows/README.md` — the workflows directory purpose
 - `.ai/standards/` — engineering standards

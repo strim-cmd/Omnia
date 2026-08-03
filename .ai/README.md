@@ -15,8 +15,8 @@ Every AI agent MUST read these documents in order before making any change:
 3. `Documentation/Product/VISION.md` — why the product exists
 4. `.ai/context/` — the current state of the project
 5. `.ai/standards/` — the rules for code and documentation
-6. `.ai/prompts/` — operational instructions for tasks
-7. `.ai/templates/` — reusable document templates
+6. `.ai/prompts/` — reusable workflows, task prompts, and document templates
+7. `.ai/checklists/` — reusable review checklists
 
 ## The .ai Directory
 
@@ -25,9 +25,11 @@ The `.ai` directory is the AI foundation of the repository. It governs how AI ag
 - `.ai/AI_CONSTITUTION.md` — the highest-priority document. Binding rules for every AI agent.
 - `.ai/context/` — current project state and working summaries. These are pointers; the source documents win on conflict.
 - `.ai/standards/` — engineering standards: Swift, testing, UI, security, git, and documentation.
-- `.ai/prompts/` — task prompts that tell an AI agent how to perform a specific job.
-- `.ai/templates/` — reusable document templates (DOCUMENT, PRD, RFC, ADR).
-- `.ai/reviews/` — review rules and checklists.
+- `.ai/prompts/` — reusable workflows, task prompts, and document templates.
+  - `workflows/` — reusable engineering processes (implementation, review, design, documentation, release).
+  - `tasks/` — task-specific prompts that reference workflows, checklists, and templates.
+  - `templates/` — reusable document templates (DOCUMENT, PRD, RFC, ADR).
+- `.ai/checklists/` — reusable review checklists (code review, documentation review).
 
 ## Development Workflow
 

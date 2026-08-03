@@ -11,9 +11,9 @@ Multi-stage engineering pipelines that combine prompts, workflows, and templates
 
 ## Exclusions
 
-- Standalone prompts (see generation_prompts/ and review_prompts/).
+- Standalone prompts (see prompts/).
 - Process descriptions (see workflows/).
 
 ## Relationship
 
-Pipelines implement the stages described in workflows/; each stage produces artifacts that are reviewed using review_prompts/.
+Pipelines implement the stages described in prompts/workflows/; each stage produces artifacts that are validated against the checklists in ../checklists/.

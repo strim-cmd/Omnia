@@ -64,4 +64,4 @@ Versions follow Semantic Versioning.
 
 - `Documentation/Development/DocumentationStandard.md` — the repository documentation standard
 - `standards/SWIFT.md`
-- `.ai/templates/DOCUMENT.md`
+- `.ai/prompts/templates/DOCUMENT.md`

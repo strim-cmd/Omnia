@@ -12,7 +12,7 @@ Reference examples showing how agents, prompts, pipelines, and workflows are int
 ## Exclusions
 
 - Production artifacts and real project documentation.
-- Template skeletons (see templates/).
+- Template skeletons (see prompts/templates/).
 
 ## Relationship
 

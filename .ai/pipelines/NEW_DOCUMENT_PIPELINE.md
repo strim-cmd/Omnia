@@ -13,8 +13,8 @@ related_documents:
   - .ai/specifications/PIPELINE_SPECIFICATION.md
   - .ai/agents/AGENT_SPECIFICATION.md
   - .ai/agents/ChiefArchitect.md
-  - .ai/templates/
-  - .ai/workflows/
+  - .ai/prompts/templates/
+  - .ai/prompts/workflows/
   - .ai/pipelines/README.md
 supersedes: []
 tags:
@@ -100,7 +100,7 @@ Responsibility of every participant:
 - Purpose: determine the document type and the template it must use.
 - Inputs: user request.
 - Outputs: classified document type.
-- Validation criteria: the type maps to a template in `.ai/templates/`.
+- Validation criteria: the type maps to a template in `.ai/prompts/templates/`.
 
 ### 2. Identify Governing Specifications
 
@@ -246,5 +246,5 @@ This pipeline implements the specifications it references:
 - `.ai/specifications/PIPELINE_SPECIFICATION.md` — the contract this pipeline implements
 - `.ai/agents/AGENT_SPECIFICATION.md` — the agent contract
 - `.ai/agents/ChiefArchitect.md` — reference agent implementation (AGENT-001)
-- `.ai/templates/` — reusable document templates
-- `.ai/workflows/` — the workflows this pipeline realizes
+- `.ai/prompts/templates/` — reusable document templates
+- `.ai/prompts/workflows/` — the workflows this pipeline realizes

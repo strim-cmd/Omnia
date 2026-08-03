@@ -54,7 +54,7 @@ It does not replace the Product Charter or engineering standards.
    2. This Constitution
    3. Standards (`.ai/standards/`)
    4. Context (`.ai/context/`)
-   5. Prompts and Templates (`.ai/prompts/`, `.ai/templates/`)
+   5. Prompts, Templates, and Checklists (`.ai/prompts/`, `.ai/checklists/`)
 4. Source documents always override summaries. `.ai/` files are pointers, not authorities.
 5. When a conflict is found, report it and fix the outdated document.
 

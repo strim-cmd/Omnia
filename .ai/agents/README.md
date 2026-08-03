@@ -11,9 +11,9 @@ Reusable AI role definitions used across the engineering process. Each agent is 
 
 ## Exclusions
 
-- Prompts of any kind (see generation_prompts/ and review_prompts/).
+- Prompts of any kind (see prompts/).
 - Workflow and pipeline definitions.
 
 ## Relationship
 
-Agents drive generation_prompts/ and review_prompts/, execute pipelines/, and are bound by the standards in ../standards/ and ../AI_CONSTITUTION.md.
+Agents execute tasks in prompts/, follow workflows, enforce checklists, run pipelines/, and are bound by the standards in ../standards/ and ../AI_CONSTITUTION.md.
