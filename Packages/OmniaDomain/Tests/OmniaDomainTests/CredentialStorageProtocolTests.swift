@@ -31,7 +31,7 @@ final class CredentialStorageProtocolTests: XCTestCase {
         let reference = CredentialReference()
         let credential = Credential(secret: "sk-roundtrip")
 
-        try await storage.store(credential, for: reference)
+        await storage.store(credential, for: reference)
         let retrieved = try await storage.credential(for: reference)
 
         XCTAssertEqual(retrieved, credential)
@@ -41,8 +41,8 @@ final class CredentialStorageProtocolTests: XCTestCase {
         let storage = InMemoryCredentialStorage()
         let reference = CredentialReference()
 
-        try await storage.store(Credential(secret: "first"), for: reference)
-        try await storage.store(Credential(secret: "second"), for: reference)
+        await storage.store(Credential(secret: "first"), for: reference)
+        await storage.store(Credential(secret: "second"), for: reference)
 
         let retrieved = try await storage.credential(for: reference)
         retrieved.withValue { XCTAssertEqual($0, "second") }
@@ -67,7 +67,7 @@ final class CredentialStorageProtocolTests: XCTestCase {
         let first = try XCTUnwrap(CredentialReference(restoring: canonicalProviderA))
         let second = try XCTUnwrap(CredentialReference(restoring: canonicalProviderB))
 
-        try await storage.store(Credential(secret: "provider-a"), for: first)
+        await storage.store(Credential(secret: "provider-a"), for: first)
 
         do {
             _ = try await storage.credential(for: second)
@@ -83,8 +83,8 @@ final class CredentialStorageProtocolTests: XCTestCase {
         let storage = InMemoryCredentialStorage()
         let reference = CredentialReference()
 
-        try await storage.store(Credential(secret: "to-remove"), for: reference)
-        try await storage.removeCredential(for: reference)
+        await storage.store(Credential(secret: "to-remove"), for: reference)
+        await storage.removeCredential(for: reference)
 
         do {
             _ = try await storage.credential(for: reference)
@@ -99,8 +99,8 @@ final class CredentialStorageProtocolTests: XCTestCase {
     func testRemove_IsIdempotent() async throws {
         let storage = InMemoryCredentialStorage()
         let reference = CredentialReference()
-        try await storage.removeCredential(for: reference)
-        try await storage.removeCredential(for: reference)
+        await storage.removeCredential(for: reference)
+        await storage.removeCredential(for: reference)
     }
 
     func testStorageError_IsEquatable() {
@@ -117,7 +117,7 @@ final class CredentialStorageProtocolTests: XCTestCase {
     func testSendability_ShareStorageAcrossConcurrencyDomain() async throws {
         let storage = InMemoryCredentialStorage()
         let reference = CredentialReference()
-        try await storage.store(Credential(secret: "sk-concurrent"), for: reference)
+        await storage.store(Credential(secret: "sk-concurrent"), for: reference)
 
         let retrieved: Credential? = await Task.detached {
             try? await storage.credential(for: reference)
