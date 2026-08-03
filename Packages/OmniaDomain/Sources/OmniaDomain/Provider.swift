@@ -4,6 +4,8 @@ import OmniaFoundation
 public enum ProviderLifecycleError: Error, Equatable, Sendable {
     /// The requested transition is not declared legal (ARC-004).
     case invalidTransition(from: ProviderState, to: ProviderState)
+    /// The provider is not known to the lifecycle service.
+    case providerNotFound(identity: ProviderIdentity)
 }
 
 /// The Provider aggregate: the provider connection the user has configured,
