@@ -6,7 +6,7 @@ Reusable engineering process descriptions. A workflow answers "what happens": th
 
 ## Contents
 
-- One file per process: `implementation.md`, `review.md`, `design.md`, `documentation.md`, `release.md`.
+- One file per process: `implementation.md`, `review.md`, `design.md`, `documentation.md`, `release.md`, `github.md`.
 - Process descriptions only: steps and exit criteria.
 
 ## Exclusions

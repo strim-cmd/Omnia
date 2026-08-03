@@ -51,6 +51,8 @@ Issue → Branch → Implementation → Pull Request → Review → Merge
 7. Open a pull request.
 8. Pass review before merge.
 
+GitHub is the authoritative project management system for Omnia. Issues, milestones, labels, and the Omnia Roadmap project are managed through the GitHub workflow (`.ai/prompts/workflows/github.md`) using the GitHub CLI (`gh`).
+
 ## Definition of Done
 
 A task is done when:
