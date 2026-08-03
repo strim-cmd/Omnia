@@ -14,6 +14,7 @@ product_foundation: Complete
 architecture_foundation: Complete
 design_foundation: Complete
 foundation_api: Frozen (v1)
+domain_api: Frozen (v1)
 omnia_foundation: Complete
 
 completed:
@@ -55,9 +56,17 @@ milestones:
     Outcome:
       - OmniaFoundation package implemented.
       - 136 tests passing.
+  Domain API Freeze v1:
+    Status: Approved
+    Scope:
+      - DES-009 DOMAIN_API
+    Outcome:
+      - Public API frozen.
+      - Future API changes require specification revision.
+      - Implementation proceeds against frozen contracts.
 
 next_tasks:
-  - Kick off Domain Sprint 1 (spec + freeze + implementation per Documentation/Product/Roadmap/DOMAIN_SPRINT_1_ROADMAP.md)
+  - Implement the OmniaDomain package (Stage 2) against the frozen Domain API contract (DES-009) per Documentation/Product/Roadmap/DOMAIN_SPRINT_1_ROADMAP.md
   - Implement remaining DES-001 Phase 3 primitives when required (shared value types, typed-error abstraction)
   - Keep the package building and its tests green at every step
 

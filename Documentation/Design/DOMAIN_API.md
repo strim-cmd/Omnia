@@ -2,7 +2,7 @@
 title: OmniaDomain Public API Contract
 document_id: DES-009
 version: 0.1.0
-status: Draft
+status: Ratified
 owner: Founder
 project: Omnia
 authors:
@@ -227,7 +227,7 @@ Normative statements:
 - **Purpose**: the immutable, content-equal vocabulary of the Domain (ARC-003 Value Object, ARC-001 Immutable Domain Models).
 - **Intended consumers**: the whole package and its consumers; value objects cross every internal boundary.
 - **Stability expectations**: stable. Value objects are immutable once created; changes produce new values (ARC-001).
-- **Ownership**: the module that owns each value's meaning (ARC-007): Conversation owns `Message`; Provider owns `ProviderIdentity`, `ModelReference`, `ProviderCapabilities`, `ProviderMetadata`, and `ProviderLimits`; Authentication owns `CredentialReference`; Configuration owns the configuration values and levels.
+- **Ownership**: the module that owns each value's meaning (ARC-007): Conversation owns `Message`; Provider owns `Capability`, `ProviderIdentity`, `ModelReference`, `ProviderCapabilities`, `ProviderMetadata`, and `ProviderLimits`; Authentication owns `CredentialReference`; Configuration owns the configuration values and levels.
 
 Normative statements:
 
@@ -361,7 +361,7 @@ Order: the repository protocols of §3.5 — `WorkspaceRepository`, `ProviderRep
 
 ### Phase 7 — Domain Services and Policies
 
-Order: the provider lifecycle service, the provider selection service and policy, and the configuration resolution policy of §3.2 and §3.6.
+Order: the provider lifecycle service, and the provider selection service and policy of §3.2.
 
 ### Phase 8 — Package Verification
 

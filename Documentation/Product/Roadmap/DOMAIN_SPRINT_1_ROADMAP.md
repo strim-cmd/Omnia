@@ -79,7 +79,7 @@ The sprint is complete when the frozen contract is fully implemented, the packag
 2. Review the specification with the Documentation workflow (`.ai/prompts/workflows/documentation.md`) and the documentation review checklist (`.ai/checklists/documentation-review.md`), and verify it against `ARC-002`, `ARC-004`, `ARC-005`, `ARC-007`, `ARC-009`, and `ADR-0001`/`ADR-0002`.
 3. Record the freeze. From that point, a change to the public contract requires a specification revision, exactly as the Foundation API Freeze v1 does (`PROJECT_STATE.md`).
 
-Milestone: **Domain API Freeze v1**.
+Milestone: **Domain API Freeze v1** — ratified on 2026-08-03; `DES-009` status is Ratified and the freeze is recorded in `PROJECT_STATE.md`.
 
 ### Stage 2 — Implementation
 
