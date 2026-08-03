@@ -3,24 +3,36 @@ import OmniaFoundation
 import XCTest
 @testable import OmniaDomain
 
-private let canonicalProviderA = "550E8400-E29B-41D4-A716-446655440000"
-private let canonicalProviderB = "6BA7B810-9DAD-11D1-80B4-00C04FD430C8"
+private let canonicalProvider = "1CE9122D-9DDE-11D1-80B4-00C04FD430C8"
 
-private func makeProvider(
-    identity: ProviderIdentity = ProviderIdentity(),
-    capabilities: ProviderCapabilities = ProviderCapabilities(
-        capabilities: [.textGeneration, .conversation, .streaming]
-    ),
-    metadata: ProviderMetadata = ProviderMetadata(displayName: "Mock Provider"),
-    limits: ProviderLimits = ProviderLimits(maxRequestsPerMinute: 60),
-    version: SemanticVersion = SemanticVersion(major: 1, minor: 0, patch: 0)
-) -> Provider {
-    Provider(
+private final class RecordingObserver: LifecycleObserver, @unchecked Sendable {
+    typealias State = ProviderState
+    private var events: [LifecycleEvent<ProviderState>] = []
+    private let lock = NSLock()
+
+    func lifecycleDidTransition(_ event: LifecycleEvent<ProviderState>) {
+        lock.withLock {
+            events.append(event)
+        }
+    }
+
+    func recordedEvents() -> [LifecycleEvent<ProviderState>] {
+        lock.withLock {
+            events
+        }
+    }
+}
+
+private func makeConnection(
+    capabilities: ProviderCapabilities = ProviderCapabilities(capabilities: [.textGeneration])
+) throws -> ProviderConnection {
+    let identity = try XCTUnwrap(ProviderIdentity(restoring: canonicalProvider))
+    return ProviderConnection(
         identity: identity,
         capabilities: capabilities,
-        metadata: metadata,
-        limits: limits,
-        version: version
+        metadata: ProviderMetadata(displayName: "Mock Provider"),
+        limits: ProviderLimits(maxRequestsPerMinute: 60),
+        version: SemanticVersion(major: 1, minor: 0, patch: 0)
     )
 }
 
@@ -28,81 +40,167 @@ final class ProviderTests: XCTestCase {
 
     // MARK: Creation
 
-    func testCreation_RetainsIdentityCapabilitiesMetadataLimitsAndVersion() throws {
-        let identity = try XCTUnwrap(ProviderIdentity(restoring: canonicalProviderA))
-        let capabilities = ProviderCapabilities(capabilities: [.textGeneration, .streaming])
-        let metadata = ProviderMetadata(displayName: "OpenAI Compatible")
-        let limits = ProviderLimits(maxTokensPerMinute: 60_000)
-        let version = SemanticVersion(major: 1, minor: 2, patch: 0)
+    func testCreation_StartsRegistered() throws {
+        let connection = try makeConnection()
+        let provider = Provider(connection: connection)
+        XCTAssertEqual(provider.state, .registered)
+        XCTAssertEqual(provider.identity, connection.identity)
+    }
 
-        let provider = Provider(
-            identity: identity,
-            capabilities: capabilities,
-            metadata: metadata,
-            limits: limits,
-            version: version
+    func testCanDeliver_ReflectsDeclaredCapabilities() throws {
+        let connection = try makeConnection(
+            capabilities: ProviderCapabilities(capabilities: [.textGeneration, .conversation])
         )
+        let provider = Provider(connection: connection)
 
-        XCTAssertEqual(provider.identity, identity)
-        XCTAssertEqual(provider.capabilities, capabilities)
-        XCTAssertEqual(provider.metadata, metadata)
-        XCTAssertEqual(provider.limits, limits)
-        XCTAssertEqual(provider.version, version)
+        XCTAssertTrue(provider.canDeliver(.textGeneration))
+        XCTAssertTrue(provider.canDeliver(.conversation))
+        XCTAssertFalse(provider.canDeliver(.streaming))
     }
 
-    func testCreation_ModelCarriesDeclaredCapabilitiesOnly() {
-        let provider = makeProvider(capabilities: ProviderCapabilities(capabilities: [.textGeneration]))
-        XCTAssertTrue(provider.capabilities.contains(.textGeneration))
-        XCTAssertFalse(provider.capabilities.contains(.vision))
-        XCTAssertFalse(provider.capabilities.contains(.embeddings))
+    func testConnectionDataIsImmutable() throws {
+        let connection = try makeConnection()
+        let provider = Provider(connection: connection)
+        XCTAssertEqual(provider.connection, connection)
     }
 
-    // MARK: Equality
+    // MARK: Legal transitions
 
-    func testEquality_ContentEqualIsEqual() throws {
-        let identity = try XCTUnwrap(ProviderIdentity(restoring: canonicalProviderA))
-        XCTAssertEqual(makeProvider(identity: identity), makeProvider(identity: identity))
+    func testLegalChain_RegisteredToReady() throws {
+        let provider = Provider(connection: try makeConnection())
+        try provider.transition(to: .validated)
+        try provider.transition(to: .initializing)
+        try provider.transition(to: .ready)
+        XCTAssertEqual(provider.state, .ready)
     }
 
-    func testEquality_DifferentIdentityIsNotEqual() throws {
-        let a = try XCTUnwrap(ProviderIdentity(restoring: canonicalProviderA))
-        let b = try XCTUnwrap(ProviderIdentity(restoring: canonicalProviderB))
-        XCTAssertNotEqual(makeProvider(identity: a), makeProvider(identity: b))
+    func testLegalChain_ReadyToUnavailableToDisabled() throws {
+        let provider = Provider(connection: try makeConnection())
+        try provider.transition(to: .validated)
+        try provider.transition(to: .initializing)
+        try provider.transition(to: .ready)
+        try provider.transition(to: .unavailable)
+        try provider.transition(to: .disabled)
+        XCTAssertEqual(provider.state, .disabled)
     }
 
-    func testEquality_DifferentCapabilitiesIsNotEqual() throws {
-        let identity = try XCTUnwrap(ProviderIdentity(restoring: canonicalProviderA))
-        let base = makeProvider(identity: identity)
-        let other = makeProvider(
-            identity: identity,
-            capabilities: ProviderCapabilities(capabilities: [.textGeneration])
+    func testLegalChain_DisabledBackToReady() throws {
+        let provider = Provider(connection: try makeConnection())
+        try provider.transition(to: .validated)
+        try provider.transition(to: .initializing)
+        try provider.transition(to: .ready)
+        try provider.transition(to: .unavailable)
+        try provider.transition(to: .disabled)
+        try provider.transition(to: .initializing)
+        try provider.transition(to: .ready)
+        XCTAssertEqual(provider.state, .ready)
+    }
+
+    func testLegalTransition_ToRemoved() throws {
+        let provider = Provider(connection: try makeConnection())
+        try provider.transition(to: .validated)
+        try provider.transition(to: .initializing)
+        try provider.transition(to: .ready)
+        try provider.transition(to: .removed)
+        XCTAssertEqual(provider.state, .removed)
+    }
+
+    // MARK: Illegal transitions are rejected
+
+    func testIllegalTransition_SkipsIntermediateStates() throws {
+        let provider = Provider(connection: try makeConnection())
+        XCTAssertThrowsError(try provider.transition(to: .ready)) { error in
+            XCTAssertEqual(
+                error as? ProviderLifecycleError,
+                .invalidTransition(from: .registered, to: .ready)
+            )
+        }
+        XCTAssertEqual(provider.state, .registered)
+    }
+
+    func testIllegalTransition_FromRegisteredToDisabled() throws {
+        let provider = Provider(connection: try makeConnection())
+        XCTAssertThrowsError(try provider.transition(to: .disabled)) { error in
+            XCTAssertEqual(
+                error as? ProviderLifecycleError,
+                .invalidTransition(from: .registered, to: .disabled)
+            )
+        }
+        XCTAssertEqual(provider.state, .registered)
+    }
+
+    func testIllegalTransition_RemovedIsTerminal() throws {
+        let provider = Provider(connection: try makeConnection())
+        try provider.transition(to: .validated)
+        try provider.transition(to: .initializing)
+        try provider.transition(to: .ready)
+        try provider.transition(to: .removed)
+
+        XCTAssertThrowsError(try provider.transition(to: .registered)) { error in
+            XCTAssertEqual(
+                error as? ProviderLifecycleError,
+                .invalidTransition(from: .removed, to: .registered)
+            )
+        }
+        XCTAssertEqual(provider.state, .removed)
+    }
+
+    func testIllegalTransition_UnavailableToReady() throws {
+        let provider = Provider(connection: try makeConnection())
+        try provider.transition(to: .validated)
+        try provider.transition(to: .initializing)
+        try provider.transition(to: .ready)
+        try provider.transition(to: .unavailable)
+
+        XCTAssertThrowsError(try provider.transition(to: .ready)) { error in
+            XCTAssertEqual(
+                error as? ProviderLifecycleError,
+                .invalidTransition(from: .unavailable, to: .ready)
+            )
+        }
+        XCTAssertEqual(provider.state, .unavailable)
+    }
+
+    // MARK: Observation
+
+    func testObserver_ReceivesEachLegalTransition() throws {
+        let observer = RecordingObserver()
+        let provider = Provider(connection: try makeConnection())
+        provider.addObserver(observer)
+
+        try provider.transition(to: .validated)
+        try provider.transition(to: .initializing)
+
+        XCTAssertEqual(
+            observer.recordedEvents(),
+            [
+                LifecycleEvent(previousState: .registered, newState: .validated),
+                LifecycleEvent(previousState: .validated, newState: .initializing),
+            ]
         )
-        XCTAssertNotEqual(base, other)
     }
 
-    func testEquality_DifferentVersionIsNotEqual() throws {
-        let identity = try XCTUnwrap(ProviderIdentity(restoring: canonicalProviderA))
-        let base = makeProvider(identity: identity)
-        let other = makeProvider(identity: identity, version: SemanticVersion(major: 2, minor: 0, patch: 0))
-        XCTAssertNotEqual(base, other)
+    func testObserver_ReceivesNoEventForRejectedTransition() throws {
+        let observer = RecordingObserver()
+        let provider = Provider(connection: try makeConnection())
+        provider.addObserver(observer)
+
+        XCTAssertThrowsError(try provider.transition(to: .ready))
+
+        XCTAssertTrue(observer.recordedEvents().isEmpty)
     }
 
-    // MARK: Sendability
+    func testObserver_ObservesOneWayWithoutAlteringTransitions() throws {
+        let provider = Provider(connection: try makeConnection())
+        let observer = RecordingObserver()
+        provider.addObserver(observer)
 
-    func testSendability_UsableInSendableClosure() throws {
-        let identity = try XCTUnwrap(ProviderIdentity(restoring: canonicalProviderA))
-        let provider = makeProvider(identity: identity)
-        let version = provider.version
-        let read: @Sendable () -> SemanticVersion = { provider.version }
-        XCTAssertEqual(read(), version)
-    }
+        try provider.transition(to: .validated)
 
-    func testSendability_ShareProviderAcrossConcurrencyDomain() async throws {
-        let identity = try XCTUnwrap(ProviderIdentity(restoring: canonicalProviderA))
-        let provider = makeProvider(identity: identity)
-        let returned = await Task.detached {
-            provider.identity
-        }.value
-        XCTAssertEqual(returned, identity)
+        XCTAssertEqual(provider.state, .validated)
+        XCTAssertEqual(
+            observer.recordedEvents(),
+            [LifecycleEvent(previousState: .registered, newState: .validated)]
+        )
     }
 }
