@@ -19,7 +19,8 @@ last_updated: 2026-08-02
 related_documents:
   - Documentation/Architecture/ADR/ADR-0001-architectural-style.md
   - Documentation/Product/PRODUCT_CHARTER.md
-  - .ai/context/ARCHITECTURE.md
+  - Documentation/Product/PRODUCT_PRINCIPLES.md
+  - .ai/standards/SWIFT.md
 
 supersedes: []
 
@@ -69,7 +70,7 @@ Without a written rule, these problems accumulate gradually and become expensive
 
 Dependencies always point inward.
 
-Every layer depends only on the layer directly below it through stable abstractions.
+Dependencies point inward through the allowed dependencies listed below.
 
 A layer never bypasses another layer, and no layer imports a layer above it.
 
@@ -78,18 +79,14 @@ A layer never bypasses another layer, and no layer imports a layer above it.
 ## Dependency Rule
 
 ```text
-Presentation
-    ↓
-Application
-    ↓
-Domain
-    ↓
-Infrastructure
-    ↓
-Foundation
+Presentation → Application
+Application → Domain
+Infrastructure → Domain (implements Domain contracts)
+Infrastructure → Foundation
+Application → Foundation (shared utilities only, when justified)
 ```
 
-A layer may depend only on the layer directly below it.
+Dependencies always point inward. Infrastructure implements the Domain contracts and depends on Foundation. Application may depend on Foundation for shared utilities only, when justified.
 
 Layer responsibilities:
 
@@ -105,6 +102,7 @@ Layer responsibilities:
 
 - Presentation → Application
 - Application → Domain
+- Infrastructure → Domain (implements Domain contracts)
 - Infrastructure → Foundation
 - Application → Foundation — shared utilities only, when justified
 
@@ -115,21 +113,13 @@ Layer responsibilities:
 Each forbidden dependency includes why it is forbidden.
 
 - **Presentation → Infrastructure** — the UI reaches into providers, networking, and persistence directly, duplicating application logic and bypassing use cases.
-
 - **Presentation → Persistence** — the UI reads and writes storage directly, skipping use cases and validation, and coupling views to storage formats.
-
 - **Domain → SwiftUI** — business logic becomes tied to a UI framework and untestable outside the platform.
-
 - **Domain → SQLite** — business rules depend on a concrete storage implementation instead of an abstraction.
-
 - **Domain → URLSession** — business rules perform networking directly, coupling the Domain to a platform API and bypassing the provider contract.
-
 - **Infrastructure → Presentation** — a lower layer reaching upward creates a cycle in intent and couples infrastructure to the UI.
-
 - **Infrastructure → ViewModels** — infrastructure must never drive UI state; that responsibility belongs to Application.
-
 - **Providers → Views** — provider implementations must never reference views or render UI; they implement a contract only.
-
 - **Business Logic → SwiftUI** — placing business rules in views couples logic to the UI and prevents reuse and testing.
 
 ---
@@ -228,11 +218,8 @@ The trade-off is accepted because Omnia prioritizes long-term maintainability ov
 The dependency rule supports the Product Principles.
 
 - **Privacy First** — data access and secrets are confined to Infrastructure (Keychain, networking) and never reach Presentation or Domain.
-
 - **Provider Independence** — providers implement a single Domain contract behind an abstraction, so swapping providers never touches upper layers.
-
 - **Documentation First** — each dependency is explicit and recorded, and the rule itself is the reference that reviews use.
-
 - **Long-Term Thinking** — the rule prevents architectural erosion and keeps the codebase maintainable over years of development.
 
 ---
@@ -258,6 +245,6 @@ These rules are verified during code review today. They may later be enforced au
 
 ## Related Documents
 
-- `.ai/context/ARCHITECTURE.md`
 - `.ai/standards/SWIFT.md`
 - `Documentation/Product/PRODUCT_CHARTER.md`
+- `Documentation/Product/PRODUCT_PRINCIPLES.md`

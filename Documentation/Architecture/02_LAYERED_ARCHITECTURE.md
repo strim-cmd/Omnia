@@ -18,6 +18,10 @@ last_updated: 2026-08-02
 
 related_documents:
   - Documentation/Architecture/01_SYSTEM_OVERVIEW.md
+  - Documentation/Architecture/03_MODULE_MODEL.md
+  - Documentation/Architecture/04_AI_PROVIDER_ARCHITECTURE.md
+  - Documentation/Architecture/05_LOCAL_STORAGE_ARCHITECTURE.md
+  - Documentation/Architecture/06_DEPENDENCY_INJECTION.md
   - Documentation/Architecture/ADR/ADR-0001-architectural-style.md
   - Documentation/Architecture/ADR/ADR-0002-dependency-direction.md
   - Documentation/Product/PRODUCT_CHARTER.md
@@ -44,7 +48,7 @@ tags:
 
 ## Executive Summary
 
-Omnia uses a strict layered architecture to keep business logic independent of the user interface, the AI providers, and the platform. The system is divided into five layers: Presentation, Application, Domain, Infrastructure, and Foundation. Dependencies always point inward, so each layer depends only on the layer directly below it.
+Omnia uses a strict layered architecture to keep business logic independent of the user interface, the AI providers, and the platform. The system is divided into five layers: Presentation, Application, Domain, Infrastructure, and Foundation. Dependencies always point inward through the allowed dependency edges.
 
 This document is the normative refinement of the architecture. ADR-0001 establishes the architectural style and the responsibility of each layer. ADR-0002 establishes the dependency direction rule. SYSTEM_OVERVIEW describes the system as a whole. This document specifies each layer in detail — what belongs in it, what must never enter it, how it communicates, and what it owns — so an engineer knows exactly where new code belongs. Where this document is more specific than its sources, it refines them; it never contradicts them.
 
@@ -59,18 +63,19 @@ The layered architecture is chosen to achieve:
 - **Testability** — business logic is independent of the UI, the network, and the platform.
 - **Modularity** — module boundaries follow layer boundaries, limiting blast radius.
 - **Long-Term Evolution** — the structure stays coherent over the next five years.
-- **Deterministic Behaviour** — the same input and conditions produce the same output.
+- **Deterministic Behavior** — the same input and conditions produce the same output.
 
 ## Layer Overview
 
 The complete stack, from outermost to innermost:
 
 ```mermaid
-flowchart TB
-    Presentation["Presentation"] --> Application["Application"]
-    Application --> Domain["Domain"]
-    Domain --> Infrastructure["Infrastructure"]
-    Infrastructure --> Foundation["Foundation"]
+flowchart LR
+    Presentation["Presentation"] -->|depends on| Application["Application"]
+    Application -->|depends on| Domain["Domain"]
+    Infrastructure["Infrastructure"] -->|implements| Domain
+    Infrastructure -->|depends on| Foundation["Foundation"]
+    Application -.->|utilities only| Foundation
 ```
 
 ### Presentation
@@ -297,7 +302,7 @@ These constraints are mandatory. Every future module must obey them.
 - Foundation contains no feature logic.
 - Infrastructure implements abstractions; it never defines the contracts it implements.
 - Every dependency must have a documented owner.
-- Dependencies point inward; a layer depends only on the layer directly below it.
+- Dependencies point inward; allowed dependencies are Presentation → Application, Application → Domain, Infrastructure → Domain (implements Domain contracts) and Infrastructure → Foundation, and Application → Foundation (shared utilities only, when justified).
 - The Composition Root is the only place where abstractions are bound to implementations.
 
 A module that cannot satisfy these constraints is not designed for this architecture. A change that requires a different structure is proposed as an ADR; it is never implemented as an exception.
@@ -314,7 +319,7 @@ The layered architecture is the mechanism by which the quality attributes are ac
 - **Provider Independence** — one contract in the Domain is implemented by every provider in Infrastructure.
 - **Replaceability** — every layer depends on abstractions, so any layer can be replaced without touching its consumers.
 - **Extensibility** — new providers and capabilities attach at defined boundaries without redesign.
-- **Predictability** — deterministic domain behaviour and explicit, typed failures keep behavior attributable to external conditions, never hidden state.
+- **Predictability** — deterministic domain behavior and explicit, typed failures keep behavior attributable to external conditions, never hidden state.
 - **Testability** — the Domain is independent of UI, network, and platform, and dependencies are injected across boundaries.
 
 ## Architecture Fitness Functions
@@ -357,6 +362,10 @@ Where a future ADR changes a rule stated here, the ADR wins for that rule and th
 ## Related Documents
 
 - `Documentation/Architecture/01_SYSTEM_OVERVIEW.md`
+- `Documentation/Architecture/03_MODULE_MODEL.md`
+- `Documentation/Architecture/04_AI_PROVIDER_ARCHITECTURE.md`
+- `Documentation/Architecture/05_LOCAL_STORAGE_ARCHITECTURE.md`
+- `Documentation/Architecture/06_DEPENDENCY_INJECTION.md`
 - `Documentation/Architecture/ADR/ADR-0001-architectural-style.md`
 - `Documentation/Architecture/ADR/ADR-0002-dependency-direction.md`
 - `Documentation/Product/PRODUCT_CHARTER.md`

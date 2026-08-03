@@ -73,13 +73,7 @@ When multiple documents define related behavior, the following precedence applie
 
 ## Core Principles
 
-The five product principles govern every decision:
-
-1. **User Ownership** — the user owns all data, providers, and decisions. Omnia owns none of it.
-2. **Privacy by Default** — privacy is the default behavior, not an optional feature.
-3. **Native Experience** — every screen and interaction should feel designed by Apple.
-4. **Long-Term Maintainability** — optimize for the next five years, not the next release.
-5. **Simplicity** — every feature must justify its existence.
+The Product Principles in `Documentation/Product/PRODUCT_PRINCIPLES.md` are the single canonical set of product principles and govern every decision. They are defined there and not restated here.
 
 ## Decision Making
 

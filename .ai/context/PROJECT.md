@@ -21,8 +21,13 @@ The application never owns user AI accounts.
 
 Core values:
 
-- Privacy
-- Simplicity
-- Performance
-- Native UX
-- Long-term maintainability
+The Product Principles defined in `Documentation/Product/PRODUCT_PRINCIPLES.md`:
+
+- User Ownership
+- Privacy First
+- Native Experience
+- Simplicity Wins
+- Provider Independence
+- Performance Matters
+- Documentation First
+- Long-Term Thinking

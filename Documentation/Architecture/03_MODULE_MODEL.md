@@ -19,6 +19,9 @@ last_updated: 2026-08-02
 related_documents:
   - Documentation/Architecture/01_SYSTEM_OVERVIEW.md
   - Documentation/Architecture/02_LAYERED_ARCHITECTURE.md
+  - Documentation/Architecture/04_AI_PROVIDER_ARCHITECTURE.md
+  - Documentation/Architecture/05_LOCAL_STORAGE_ARCHITECTURE.md
+  - Documentation/Architecture/06_DEPENDENCY_INJECTION.md
   - Documentation/Architecture/ADR/ADR-0001-architectural-style.md
   - Documentation/Architecture/ADR/ADR-0002-dependency-direction.md
   - Documentation/Product/PRODUCT_CHARTER.md
@@ -55,7 +58,7 @@ The goals are:
 - **Ownership** — every element has a defined owner.
 - **Replaceability** — elements are consumed through interfaces and can be replaced.
 - **Scalability** — new behavior is expressed with existing elements before new ones are invented.
-- **Long-Term Maintainability** — definitions remain stable over years of development.
+- **Long-Term Thinking** — definitions remain stable over years of development.
 
 ## Architectural Building Blocks
 
@@ -77,7 +80,7 @@ Each building block is defined by purpose, responsibilities, ownership, interact
 - Responsibilities: enforce dependency direction and group behavior by abstraction level.
 - What it owns: the rules of its position in the dependency graph.
 - What it must never own: business behavior that belongs to a specific layer.
-- Typical interactions: modules within a layer depend on the layer directly below it.
+- Typical interactions: modules within a layer depend only on the layers beneath it through the allowed dependency edges; Infrastructure additionally implements the Domain contracts.
 - When it should be introduced: at the system level, defined once in the layered architecture.
 - When it should NOT be introduced: as a new layer to justify a single module.
 
@@ -93,9 +96,9 @@ Each building block is defined by purpose, responsibilities, ownership, interact
 
 ### Engine
 
-- Purpose: an element that manages a continuous or stateful capability.
+- Purpose: an element that manages a continuous or stateful behavior.
 - Responsibilities: own a lifecycle, coordinate state, expose operations over time.
-- What it owns: the state and lifecycle of its capability.
+- What it owns: the state and lifecycle of its behavior.
 - What it must never own: the user interface.
 - Typical interactions: driven by the Application layer; emits events; returns responses.
 - When it should be introduced: when behavior is long-running, stateful, or event-driven.
@@ -123,13 +126,13 @@ Each building block is defined by purpose, responsibilities, ownership, interact
 
 ### Provider
 
-- Purpose: an implementation of an external capability behind a stable contract.
+- Purpose: an implementation of a Capability (defined in ARC-004) behind a stable contract.
 - Responsibilities: implement a contract for a concrete external service.
 - What it owns: the implementation of the contract for one external service.
 - What it must never own: the contract itself or the user interface.
 - Typical interactions: consumed through the contract; never referenced directly.
-- When it should be introduced: when a new interchangeable external capability is added.
-- When it should NOT be introduced: when the capability is not interchangeable.
+- When it should be introduced: when a new interchangeable Capability is added.
+- When it should NOT be introduced: when the Capability is not interchangeable.
 
 ### Policy
 
@@ -218,7 +221,7 @@ Each building block is defined by purpose, responsibilities, ownership, interact
 - What it owns: the seam and its contract.
 - What it must never own: the extensions themselves.
 - Typical interactions: new modules and providers attach at extension points.
-- When it should be introduced: when a capability is known to vary or grow.
+- When it should be introduced: when a behavior is known to vary or grow.
 - When it should NOT be introduced: when the growth is hypothetical, not planned.
 
 ## Module Model
@@ -236,7 +239,7 @@ A module is the architectural unit of ownership defined in this vocabulary.
 Modules are classified by the kind of concern they own:
 
 - **Core Modules** — foundational behavior of the product. They change slowly and are depended on widely.
-- **Feature Modules** — product capabilities delivered to the user.
+- **Feature Modules** — product features delivered to the user.
 - **Infrastructure Modules** — implementations of platform and provider services.
 - **Integration Modules** — adapters that connect the system to external services.
 - **Support Modules** — shared, domain-agnostic assistance used across modules.
@@ -263,7 +266,7 @@ Forbidden communication:
 
 Names must be precise. The suffix of a name states the nature of the element:
 
-- **Engine** — use for stateful, lifecycle-managed capabilities.
+- **Engine** — use for stateful, lifecycle-managed behaviors.
 - **Service** — use for operations performed on behalf of consumers.
 - **Manager** — avoid; prefer a name that states the operation or the owned resource.
 - **Coordinator** — use for elements that sequence work across other elements.
@@ -329,6 +332,9 @@ A new building block is never introduced informally. If an existing block expres
 
 - `Documentation/Architecture/01_SYSTEM_OVERVIEW.md`
 - `Documentation/Architecture/02_LAYERED_ARCHITECTURE.md`
+- `Documentation/Architecture/04_AI_PROVIDER_ARCHITECTURE.md`
+- `Documentation/Architecture/05_LOCAL_STORAGE_ARCHITECTURE.md`
+- `Documentation/Architecture/06_DEPENDENCY_INJECTION.md`
 - `Documentation/Architecture/ADR/ADR-0001-architectural-style.md`
 - `Documentation/Architecture/ADR/ADR-0002-dependency-direction.md`
 - `Documentation/Product/PRODUCT_CHARTER.md`

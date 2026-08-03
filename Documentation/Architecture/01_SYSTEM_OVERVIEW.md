@@ -17,10 +17,16 @@ created: 2026-08-02
 last_updated: 2026-08-02
 
 related_documents:
+  - Documentation/Architecture/02_LAYERED_ARCHITECTURE.md
+  - Documentation/Architecture/03_MODULE_MODEL.md
+  - Documentation/Architecture/04_AI_PROVIDER_ARCHITECTURE.md
+  - Documentation/Architecture/05_LOCAL_STORAGE_ARCHITECTURE.md
+  - Documentation/Architecture/06_DEPENDENCY_INJECTION.md
   - Documentation/Architecture/ADR/ADR-0001-architectural-style.md
   - Documentation/Architecture/ADR/ADR-0002-dependency-direction.md
   - Documentation/Product/PRODUCT_CHARTER.md
   - Documentation/Product/PRODUCT_PRINCIPLES.md
+  - .ai/AI_CONSTITUTION.md
 
 supersedes: []
 
@@ -53,19 +59,9 @@ The system evolves by extension, not by redesign. New providers, new platforms, 
 
 The major forces shaping the architecture:
 
-- **Privacy First** — Privacy is the default behavior. User data never leaves the device except as a direct request to the user's chosen provider. No telemetry, analytics, or tracking by default.
-
-- **Provider Independence** — The interface is stable; the provider is interchangeable. Users must be able to switch providers without changing their workflow.
-
-- **Native Apple Experience** — Every screen should feel designed by Apple. The system follows the Apple Human Interface Guidelines; a web experience wrapped in a native shell is a failure state.
-
+- **Product Principles** — the eight Product Principles in `Documentation/Product/PRODUCT_PRINCIPLES.md` are the primary forces shaping the architecture. The most consequential are Privacy First (user data stays on the device and requests go directly to the user's chosen provider), Provider Independence (the interface is stable while the provider is interchangeable), and Native Experience (the system follows Apple platform conventions). They are stated canonically in PRODUCT_PRINCIPLES.md and are not restated here.
 - **Local-First Data** — Conversations and connections are stored on the device. The system works without Omnia-owned infrastructure and keeps data under user control.
-
 - **Testability** — Business logic must be testable without a UI or a network. This requires the Domain to be independent of platform frameworks.
-
-- **Long-Term Maintainability** — Decisions optimize for the next five years, not the next release. Architectural erosion is prevented before it starts.
-
-- **Simplicity** — Every feature must justify its existence. Complexity without measurable value must not be built.
 
 ## Architectural Principles
 
@@ -119,7 +115,7 @@ Why it exists: small modules limit blast radius, enable independent testing, and
 
 Practical implication: module boundaries follow subsystem boundaries, and modules do not grow without a new boundary.
 
-### Deterministic Behaviour
+### Deterministic Behavior
 
 Statement: The same input and conditions produce the same output.
 
@@ -140,21 +136,17 @@ Practical implication: changes produce new values instead of mutating existing o
 Omnia sits between the user and their AI providers. It is the interface, not the owner.
 
 - **User** — owns the providers, API keys, conversations, and decisions. Interacts with Omnia through a native interface.
-
 - **Omnia** — the application. Provides the interface and orchestrates the interaction with providers. It does not operate infrastructure, accounts, or models.
-
 - **AI Providers** — external OpenAI-compatible endpoints configured by the user. Requests go directly from the device to the provider; Omnia never proxies them.
-
 - **Local Storage** — on-device storage for conversations and connections. Credentials are stored separately and securely.
-
-- **Apple Platform Services** — platform capabilities used by the application: Keychain, file system, accessibility, and system integrations.
+- **Apple Platform Services** — platform features used by the application: Keychain, file system, accessibility, and system integrations.
 
 ```mermaid
 flowchart LR
     User[User] --> Omnia[Omnia]
-    Omnia --> Providers[AI Providers]
-    Omnia --> Local[(Local Storage)]
-    Omnia --> Apple[Apple Platform Services]
+    Omnia --> Providers["AI Providers"]
+    Omnia --> Local[("Local Storage")]
+    Omnia --> Apple["Apple Platform Services"]
 ```
 
 ## System Boundaries
@@ -181,18 +173,19 @@ Ownership defines responsibility. Omnia owns only what it can keep local and und
 - AI Training
 - User Identity outside the device
 
-These boundaries matter because ownership is liability. Owning a capability means Omnia must operate it, secure it, and maintain it for years. The boundaries keep the product a client, not a platform, and keep user data under user control.
+These boundaries matter because ownership is liability. Owning a system means Omnia must operate it, secure it, and maintain it for years. The boundaries keep the product a client, not a platform, and keep user data under user control.
 
 ## High-Level Architecture
 
 The system is organized into five layers, defined in ADR-0001. Dependencies always point inward, defined in ADR-0002.
 
 ```mermaid
-flowchart TB
-    Presentation["Presentation"] --> Application["Application"]
-    Application --> Domain["Domain"]
-    Domain --> Infrastructure["Infrastructure"]
-    Infrastructure --> Foundation["Foundation"]
+flowchart LR
+    Presentation["Presentation"] -->|depends on| Application["Application"]
+    Application -->|depends on| Domain["Domain"]
+    Infrastructure["Infrastructure"] -->|implements| Domain
+    Infrastructure -->|depends on| Foundation["Foundation"]
+    Application -.->|utilities only| Foundation
 ```
 
 Layer responsibilities:
@@ -203,7 +196,7 @@ Layer responsibilities:
 - **Infrastructure** — provider adapters, networking, persistence, keychain, and platform services. Implements the Domain contracts.
 - **Foundation** — reusable primitives, domain-agnostic utilities, and shared infrastructure building blocks. It is not a miscellaneous utilities layer: it must never contain business logic, feature logic, or provider-specific implementations.
 
-A layer may depend only on the layer directly below it through stable abstractions.
+Allowed dependencies are Presentation → Application, Application → Domain, Infrastructure → Domain (implementing Domain contracts), Infrastructure → Foundation, and Application → Foundation (shared utilities only, when justified).
 
 ## Core Subsystems
 
@@ -329,14 +322,14 @@ Constraints:
 
 Purpose: Define where the architecture is designed to grow.
 
-Planned capabilities are attached at these points:
+Planned extensions are attached at these points:
 
 - **Attachments** — extend the Conversation Engine's message model.
 - **Vision Models** — extend the Provider Engine's contract.
 - **Voice** — extend the Conversation Engine's input and output.
 - **Prompt Library** — extend the Workspace.
 - **Workspaces** — extend the Workspace's structure.
-- **Plugins** — a new subsystem boundary for external capabilities.
+- **Plugins** — a new subsystem boundary for external extensions.
 
 Constraints:
 
@@ -462,33 +455,21 @@ Why it is cross-cutting: localization applies to every screen and feature, and m
 Every future module must obey these rules. They reference ADR-0001 and ADR-0002.
 
 - **Domain never imports SwiftUI.** (ADR-0001, ADR-0002) — Business logic stays independent of the UI framework.
-
 - **Presentation never performs networking.** (ADR-0002) — Networking belongs to Infrastructure; the UI consumes orchestrated results only.
-
 - **Infrastructure never owns business rules.** (ADR-0001) — Business rules belong to the Domain and Application layers.
-
 - **Providers are interchangeable.** (ADR-0002) — Providers implement one contract; nothing in the UI or business logic depends on a specific provider.
-
 - **Business logic belongs only to the Domain and Application layers.** (ADR-0001) — No other layer owns business decisions.
-
-- **Dependencies point inward.** (ADR-0002) — A layer depends only on the layer directly below it.
+- **Dependencies point inward.** (ADR-0002) — Allowed dependencies: Presentation → Application, Application → Domain, Infrastructure → Domain (implements Domain contracts) and Infrastructure → Foundation, and Application → Foundation (shared utilities only, when justified).
 
 ## Quality Attributes
 
 - **Maintainability** — The layered structure and the dependency rule keep ownership clear. Decisions are recorded in ADRs, so future changes have a stable reference.
-
 - **Performance** — Streaming responses render incrementally, startup performance is measured, and memory usage has defined budgets. Performance is a design constraint, not a tuning step.
-
-- **Predictability** — The same user action produces the same result under the same conditions. Unexpected behavior is a usability defect. The architecture supports this through deterministic domain behaviour and explicit, typed failures, so variance is attributable to external conditions, never hidden state.
-
+- **Predictability** — The same user action produces the same result under the same conditions. Unexpected behavior is a usability defect. The architecture supports this through deterministic domain behavior and explicit, typed failures, so variance is attributable to external conditions, never hidden state.
 - **Reliability** — Errors are explicit and typed; failures are never silent. Local-first storage preserves user data independent of network conditions.
-
 - **Security** — Credentials are stored securely on-device. Requests go directly to providers.
-
 - **Extensibility** — Providers implement one contract, and new capabilities attach at defined extension points. The architecture is designed to grow without redesign.
-
 - **Accessibility** — Accessibility is a product requirement enforced across every screen and interaction.
-
 - **Testability** — The Domain is independent of the UI and platform, and dependencies are injected across boundaries. Business logic is testable without a network or a device.
 
 ## Evolution Strategy
@@ -496,15 +477,10 @@ Every future module must obey these rules. They reference ADR-0001 and ADR-0002.
 Omnia evolves through extension, not modification.
 
 - **New providers** — added through the Provider Engine's contract. No UI redesign, no changes to business logic.
-
 - **New platforms** — the architecture is platform-agnostic below Presentation. New platforms are integrated through the native layer.
-
 - **New modules** — attach at the defined extension points, inside their own layer boundaries.
-
 - **Future synchronization** — only if it remains consistent with local-first data and user ownership. Requires a new ADR before it is considered.
-
 - **Future plugins** — introduced as a new subsystem boundary behind a defined contract.
-
 - **Future AI capabilities** — extend the Provider Engine and Conversation Engine contracts.
 
 A change that cannot be expressed within this architecture is proposed as an ADR. It is never implemented as an exception.
@@ -518,8 +494,13 @@ A change that cannot be expressed within this architecture is proposed as an ADR
 
 ## Related Documents
 
-- `Documentation/Product/PRODUCT_CHARTER.md`
-- `Documentation/Product/PRODUCT_PRINCIPLES.md`
+- `Documentation/Architecture/02_LAYERED_ARCHITECTURE.md`
+- `Documentation/Architecture/03_MODULE_MODEL.md`
+- `Documentation/Architecture/04_AI_PROVIDER_ARCHITECTURE.md`
+- `Documentation/Architecture/05_LOCAL_STORAGE_ARCHITECTURE.md`
+- `Documentation/Architecture/06_DEPENDENCY_INJECTION.md`
 - `Documentation/Architecture/ADR/ADR-0001-architectural-style.md`
 - `Documentation/Architecture/ADR/ADR-0002-dependency-direction.md`
+- `Documentation/Product/PRODUCT_CHARTER.md`
+- `Documentation/Product/PRODUCT_PRINCIPLES.md`
 - `.ai/AI_CONSTITUTION.md`

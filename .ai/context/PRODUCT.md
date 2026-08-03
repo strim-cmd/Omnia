@@ -6,6 +6,7 @@ Source documents (authoritative):
 
 - `Documentation/Product/VISION.md`
 - `Documentation/Product/PRODUCT_CHARTER.md`
+- `Documentation/Product/PRODUCT_PRINCIPLES.md`
 
 ## What Omnia Is
 
@@ -36,11 +37,16 @@ Omnia separates the interface from the provider. The interface is stable; the pr
 
 ## Product Principles
 
-1. **User Ownership** — the user owns all data and configuration; Omnia owns none of it.
-2. **Privacy by Default** — privacy is the default behavior, not an optional feature.
-3. **Native Experience** — every screen and interaction should feel designed by Apple.
-4. **Long-Term Maintainability** — decisions optimize for the next five years, not the next release.
-5. **Simplicity** — every feature must justify its existence.
+The Product Principles are the single source of truth for product decisions. They are defined in `Documentation/Product/PRODUCT_PRINCIPLES.md`:
+
+1. User Ownership
+2. Privacy First
+3. Native Experience
+4. Simplicity Wins
+5. Provider Independence
+6. Performance Matters
+7. Documentation First
+8. Long-Term Thinking
 
 ## Provider Model
 

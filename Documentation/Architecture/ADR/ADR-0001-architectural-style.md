@@ -1,6 +1,6 @@
 ---
-title: Architecture Decisions
-document_id: ADR-0000
+title: ADR-0001 — Architectural Style
+document_id: ADR-0001
 version: 0.1.0
 status: Accepted
 
@@ -17,21 +17,16 @@ created: 2026-08-02
 last_updated: 2026-08-02
 
 related_documents:
+  - Documentation/Architecture/ADR/ADR-0002-dependency-direction.md
   - Documentation/Product/VISION.md
   - Documentation/Product/PRODUCT_CHARTER.md
   - Documentation/Product/PRODUCT_PRINCIPLES.md
 
+supersedes: []
+
 tags:
   - architecture
   - adr
----
-
-# Architecture Decision Records
-
-This document records the fundamental architectural decisions that define Omnia.
-
-Every significant architectural change must either comply with these decisions or introduce a new ADR explaining why a change is required.
-
 ---
 
 # ADR-0001 — Architectural Style
@@ -50,7 +45,7 @@ The project must remain maintainable while supporting:
 
 - multiple AI providers;
 - multiple Apple platforms;
-- offline capabilities;
+- offline operation;
 - future modules;
 - open-source contributions.
 
@@ -126,19 +121,13 @@ Shared abstractions.
 
 Dependencies always point inward.
 
-Presentation
-↓
+Allowed dependencies:
 
-Application
-↓
-
-Domain
-↓
-
-Infrastructure
-↓
-
-Foundation
+- Presentation → Application
+- Application → Domain
+- Infrastructure → Domain (implements Domain contracts)
+- Infrastructure → Foundation
+- Application → Foundation (shared utilities only, when justified)
 
 No layer may bypass another layer.
 
@@ -149,21 +138,15 @@ No layer may bypass another layer.
 Advantages
 
 - Highly testable
-
 - Easy provider replacement
-
 - Long-term maintainability
-
 - Independent business logic
-
 - Clear ownership
 
 Trade-offs
 
 - More abstractions
-
 - More protocols
-
 - Slightly slower initial development
 
 The trade-off is accepted because Omnia prioritizes long-term maintainability over rapid feature delivery.
@@ -177,11 +160,22 @@ The architecture reflects the Product Principles.
 It supports:
 
 - Provider Independence
-
 - Documentation First
-
 - Long-Term Thinking
-
 - Privacy First
 
 without coupling the system to any specific AI provider or platform implementation.
+
+---
+
+## Related ADRs
+
+- ADR-0002 — Dependency Direction
+
+---
+
+## Related Documents
+
+- `Documentation/Product/VISION.md`
+- `Documentation/Product/PRODUCT_CHARTER.md`
+- `Documentation/Product/PRODUCT_PRINCIPLES.md`
