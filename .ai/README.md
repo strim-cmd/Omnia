@@ -17,12 +17,15 @@ Every AI agent MUST read these documents in order before making any change:
 5. `.ai/standards/` — the rules for code and documentation
 6. `.ai/prompts/` — reusable workflows, task prompts, and document templates
 7. `.ai/checklists/` — reusable review checklists
+8. `.ai/VERSION.md` — the current framework version and supported capabilities
+9. `.ai/agents/` — reusable engineering role definitions
 
 ## The .ai Directory
 
 The `.ai` directory is the AI foundation of the repository. It governs how AI agents work on Omnia.
 
 - `.ai/AI_CONSTITUTION.md` — the highest-priority document. Binding rules for every AI agent.
+- `.ai/VERSION.md` — the current framework version, architecture, and supported capabilities.
 - `.ai/context/` — current project state and working summaries. These are pointers; the source documents win on conflict.
 - `.ai/standards/` — engineering standards: Swift, testing, UI, security, git, and documentation.
 - `.ai/prompts/` — reusable workflows, task prompts, and document templates.
@@ -30,6 +33,10 @@ The `.ai` directory is the AI foundation of the repository. It governs how AI ag
   - `tasks/` — task-specific prompts that reference workflows, checklists, and templates.
   - `templates/` — reusable document templates (DOCUMENT, PRD, RFC, ADR).
 - `.ai/checklists/` — reusable review checklists (code review, documentation review).
+- `.ai/agents/` — reusable engineering role definitions (Chief Architect, Principal Architect, Principal Software Engineer, Reviewer, Release Manager).
+- `.ai/pipelines/` — multi-stage pipeline definitions (New Document, Architecture Review).
+- `.ai/specifications/` — engineering contracts (agent and pipeline specifications).
+- `.ai/examples/` — reference examples of framework usage.
 
 ## Development Workflow
 

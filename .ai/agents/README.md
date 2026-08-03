@@ -6,7 +6,7 @@ Reusable AI role definitions used across the engineering process. Each agent is 
 
 ## Contents
 
-- One file per agent role, e.g. Chief Architect, Swift Engineer, Product Architect, Security Engineer, QA Engineer.
+- One file per agent role: Chief Architect (AGENT-001), Principal Architect (AGENT-002), Principal Software Engineer (AGENT-003), Reviewer (AGENT-004), Release Manager (AGENT-005).
 - Role definitions only: scope, responsibilities, constraints, authority.
 
 ## Exclusions
