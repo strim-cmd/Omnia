@@ -23,7 +23,7 @@ completed:
   - Design Foundation (FOUNDATION_API.md, API specifications DES-001..DES-008)
   - Foundation Sprint 1 – Foundation API Specification and Freeze
   - Foundation API Freeze v1 (DES-001..DES-008 approved)
-  - Foundation Phase 1 primitives (Identifier, Environment)
+  - Foundation Phase 1 complete (Identifier, Environment, Lifecycle)
   - Foundation Phase 2 primitives (Logging, Clock, Cancellation)
   - SemanticVersion value type (DES-001 Phase 3 justified instance)
 
@@ -45,7 +45,7 @@ milestones:
       - Implementation proceeds against frozen contracts.
 
 next_tasks:
-  - Implement the frozen Lifecycle primitive (DES-007) to complete DES-001 Phase 1
+  - Implement the remaining DES-001 Phase 3 primitives (shared value types, typed-error abstraction)
   - Keep the package building and its tests green at every step
 
 blocked: []
