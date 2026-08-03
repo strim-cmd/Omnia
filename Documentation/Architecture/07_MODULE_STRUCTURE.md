@@ -39,45 +39,39 @@ tags:
 
 # Module Structure
 
-> This document defines the architectural modules of Omnia.
+> This document is the normative specification of the modular architecture of Omnia.
 >
-> It defines module boundaries, ownership, interactions, and evolution. It does NOT define Swift Package structure.
+> It defines module boundaries, ownership, interactions, mapping to implementation, and evolution rules. It does NOT define package names, folder structures, or package manifests.
 >
-> It is normative. Implementation MUST conform to the module structure described here.
+> It is normative. Implementation MUST conform to the module model described here.
 
 ## Executive Summary
 
-Architectural modules are the units of ownership that turn the layers of the architecture into an implementable structure. The layered architecture defines what may depend on what; modules define what Omnia is made of. Each module names one concern, owns it, and exposes a stable contract through which the rest of the system consumes it.
+Modules are the primary implementation units of Omnia. The layers define what may depend on what; modules define what exists and who owns it. When an engineer implements Omnia, the first question is not which layer a piece of code belongs to — it is which module owns it. The layers remain the constraint; the module is the home.
 
-The structure of Omnia has four levels:
+The structure of Omnia has five levels:
 
 ```mermaid
 flowchart TB
     System["System"] --> Layers["Layers"]
     Layers --> Modules["Modules"]
-    Modules --> Packages["Packages (future)"]
+    Modules --> Packages["Packages"]
+    Packages --> SourceCode["Source Code"]
 ```
 
 - **System** — Omnia as a whole: the product, its invariants, and its boundaries. Defined in the System Overview and the product documents.
-- **Layers** — the horizontal architectural positions: Presentation, Application, Domain, Infrastructure, and Foundation. Defined in ARC-002 and ADR-0001.
-- **Modules** — the units of ownership and responsibility. A module owns one concern, exposes a stable public interface, and occupies a defined position within the layers. Defined in this document.
-- **Packages** — the units of build organization that implement modules. Packages are an implementation concern and are defined in the future, never in this document.
+- **Layers** — the horizontal architectural positions: Presentation, Application, Domain, Infrastructure, and Foundation. Layers define the allowed dependency edges (ARC-002, ADR-0001).
+- **Modules** — the units of ownership and responsibility, and the primary implementation units. A module owns one concern, exposes a stable public interface, and occupies a defined position within the layers. Defined in this document.
+- **Packages** — the units of build organization that implement modules. Packages are an implementation concern and are defined in future documents, never here.
+- **Source Code** — the files that realize packages.
 
 A module is not a package, and a package is not a module. The module is the architectural unit; the package is the implementation unit. A module may span layers, but only through the allowed dependency edges: each surface of a module lives in exactly one layer, and no module surface ever jumps a layer boundary.
 
-This document is the implementation-facing refinement of the Architecture Foundation. It applies the vocabulary of ARC-003, the layers of ARC-002, the provider architecture of ARC-004, the storage architecture of ARC-005, and the composition rules of ARC-006 to a concrete, finite set of modules.
+This document bridges the Architecture Foundation and implementation. It applies the vocabulary of ARC-003, the layers of ARC-002, the provider architecture of ARC-004, the storage architecture of ARC-005, and the composition rules of ARC-006 to a concrete, finite set of modules that implementation can be organized around.
 
-## Module Design Principles
+## Module Architecture Principles
 
 The principles govern how every module is designed. Each principle states what it requires and why it exists.
-
-### Single Responsibility
-
-Statement: Each module owns exactly one concern.
-
-Why it exists: a module with several concerns cannot be evolved, tested, or reviewed as one unit, and its owner cannot be held accountable for behavior they do not fully own.
-
-Practical implication: when a second concern appears inside a module, the module is split. One responsibility per module is mandatory (ARC-003).
 
 ### Explicit Ownership
 
@@ -87,7 +81,7 @@ Why it exists: shared ownership is no ownership. An element without an owner is 
 
 Practical implication: ownership is recorded at the module level. The owner is accountable for the module's contracts, its evolution, and its compliance with the architecture.
 
-### Stable Public Contracts
+### Stable Public Interfaces
 
 Statement: A module is consumed only through its public interface, and that interface changes only through a deliberate process.
 
@@ -101,7 +95,15 @@ Statement: A module's internals are private; nothing outside the module may reac
 
 Why it exists: encapsulation is what makes a module replaceable and testable. An exposed internal is a dependency the module does not control.
 
-Practical implication: all interaction with a module passes through its public interface. Hidden communication and direct internals access are forbidden (ARC-003).
+Practical implication: all interaction with a module passes through its public interface. Hidden communication and direct internals access are forbidden.
+
+### No Cyclic Dependencies
+
+Statement: The module dependency graph is acyclic.
+
+Why it exists: a cycle means two modules own parts of each other. Cycles make evolution, testing, and reasoning impossible in isolation.
+
+Practical implication: when a cycle appears, it is a specification violation and is fixed, never accommodated. A cycle is resolved by moving the shared contract to a lower module or by introducing an intermediate contract.
 
 ### Replaceability
 
@@ -111,6 +113,14 @@ Why it exists: replaceability is what keeps a long-lived codebase changeable. A 
 
 Practical implication: dependencies are expressed against protocols; implementations are bound at the Composition Root (ARC-006).
 
+### Testability
+
+Statement: Every module can be verified in isolation.
+
+Why it exists: a module that cannot be tested alone cannot be changed safely. Testability is what makes the dependency rules enforceable.
+
+Practical implication: module boundaries are seams. Each module delivers its dependencies and can be composed with test doubles (ARC-006).
+
 ### Provider Independence
 
 Statement: No module depends on a specific provider.
@@ -119,13 +129,59 @@ Why it exists: provider independence is the reason Omnia exists (PRODUCT_PRINCIP
 
 Practical implication: providers are consumed through the capability contract; provider-specific code never leaves the Infrastructure surface of the Provider module (ARC-004).
 
-### Testability
+## Module Boundaries
 
-Statement: Every module can be verified in isolation.
+A module is a bounded unit. Its boundary separates what it owns from what it does not, and it defines the only surface through which the module is consumed.
 
-Why it exists: a module that cannot be tested alone cannot be changed safely. Testability is what makes the dependency rules enforceable.
+### What a Module Owns
 
-Practical implication: module boundaries are seams. Each module delivers its dependencies and can be composed with test doubles (ARC-006).
+A module owns:
+
+- its responsibility — the concern it exists to serve;
+- the behavior that fulfills that responsibility;
+- the public interface through which it is consumed;
+- its state and the rules that govern it;
+- its internals — nothing outside the module may depend on them.
+
+A module owns nothing it merely consumes. A module that uses a dependency does not own the dependency's behavior.
+
+### What a Module Exposes
+
+A module exposes:
+
+- its public interface — the contracts through which it is consumed;
+- the events it emits — facts about its own state, delivered without coupling the emitter to the listener;
+- the configuration it owns — user-owned values with sensible defaults.
+
+The public interface is the complete and only surface of the module.
+
+### What Remains Private
+
+The following remain private to a module:
+
+- implementation details — concrete types, persistence layout, provider-specific code, and presentation internals;
+- the dependencies it uses — dependencies are never re-exposed;
+- its construction — concrete implementations are bound at the Composition Root (ARC-006).
+
+### How Modules Evolve
+
+- Within the boundary: internals change freely as long as the public interface is stable.
+- At the boundary: a public interface changes only through the replacement process.
+- Never: a boundary is crossed by reaching into another module's internals.
+
+The evolution rules are specified in the Module Evolution section.
+
+### Boundary Invariants
+
+The following invariants hold for every module boundary:
+
+- The public interface is the only surface.
+- The dependency graph is acyclic.
+- No surface crosses a layer boundary.
+- Every dependency is declared and documented.
+- Every module has exactly one owner.
+
+A boundary that violates an invariant is fixed, never accommodated.
 
 ## Module Catalog
 
@@ -266,11 +322,11 @@ Categories follow ARC-003: Core, Feature, Infrastructure, Integration, and Suppo
 - **Collaborators**: every module allowed to depend on it.
 - **Architectural Constraints**: contains no business, feature, or provider logic (ARC-002); nothing product-specific enters the module.
 
-## Module Interactions
+## Module Interaction Model
 
 Modules collaborate only through approved mechanisms, and only across allowed edges. A module's public interface is the only surface through which it is consumed.
 
-Allowed communication:
+### Allowed Communication
 
 - **Protocols** — the primary mechanism. A module is consumed through the protocols it exposes; implementations are supplied at the Composition Root (ARC-003, ARC-006).
 - **Dependency Injection** — dependencies are delivered to consumers, never acquired (ARC-006).
@@ -278,13 +334,17 @@ Allowed communication:
 - **Events** — notification of facts, delivered without coupling the emitter to the listener (ARC-003).
 - **Explicit Interfaces** — every interaction is declared; commands, queries, and typed responses (ARC-002).
 
-Forbidden communication:
+### Forbidden Communication
 
-- **Hidden dependencies** — anything acquired implicitly rather than declared (ARC-003).
+- **Hidden dependencies** — anything acquired implicitly rather than declared.
 - **Global state** — shared mutable state without an owner.
 - **Cross-layer shortcuts** — a module surface reaching across a layer boundary to bypass the layer between (ARC-002, ARC-003).
 - **Direct internals access** — reaching into another module's internals instead of its public interface.
 - **Provider-specific leakage** — provider code reaching the presentation surface. Providers never know the views (ARC-004).
+
+### Dependency Direction
+
+Arrows point from consumer to dependency. All edges are consistent with the allowed dependency edges of ARC-002. Application Core depends on every module because it is the Composition Root; that is the deliberate exception to fan-in (ARC-006). Navigation's edges to Workspace, Conversation, and Settings are within the Presentation layer, between presentation surfaces.
 
 The module dependency graph is normative:
 
@@ -322,12 +382,11 @@ flowchart TB
     Authentication --> Foundation
 ```
 
-Notes:
+The graph contains no cycle. A cycle is a specification violation.
 
-- Arrows point from consumer to dependency. All edges are consistent with the allowed dependency edges of ARC-002.
-- Application Core depends on every module because it is the Composition Root; that is the deliberate exception to fan-in (ARC-006).
-- Navigation's edges to Workspace, Conversation, and Settings are within the Presentation layer, between presentation surfaces.
-- The graph contains no cycle. A cycle is a specification violation.
+### Event Flow
+
+Events deliver facts without coupling the emitter to the listener. The Conversation module is the primary event emitter: it announces incremental streaming updates, completion, and interruption. Navigation and the presentation surfaces listen. No emitter knows its listeners, and no listener polls for facts it should receive.
 
 The send-message flow shows the allowed communication pattern:
 
@@ -350,7 +409,7 @@ sequenceDiagram
 
 Every interaction in the flow is explicit and declared. No module acquires a dependency, no module reaches across a layer, and no module touches another module's internals.
 
-## Module Ownership
+## Ownership Model
 
 Ownership is assigned once, at the module level, and never shared.
 
@@ -361,6 +420,17 @@ The user owns the content; Omnia owns the mechanics; providers own nothing store
 - **The user owns** conversations, messages, workspaces, prompts, attachments, provider configuration, credentials, and preferences. These are the user's property: exportable, removable, never held hostage.
 - **Modules own the mechanics.** Storage owns persistence and derived structures — indexes, caches, and temporary data. Conversation owns conversation aggregates. Workspace owns workspace aggregates. Authentication owns credentials and credential references.
 - **Providers own nothing stored by Omnia.** A provider sees only what the user sends in a single request (ARC-005).
+
+### State
+
+Every module owns its state; no state is global. A module's state is private to it and governed by its own rules. No module reads or writes another module's state; it interacts through the public interface.
+
+### Configuration
+
+- **The user owns the configuration values.** Configuration is user-owned and stored locally (ARC-001).
+- **Configuration** owns the model, the defaults, and the levels: provider settings, workspace overrides, global defaults, and capability preferences (ARC-004).
+- **Settings** owns the surface through which the user manages configuration.
+- **No module embeds product decisions in its configuration.** Sensible defaults reduce the need for configuration (PRODUCT_PRINCIPLES).
 
 ### Workflows
 
@@ -373,9 +443,9 @@ The user owns the content; Omnia owns the mechanics; providers own nothing store
 
 A workflow is owned by exactly one module. A workflow that crosses modules is orchestrated by Application Core.
 
-### State
+### Lifetimes
 
-Every module owns its state; no state is global. State is scoped by the lifetime model of ARC-006:
+State is scoped by the lifetime model of ARC-006:
 
 - **Application** — lives for the life of the application; owned by Application Core.
 - **Workspace** — lives for the life of a workspace; owned by Workspace.
@@ -385,16 +455,9 @@ Every module owns its state; no state is global. State is scoped by the lifetime
 
 A longer-lived module must never depend on a shorter-lived one (ARC-006).
 
-### Configuration
-
-- **The user owns the configuration values.** Configuration is user-owned and stored locally (ARC-001).
-- **Configuration** owns the model, the defaults, and the levels: provider settings, workspace overrides, global defaults, and capability preferences (ARC-004).
-- **Settings** owns the surface through which the user manages configuration.
-- **No module embeds product decisions in its configuration.** Sensible defaults reduce the need for configuration (PRODUCT_PRINCIPLES).
-
 ## Module Evolution
 
-Modules evolve through extension, not modification. Every change to the module structure follows the process below.
+Modules evolve through extension, not modification. Every change to the module structure requires architecture review, and a significant change is recorded as an ADR.
 
 ### Adding Modules
 
@@ -407,13 +470,13 @@ A new module is added only when a concern is large enough to need its own bounda
 
 New behavior attaches at the extension points of ARC-001. A new provider attaches inside the Provider module; a new capability extends the Provider contract; plugins attach at a new extension point.
 
-### Replacing Modules
+### Splitting Modules
 
-A module is replaced through its contract. Replacement is the only way a public interface changes: consumers depend on the contract, not the module (ARC-003). Replacing a module requires:
+A module is split when it owns more than one concern. Each split produces modules that each own one concern. Splitting requires:
 
-- **Contract preservation** — consumers are unaffected until the new contract is declared.
-- **Coexistence** — the old and new implementations may both exist during the transition.
-- **Removal** — the old module is removed only when no consumer remains.
+- **Contract preservation** — the public interfaces remain stable during the split.
+- **One concern per result** — each new module owns exactly one concern.
+- **Dependency review** — the dependency graph is re-verified for cycles and layer violations after the split.
 
 ### Deprecating Modules
 
@@ -425,37 +488,53 @@ A module is deprecated before it is removed. Deprecation is explicit and phased:
 
 A significant deprecation is recorded as an ADR.
 
-### Splitting Modules
+### Replacing Modules
 
-A module is split when it owns more than one concern. Each split produces modules that each own one concern. Splitting requires:
+A module is replaced through its contract. Replacement is the only way a public interface changes: consumers depend on the contract, not the module (ARC-003). Replacing a module requires:
 
-- **Contract preservation** — the public interfaces remain stable during the split.
-- **One concern per result** — each new module owns exactly one concern.
-- **Dependency review** — the dependency graph is re-verified for cycles and layer violations after the split.
+- **Contract preservation** — consumers are unaffected until the new contract is declared.
+- **Coexistence** — the old and new implementations may both exist during the transition.
+- **Removal** — the old module is removed only when no consumer remains.
 
 ## Architecture Fitness Rules
 
 These rules validate the module structure. They are mandatory and verified during review today; they may become automated fitness functions in the future (ARC-002).
 
 - **No cyclic module dependencies.** The module dependency graph is acyclic. A cycle is a specification violation.
-- **No hidden communication.** All interaction passes through a module's public interface and is declared.
-- **No cross-layer violations.** No module surface reaches across a layer boundary; all edges follow the allowed dependency edges of ARC-002.
-- **Stable public interfaces.** Public interfaces change only through the replacement process; a break is never a silent revision.
-- **Every module has exactly one owner.** Shared ownership is a violation.
+- **Stable public contracts.** Public interfaces change only through the replacement process; a break is never a silent revision.
+- **Hidden dependencies forbidden.** All interaction passes through a module's public interface and is declared.
+- **Layer violations forbidden.** No module surface reaches across a layer boundary; all edges follow the allowed dependency edges of ARC-002.
+- **Explicit ownership required.** Every module has exactly one owner; shared ownership is a violation.
 - **Every dependency is declared and documented.** A dependency without a documented owner is a violation (ARC-002).
 - **Composition happens only at the Composition Root.** Any module constructing its own concrete dependencies is a violation (ARC-006).
 - **Provider code never reaches the presentation surface.** Provider-specific behavior is confined to the Provider module's Infrastructure surface (ARC-004).
 
 A module that cannot satisfy these rules is not designed for this architecture. A change that requires a different structure is proposed as an ADR; it is never implemented as an exception.
 
-## Relationship to Future Swift Packages
+## Mapping to Implementation
 
-Modules are architectural; packages are implementation (ARC-003). Packages implement modules; they do not define them.
+Modules are implemented by packages. A module is the architectural unit; a package is the build unit that realizes it (ARC-003).
+
+```mermaid
+flowchart TB
+    Module["Module"] --> Packages["Packages"]
+    Packages --> Files["Source Files"]
+```
 
 - A module may become one package, or several small modules may share one package; a package never contains unrelated modules (ARC-003).
 - A package does not span layers (ARC-002). A module with surfaces in more than one layer is realized by one package per layer surface.
-- The mapping from modules to packages, the package names, and the folder structure are implementation concerns. This document defines neither package names nor folders; the repository decides how module boundaries are expressed in the build system (ARC-002).
-- The conceptual package strategy is defined in ARC-002. The concrete realization is future work and will not appear in this document.
+- The mapping is conceptual. This document defines no package names, no folder structures, and no package manifests; the repository decides how module boundaries are expressed in the build system (ARC-002).
+- The conceptual package strategy is defined in ARC-002. The concrete realization is the subject of the future PACKAGE_STRUCTURE document.
+
+## Relationship to Future Documents
+
+This document is the architectural foundation for the implementation phase. It supplies the module contracts, boundaries, and ownership rules that the following future documents rely on:
+
+- **PACKAGE_STRUCTURE** — the document that maps modules to packages concretely: package names, folder structures, and the workspace layout. This document supplies the module boundaries that PACKAGE_STRUCTURE realizes; PACKAGE_STRUCTURE must never contradict this document.
+- **IMPLEMENTATION_ROADMAP** — the document that sequences implementation work. Modules give the roadmap stable units with defined ownership and interfaces, so work can be planned, reviewed, and delivered one module at a time.
+- **Swift Package workspace** — the build-system realization of packages. This document ensures the workspace can be assembled without architectural ambiguity: every package has a defined architectural position, and every dependency is declared and justified.
+
+Each future document is implementation-level. This document is architectural and remains the reference for what may be built and where it belongs.
 
 ## Related Documents
 
