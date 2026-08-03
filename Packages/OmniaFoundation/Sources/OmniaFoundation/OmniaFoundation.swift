@@ -1,1 +1,0 @@
-// OmniaFoundation — domain-agnostic primitives.

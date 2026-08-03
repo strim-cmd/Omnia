@@ -151,13 +151,17 @@ ADR/
 
 ## Project Status
 
-Current phase:
+Current milestone:
 
-> 🚧 Sprint 0 — Repository Foundation
+> 🔒 Foundation API Freeze v1 — approved (DES-001..DES-008)
+
+Current sprint:
+
+> 🚧 Foundation Sprint 2 — Implementation
 
 No production code has been written yet.
 
-The current focus is building a long-term engineering foundation.
+Implementation proceeds against the frozen Foundation API contracts.
 
 ---
 
