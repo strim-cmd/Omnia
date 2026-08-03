@@ -33,6 +33,7 @@ related_documents:
   - Documentation/Architecture/ADR/ADR-0001-architectural-style.md
   - Documentation/Architecture/ADR/ADR-0002-dependency-direction.md
   - Documentation/Design/FOUNDATION_API.md
+  - Documentation/Design/DOMAIN_API.md
   - .ai/context/PROJECT_STATE.md
 
 supersedes: []
@@ -65,7 +66,7 @@ It does not cover the Infrastructure, Application, Presentation, or application-
 
 Deliver the OmniaDomain package — the business rules, entities, value objects, domain services, policies, and provider-agnostic contracts of the Domain layer — following the same contract-first discipline the Foundation used:
 
-1. **Specify and freeze** the OmniaDomain public API contract (the Domain API specification, the next document in the DES series after `FOUNDATION_API.md`), reviewed against the architecture and ratified as a frozen contract.
+1. **Specify and freeze** the OmniaDomain public API contract (`Documentation/Design/DOMAIN_API.md`, DES-009 — the next document in the DES series after `FOUNDATION_API.md`), reviewed against the architecture and ratified as a frozen contract.
 2. **Implement** the OmniaDomain package against the frozen contract, bottom-up, in dependency order, keeping the package building and its tests green at every step.
 
 The sprint is complete when the frozen contract is fully implemented, the package depends only on OmniaFoundation, and all tests pass. The Foundation precedent for the two stages is `FOUNDATION_API.md` (DES-001) and the Foundation Sprint 2 implementation recorded in `PROJECT_STATE.md`.
@@ -74,7 +75,7 @@ The sprint is complete when the frozen contract is fully implemented, the packag
 
 ### Stage 1 — Domain API Specification and Freeze
 
-1. Draft the OmniaDomain public API contract specification, covering: the capability contract and the provider model; the typed configuration protocol; the credential storage protocol; the repository protocols for stored aggregates; the entities, value objects, domain services, and policies defined in this roadmap.
+1. Draft the OmniaDomain public API contract specification (`Documentation/Design/DOMAIN_API.md`, DES-009), covering: the capability contract and the provider model; the typed configuration protocol; the credential storage protocol; the repository protocols for stored aggregates; the entities, value objects, domain services, and policies defined in this roadmap.
 2. Review the specification with the Documentation workflow (`.ai/prompts/workflows/documentation.md`) and the documentation review checklist (`.ai/checklists/documentation-review.md`), and verify it against `ARC-002`, `ARC-004`, `ARC-005`, `ARC-007`, `ARC-009`, and `ADR-0001`/`ADR-0002`.
 3. Record the freeze. From that point, a change to the public contract requires a specification revision, exactly as the Foundation API Freeze v1 does (`PROJECT_STATE.md`).
 
