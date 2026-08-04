@@ -4,9 +4,9 @@ phase: Infrastructure
 
 status: Active
 
-current_sprint: Domain Sprint 2
+current_sprint: Infrastructure Sprint 2
 
-current_milestone: Domain Sprint 2
+current_milestone: Infrastructure Sprint 2
 
 repository_foundation: Complete
 ai_foundation: Complete
@@ -68,6 +68,8 @@ completed:
   - Domain Sprint 2 Stage 3b complete (2026-08-05): capability errors implemented exactly per the frozen taxonomy (DES-009 §3.11.2) — CapabilityError with providerUnavailable, invalidRequest, invalidResponse, and streamingInterrupted(partialContent:), built on the Foundation error abstraction (DES-001 §3.9); Equatable & Sendable, owning no logic (ARC-002), carrying no provider, transport, or decoding detail and never wrapping CredentialStorageError (ARC-004, DES-009 §3.7, §3.9); verified on the Linux build (issue #67)
   - Domain Sprint 2 Stage 3c complete (2026-08-05): concrete capability contract methods implemented per the frozen design (DES-009 §3.11.3) — TextGenerationContract.generateText(from:), ConversationContract.sendMessage(_:), and StreamingContract.stream(_:) returning AsyncThrowingStream<StreamingUpdate, Error>; the contracts remain protocol-only declarations whose implementation belongs to the Infrastructure adapters (ARC-009, DES-009 §2.1); the OpenAICompatibleProviderAdapter's conformance to the capability contracts is deferred — it cannot honestly deliver the capabilities until the concrete capability surface is implemented by Infrastructure Sprint 2 (DES-010 v1.1.0, PRD-005) — and the deferral is pinned by tests; verified on the Linux build, OmniaDomain 286 tests and OmniaInfrastructure 136 tests green (issue #68)
   - Domain Sprint 2 Stage 3d complete (2026-08-05): streaming behavior implemented per the frozen design (DES-009 §3.11.4) — StreamingState, the stream-level state machine with the states active, complete, and interrupted and the legal transitions active→active (content delta, accumulating content), active→complete (terminal, carrying the assembled assistant message), and active→interrupted (terminal, preserving the partial content as incomplete); complete and interrupted are terminal and resumption after interruption is a new stream starting from the preserved partial content; interruption is cooperative through the stream lifecycle and the Foundation cancellation primitive (DES-008); partial content is never silently discarded and completion always carries the assembled assistant message (ARC-001); consistent with the Conversation aggregate's state machine (idle, streaming, interrupted); verified on the Linux build, OmniaDomain 311 tests and OmniaInfrastructure 136 tests green (issue #69)
+  - Domain Sprint 2 Stage 4 complete (2026-08-05): verification of the extended OmniaDomain package per PRD-004 (issue #70) — the DES-009 v0.3.0 test matrix exercised black-box against the public capability surface: capability equivalence (values equal by content, typed identities never collide across concepts), streaming state transitions follow the frozen machine (active→active accumulates, active→complete and active→interrupted are terminal, terminal states reject further transitions with StreamingStateError.notActive), availability (an unavailable capability surfaces the typed CapabilityError.providerUnavailable), invalid-input handling (malformed identity strings and malformed JSON rejected), and interruption end-to-end (partial content preserved and never discarded; resumption carries it forward); full test pass on the Linux build — OmniaDomain 318 tests and OmniaInfrastructure 136 tests, 0 failures and 0 warnings; dependency verification that OmniaDomain depends only on OmniaFoundation with an acyclic internal dependency graph (the capability value objects never reference the contracts) and no forbidden or cross-package imports; layer verification that no Infrastructure/Application/Presentation concept enters the package (issue #70)
+  - Domain Sprint 2 milestone closed (2026-08-05); GitHub issues #64-#70 closed; all phase PRs merged into feature/repository-foundation; the extended Domain capability contract (DES-009 v0.3.0) is verified and ready for the concrete provider capabilities of Infrastructure Sprint 2
 
 milestones:
   Foundation API Freeze v1:
@@ -161,7 +163,7 @@ milestones:
       - Package verification complete 2026-08-04 (issue #31); full unit-test pass on the integrated branch (OmniaInfrastructure 136, OmniaDomain 231, OmniaFoundation 136, root 1); OmniaInfrastructure depends only on OmniaDomain and OmniaFoundation (ARC-009); no UI framework, business rules, or presentation state in the package; platform backends (Keychain, FoundationNetworking) isolated behind conditional compilation; internal dependency graph acyclic; credential material never in logs; black-box coverage added for the adapter's public initializer (package suite 136 green).
       - Milestone closed 2026-08-04; all Phase issues #22-#31 closed; all phase PRs merged into feature/repository-foundation.
   Domain Sprint 2 – Implementation:
-    Status: Active
+    Status: Complete
     Scope:
       - DES-009 v0.3.0 Domain capability contract extension (specification and freeze)
       - Domain capability design and freeze (value objects, errors, methods, streaming behavior)
@@ -178,6 +180,8 @@ milestones:
       - Stage 3b complete 2026-08-05: capability errors implemented per the frozen taxonomy (issue #67).
       - Stage 3c complete 2026-08-05: concrete capability contract methods declared per the frozen design (issue #68).
       - Stage 3d complete 2026-08-05: streaming behavior — the stream-level state machine — implemented per the frozen design (issue #69).
+      - Stage 4 complete 2026-08-05: verification and test matrix — the DES-009 v0.3.0 matrix exercised black-box green (equivalence, streaming transitions, availability, invalid-input handling, interruption), dependency and layer posture verified, OmniaDomain 318 tests and OmniaInfrastructure 136 tests green on the Linux build (issue #70).
+      - Milestone closed 2026-08-05; all Phase issues #64-#70 closed; all phase PRs merged into feature/repository-foundation.
       - Extends the Domain contract so the concrete provider capabilities can be implemented in Infrastructure Sprint 2.
   Infrastructure Sprint 2 – Implementation:
     Status: Planned
@@ -195,8 +199,7 @@ milestones:
 next_tasks:
   - Keep the package building and its tests green at every step
   - Implement remaining DES-001 Phase 3 primitives when required (shared value types, typed-error abstraction)
-  - Continue Domain Sprint 2 (milestone #5): the capability contract extension is frozen (DES-009 v0.3.0), the capability design is frozen (§3.11, issue #65), and the capability value objects, errors, concrete contract methods, and streaming behavior are implemented (issues #66-#69); run the Domain Sprint 2 verification per PRD-004 (issue #70)
-  - After Domain Sprint 2, kick off Infrastructure Sprint 2 (milestone #7): implement the concrete provider capabilities (issues #71-#76, PRD-005)
+  - Domain Sprint 2 complete (2026-08-05): milestone #5 closed — capability contract extension frozen, designed, implemented, and verified (issues #64-#70); next is Infrastructure Sprint 2 (milestone #7): kick off the concrete provider capabilities (issues #71-#76, PRD-005) against the verified DES-009 v0.3.0 contract
   - Engineering Platform v2 (milestone #14, planning only per RFC-002): schedule v2 roadmap items as individual GitHub issues — Track A realization integration (wire PIPELINE-001 into the registry dispatch DONE via EP-006; wire PIPELINE-002 into an architecture review command DONE via EP-008), Track B automation (RFC-001 validate-platform script DONE via EP-007; automated package verification), Track C verification (black-box package-surface suite, CI pipeline, docs-drift check), Track D governance and tooling (recurring retrospective template, review sign-off for security-sensitive changes, project-board CLI helper, start-sprint checklist)
 
 blocked: []
