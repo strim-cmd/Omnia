@@ -15,6 +15,7 @@ architecture_foundation: Complete
 design_foundation: Complete
 foundation_api: Frozen (v1)
 domain_api: Frozen (v1)
+infrastructure_api: Frozen (v1)
 omnia_foundation: Complete
 
 completed:
@@ -35,6 +36,7 @@ completed:
   - Domain Sprint 1 milestone closed (2026-08-04); GitHub issues #7-#13 closed; PRs #14-#21 merged
   - Infrastructure Sprint 1 planned (2026-08-04); roadmap INFRASTRUCTURE_SPRINT_1_ROADMAP.md; GitHub issues #22-#31 created under milestone #6 with dependencies, acceptance criteria, and implementation order
   - AI framework command mode (2026-08-04): short task-oriented commands are the preferred interface; AI Constitution Task Execution rules (CONST-001 v1.1.0) and README command reference added; framework version 2.3.0
+  - Infrastructure API Freeze v1 (2026-08-04); DES-010 INFRASTRUCTURE_API.md ratified; GitHub issue #22 complete
 
 milestones:
   Foundation API Freeze v1:
@@ -69,6 +71,14 @@ milestones:
       - Public API frozen.
       - Future API changes require specification revision.
       - Implementation proceeds against frozen contracts.
+  Infrastructure API Freeze v1:
+    Status: Ratified
+    Scope:
+      - DES-010 INFRASTRUCTURE_API
+    Outcome:
+      - Public API frozen.
+      - Future API changes require specification revision.
+      - Implementation proceeds against frozen contracts.
   Domain Sprint 1 – Implementation:
     Status: Complete
     Scope:
@@ -86,9 +96,9 @@ milestones:
       - 231 tests passing, verified on the fully integrated branch (PRs #14–#21); 0 build or test warnings.
       - Milestone closed 2026-08-04; all Phase issues #7-#13 closed; all PRs #14-#21 merged into feature/repository-foundation.
   Infrastructure Sprint 1 – Implementation:
-    Status: Planned
+    Status: Active
     Scope:
-      - DES-010 Infrastructure API specification and freeze
+      - DES-010 Infrastructure API specification and freeze (complete)
       - Storage engine foundation (file-based JSON document store)
       - Aggregate serializers
       - Workspace and Conversation repository implementations
@@ -100,11 +110,12 @@ milestones:
       - Package verification
     Outcome:
       - Planned 2026-08-04; roadmap and issues #22-#31 created under milestone #6.
-      - Implementation not started; no implementation code written yet.
+      - DES-010 ratified 2026-08-04 (Infrastructure API Freeze v1, issue #22 closed).
+      - Implementation in progress; no implementation code written yet.
 
 next_tasks:
-  - Execute Infrastructure Sprint 1 Phase 1: write, review, and freeze the OmniaInfrastructure API specification (DES-010) against ARC-002, ARC-004, ARC-005, ARC-006, ARC-008, ARC-009, ADR-0001/ADR-0002, and DES-009
-  - Implement the OmniaInfrastructure package (Stage 2) against the frozen contract and the frozen Domain API, per INFRASTRUCTURE_SPRINT_1_ROADMAP.md implementation order
+  - Implement Infrastructure Sprint 1 Phase 2 (issue #23): the file-based JSON storage engine foundation — save, load, delete, and list by identity; JSON serialization plumbing; storage-error translation to RepositoryError.storageUnavailable, per INFRASTRUCTURE_SPRINT_1_ROADMAP.md and the frozen DES-010
+  - Implement the remaining OmniaInfrastructure package phases (#24-#31) against the frozen DES-010 contract and the frozen Domain API, per INFRASTRUCTURE_SPRINT_1_ROADMAP.md implementation order
   - Keep the package building and its tests green at every step
   - Implement remaining DES-001 Phase 3 primitives when required (shared value types, typed-error abstraction)
 
