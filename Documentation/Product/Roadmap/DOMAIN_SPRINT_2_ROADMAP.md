@@ -81,7 +81,7 @@ The sprint is complete when the extension is ratified and implemented, the exist
 2. Review the revision with the Documentation workflow (`.ai/prompts/workflows/documentation.md`) and the documentation review checklist (`.ai/checklists/documentation-review.md`), and verify it against `ARC-002`, `ARC-004`, `ARC-007`, `ARC-008`, `ARC-009`, `ADR-0001`/`ADR-0002`, and the existing frozen `DES-009`.
 3. Record the freeze. From that point, the extension is part of the frozen contract and a further change requires another specification revision, exactly as Domain API Freeze v1 does (`PROJECT_STATE.md`).
 
-Milestone: **Domain Capability Contract Extension Freeze** — `DES-009` v0.3.0 status is Ratified and the revision is recorded in `PROJECT_STATE.md`.
+Milestone: **Domain Capability Contract Extension Freeze** — ratified on 2026-08-05; `DES-009` v0.3.0 status is Ratified and the revision is recorded in `PROJECT_STATE.md`.
 
 ### Stage 2 — Implementation
 

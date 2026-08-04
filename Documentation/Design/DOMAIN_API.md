@@ -1,7 +1,7 @@
 ---
 title: OmniaDomain Public API Contract
 document_id: DES-009
-version: 0.2.0
+version: 0.3.0
 status: Ratified
 owner: Founder
 project: Omnia
@@ -10,9 +10,10 @@ authors:
 reviewers:
   - Chief Architect
 created: 2026-08-03
-last_updated: 2026-08-03
+last_updated: 2026-08-05
 related_documents:
   - Documentation/Product/Roadmap/DOMAIN_SPRINT_1_ROADMAP.md
+  - Documentation/Product/Roadmap/DOMAIN_SPRINT_2_ROADMAP.md
   - Documentation/Design/FOUNDATION_API.md
   - Documentation/Design/API/API_DESIGN_GUIDELINES.md
   - Documentation/Design/API/IDENTIFIER_API.md
@@ -54,6 +55,8 @@ The Domain layer is what keeps Omnia platform-independent: it imports no UI, no 
 
 This document specifies the initial public API inventory, the package responsibility boundaries, the dependency rules, the design principles, the evolution rules, and the ordered sequence in which the contract is implemented. It is derived only from the Domain Sprint 1 Roadmap (`DOMAIN_SPRINT_1_ROADMAP.md`), the Product Charter (`PRODUCT_CHARTER.md`), the Product Principles (`PRODUCT_PRINCIPLES.md`), and the approved architecture (ARC-002, ARC-003, ARC-004, ARC-005, ARC-007, ARC-008, ARC-009, ADR-0001, ADR-0002). It introduces no concept that the roadmap and the architecture do not establish.
 
+This revision (v0.3.0) extends the capability contract of §3.1 with the capability value objects, the concrete capability methods on the three realized capability contracts, the capability errors of §3.9, and the streaming behavior of §3.3, exactly as the Domain Sprint 2 Roadmap sequences it (`DOMAIN_SPRINT_2_ROADMAP.md` §Requirements). The extension is additive and backward-compatible (§6.3); the existing public API of the frozen Domain API Freeze v1 is unchanged.
+
 The specification governs the package alone. It defines no behavior of the Foundation, Application, Infrastructure, Presentation, or application-shell layers; those are specified by their own documents.
 
 ## 2. Package Responsibilities
@@ -89,7 +92,7 @@ A type that acquires a platform, provider, storage, or UI dependency is a bounda
 
 ## 3. Public API Inventory
 
-The initial public API is organized into the categories below. Each category states its purpose, its intended consumers, its stability expectations, and its ownership. The categories are the contract; the concrete declarations are defined during implementation and MUST conform to this inventory. The categories realize the domain model defined in the Domain Sprint 1 Roadmap (`DOMAIN_SPRINT_1_ROADMAP.md` §Requirements).
+The initial public API is organized into the categories below. Each category states its purpose, its intended consumers, its stability expectations, and its ownership. The categories are the contract; the concrete declarations are defined during implementation and MUST conform to this inventory. The categories realize the domain model defined in the Domain Sprint 1 Roadmap (`DOMAIN_SPRINT_1_ROADMAP.md` §Requirements); the capability-contract extension of this revision realizes the capability extension of the Domain Sprint 2 Roadmap (`DOMAIN_SPRINT_2_ROADMAP.md` §Requirements).
 
 ### 3.1 Provider Contracts
 
@@ -104,12 +107,17 @@ The category comprises:
 - **Capability set** — the capabilities defined by ARC-004. The capabilities realized by this contract are **Text Generation**, **Conversation**, and **Streaming**, grounded in the Product Charter In Scope (an OpenAI-compatible client with streaming responses) and the conversation flows of ARC-001. The remaining ARC-004 capabilities — **Vision**, **Image Generation**, **Embeddings**, **Tool Calling**, **Structured Output**, **Audio**, and **Reasoning** — are declared by the contract as extension points and are not realized by this contract (ARC-004, ARC-007).
 - **Provider model** — the provider connection the user has configured (ARC-004 Provider Model): identity, capabilities, configuration, availability, metadata, limits, and versioning. Authentication is realized by credential reference; the model MUST NOT contain credentials (ARC-004, ARC-005).
 - **Value objects** — `ProviderIdentity`, a stable identity within the application built on the Foundation `Identifier` primitive (DES-002) and the shared identity used for cross-aggregate references; `ModelReference`, the named model a provider offers, used by provider and model selection (ARC-001, ARC-004); `ProviderCapabilities`, the set of capabilities a provider can deliver (ARC-004); `ProviderMetadata`, descriptive provider information (ARC-004); `ProviderLimits`, constraints on usage such as rates and maximums (ARC-004).
+- **Capability value objects** — the provider-agnostic request, response, and streaming value objects the concrete methods operate on, expressed in the existing Domain vocabulary (`Message`, `ModelReference`, §3.8): a text generation request (the prompt and the requested model) and a text generation response (the produced text); a conversation request (the message history and the requested model) and a conversation response (the assistant's reply, expressed as the existing `Message` value object so it appends to the history); a streaming request (the message history and the requested model) and the streaming updates — the incremental delivery events: content deltas, the completion event carrying the assembled assistant message, and the interruption event carrying the preserved partial content (ARC-004, ARC-001, DES-009 §3.3, §3.8).
+- **Capability methods** — the concrete, provider-agnostic methods that realize the three realized capability contracts: a text generation method that produces text from a text generation request and returns the text generation response; a conversation method that sends the conversation request (the message history) and returns the conversation response, the assistant `Message` to append to the history; and a streaming method that returns the stream of streaming updates — the stream delivers content deltas, ends with the completion event carrying the assembled assistant message, and on interruption ends with the interruption event carrying the preserved partial content. Each method is `async throws`, typed against the capability value objects, and expresses its failures in the capability errors (§3.9) (ARC-004, ARC-001, DES-009 §3.9).
 
 Normative statements:
 
 - The capability contract MUST be provider-agnostic; it MUST NOT reference any provider.
 - A capability is realized only by extending the capability contract; capabilities MUST NOT be added outside the contract (ARC-004, ARC-007).
 - The provider model MUST record declared capabilities and metadata; live availability is discovered and reported by the Infrastructure layer, never by the Domain (ARC-004 Capability Discovery).
+- The capability methods MUST be provider-agnostic and typed against the capability value objects; they MUST NOT reference any provider, and the implementation of the methods belongs to the Infrastructure layer, never to the Domain (ARC-002, ARC-004, ARC-009).
+- The capability value objects MUST be immutable and equal by content (ARC-003), MUST carry their typed identities and model references built on the Foundation primitives (DES-002, DES-004), and MUST NOT contain any provider-specific concept (ARC-004).
+- The streaming method MUST deliver content incrementally and MUST end with a completion event carrying the assembled assistant message or, on interruption, an interruption event carrying the preserved partial content; partial content MUST NEVER be silently discarded (ARC-001, DES-009 §3.3).
 
 ### 3.2 Provider Lifecycle and Selection
 
@@ -140,11 +148,15 @@ The category comprises:
 
 - **Conversation aggregate** — a recorded interaction with identity and continuity (ARC-003 Entity). It owns its message history and its streaming state (ARC-007).
 - **Message value object** — an individual contribution to a conversation; message value objects are owned by the Conversation module (ARC-007, ARC-009).
+- **Streaming behavior** — the capability-streaming behavior of the extended contract (§3.1): a streaming request carries the message history; the stream delivers the assistant's reply incrementally as content deltas; the completion event carries the assembled assistant message so the Application layer can append and persist it; an interruption event carries the preserved partial content. Interruption is cooperative through the stream lifecycle and the Foundation cancellation primitive (DES-008); it preserves partial content as incomplete and requires no provider-specific concept (ARC-001 Streaming Interrupted, DES-009 §3.3).
 
 Normative statements:
 
 - Messages are immutable value objects; a change produces a new value, never an in-place mutation (ARC-001 Immutable Domain Models, ARC-003).
 - Streaming-state invariants follow the failure philosophy of ARC-001: interruption marks partial content as incomplete and MUST NOT silently discard it; the full history is always preserved (ARC-001 Streaming Interrupted).
+- Streaming interruption MUST preserve the partial content already received and mark it incomplete; it MUST NEVER silently discard it (ARC-001).
+- The full conversation history MUST always be preserved; the completion event MUST carry the assembled assistant message so the Application layer can append and persist it (ARC-001, DES-009 §3.3).
+- Streaming interruption MUST be cooperative through the stream lifecycle and the Foundation cancellation primitive (DES-008); it MUST NOT require any provider-specific concept (DES-009 §4).
 - Conversation content is user-owned data (ARC-005); the aggregate enforces no behavior beyond its own invariants and owns no provider or storage behavior.
 
 ### 3.4 Workspace Model
@@ -227,13 +239,14 @@ Normative statements:
 - **Purpose**: the immutable, content-equal vocabulary of the Domain (ARC-003 Value Object, ARC-001 Immutable Domain Models).
 - **Intended consumers**: the whole package and its consumers; value objects cross every internal boundary.
 - **Stability expectations**: stable. Value objects are immutable once created; changes produce new values (ARC-001).
-- **Ownership**: the module that owns each value's meaning (ARC-007): Conversation owns `Message`; Provider owns `Capability`, `ProviderIdentity`, `ModelReference`, `ProviderCapabilities`, `ProviderMetadata`, and `ProviderLimits`; Authentication owns `CredentialReference`; Configuration owns the configuration values and levels.
+- **Ownership**: the module that owns each value's meaning (ARC-007): Conversation owns `Message`; Provider owns `Capability`, `ProviderIdentity`, `ModelReference`, `ProviderCapabilities`, `ProviderMetadata`, `ProviderLimits`, and the capability value objects of §3.1 — the text generation, conversation, and streaming requests and responses and the streaming updates; Authentication owns `CredentialReference`; Configuration owns the configuration values and levels.
 
 Normative statements:
 
 - A value object MUST be immutable and MUST define equality by content (ARC-003).
 - Value objects MUST NOT carry identity, mutable state, or behavior beyond their value (ARC-003).
 - Identity values MUST be typed, never raw values (DES-004 — Strong typing); each aggregate carries its own typed identity, and cross-aggregate references use those identities, built on the Foundation `Identifier` primitive (DES-002).
+- The capability value objects MUST be expressed only in the existing Domain vocabulary (`Message`, `ModelReference`) and the Foundation primitives; they MUST NOT depend on the capability contracts they extend (ARC-002, ARC-007, ARC-009).
 
 ### 3.9 Typed Errors
 
@@ -248,13 +261,16 @@ The contract declares typed failures for:
 - provider lifecycle transitions — when a transition is invalid or the provider is unknown (ARC-004, DES-007);
 - conversation streaming interruption — when a stream ends before completion (ARC-001);
 - repository operations — when the storage backing a repository cannot be reached (`RepositoryError.storageUnavailable`);
-- credential storage — when no credential is stored for a reference, or the secure storage cannot be reached (`CredentialStorageError`).
+- credential storage — when no credential is stored for a reference, or the secure storage cannot be reached (`CredentialStorageError`);
+- capability operations — when a provider cannot deliver a requested capability, or the capability response could not be decoded, in Domain terms — the capability-level abstraction of a failed contract, exactly as `RepositoryError.storageUnavailable` abstracts a failed repository (ARC-004, DES-009 §3.9).
 
 Normative statements:
 
 - Failures MUST be represented by typed errors built on the Foundation error abstraction (DES-001 §3.9); raw error values are never exposed.
 - Failures MUST be explicit; no domain operation fails silently (ARC-001).
 - No error with provider-adapter, storage-engine, or UI meaning is defined by this package: the Domain never declares the failures of a concrete provider, a concrete storage technology, or a user interface, which belong to the Infrastructure and Presentation layers (ARC-004, ARC-009). The storage-unavailable failures of the repository and credential-storage contracts are Domain-owned abstractions of a failed contract; they carry no storage-technology detail and never carry credential material.
+- The capability error MUST be the Domain-owned abstraction of a failed capability contract: it declares, in Domain terms, that a provider cannot deliver the requested capability or that the capability response could not be decoded, and it MUST carry no provider, transport, or decoding detail (ARC-004, DES-009 §3.9).
+- Credential-resolution failures of the capability operations MUST surface as the existing `CredentialStorageError`; they MUST NOT be wrapped or redefined by the capability error (DES-009 §3.7, §3.9).
 
 ### 3.10 Excluded from the Initial Contract
 
@@ -328,14 +344,17 @@ A significant removal is recorded in the package's version history and, when arc
 - The capability contract remains extensible: realizing a new capability extends the contract and never changes the realized capabilities (ARC-004, ARC-007).
 - The dependency graph MUST remain acyclic, and OmniaDomain MUST remain dependent only on OmniaFoundation (ARC-002, ADR-0002).
 - The initial contract is frozen as **Domain API Freeze v1**; a change to a frozen public API requires a specification revision, and every change to this contract updates this document in the same change (DES-004 §4, PRODUCT_PRINCIPLES — Documentation First).
+- The capability extension of this revision is frozen as **Domain Capability Contract Extension Freeze**; from this revision, the extension is part of the frozen contract, and a further change to it requires another specification revision, exactly as Domain API Freeze v1 does (PROJECT_STATE.md).
 
 ## 7. Initial Implementation Plan
 
-Implementation follows the Domain Sprint 1 Roadmap (`DOMAIN_SPRINT_1_ROADMAP.md` §Implementation Order). Each phase:
+The initial implementation follows the Domain Sprint 1 Roadmap (`DOMAIN_SPRINT_1_ROADMAP.md` §Implementation Order). Each phase:
 
 - introduces only APIs justified by this inventory and the roadmap;
 - keeps the package building and its tests green at every step;
 - completes with the contract documented and the API covered by tests before any cross-package consumer is added.
+
+The initial phases (Phase 1 through Phase 8) realize the contract of the frozen Domain API Freeze v1. The capability extension of this revision (v0.3.0) is implemented after those phases, in the order defined by the Domain Sprint 2 Roadmap (`DOMAIN_SPRINT_2_ROADMAP.md` §Implementation Order): the capability value objects, then the capability errors, then the concrete methods on `TextGenerationContract`, `ConversationContract`, and `StreamingContract`, then the package verification — with the extension specification frozen before any of its types are implemented (Domain Capability Contract Extension Freeze, `PROJECT_STATE.md`).
 
 ### Phase 1 — Value Objects and Shared Vocabulary
 
@@ -374,6 +393,7 @@ No API beyond the categories of Section 3 enters the package in these phases. Ea
 ## Related Documents
 
 - `Documentation/Product/Roadmap/DOMAIN_SPRINT_1_ROADMAP.md` — the roadmap that sequences this contract.
+- `Documentation/Product/Roadmap/DOMAIN_SPRINT_2_ROADMAP.md` — the roadmap that sequences the capability extension of this revision.
 - `Documentation/Design/FOUNDATION_API.md` — the parent contract of the package this package depends on.
 - `Documentation/Design/API/API_DESIGN_GUIDELINES.md` — the standard every API specification follows.
 - `Documentation/Design/API/IDENTIFIER_API.md`
