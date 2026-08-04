@@ -4,9 +4,9 @@ phase: Infrastructure
 
 status: Active
 
-current_sprint: Infrastructure Sprint 2
+current_sprint: Domain Sprint 2
 
-current_milestone: Infrastructure Sprint 2
+current_milestone: Domain Sprint 2
 
 repository_foundation: Complete
 ai_foundation: Complete
@@ -15,6 +15,7 @@ architecture_foundation: Complete
 design_foundation: Complete
 foundation_api: Frozen (v1)
 domain_api: Frozen (v1)
+domain_capability_contract_extension: Frozen (v1)
 infrastructure_api: Frozen (v1)
 omnia_foundation: Complete
 
@@ -59,6 +60,9 @@ completed:
   - First v2 Realization integration complete (2026-08-04): EP-006 wired the New Document Pipeline into `Create Document` dispatch — `Pipeline` column added to the Workflow Registry (ORCH-REG-001 v1.1.0), `Create Document` row resolves through PIPELINE-001, pipeline-resolution rule and attachment procedure added; documentation workflow and create-document task follow NEW_DOCUMENT_PIPELINE stages; Validation Suite registry-integrity check extended to resolve every populated `Pipeline` field (VAL-000 v1.1.0); backward compatible — same document artifact and same documentation-review checklist; framework version 3.3.0 (EP-006, issue #58)
   - Engineering Platform Validation Suite automated (2026-08-04): EP-007 added the validation script `.ai/scripts/validate-platform.sh` (VAL-000 v1.2.0) as the primary execution mechanism — deterministic encoding of all validation categories with per-category pass/fail output and a non-zero exit on failure; the manual checklist remains the authoritative specification and fallback; platform-validation workflow and validate-platform task run the script and reconcile with the checklist; fixed a broken registry reference in the documentation workflow; added `.gitattributes` (`*.sh text eol=lf`); framework version 3.4.0 (EP-007, issue #60)
   - Second v2 Realization integration complete (2026-08-04): EP-008 wired the Architecture Review Pipeline into `Review PR #N` dispatch — `Review PR #N` row's `Pipeline` column populated with `pipelines/ARCHITECTURE_REVIEW_PIPELINE.md` (PIPELINE-002) in the Workflow Registry (ORCH-REG-001 v1.2.0), reusing the generic `Pipeline` column mechanism, resolution rule, and attachment procedure from EP-006 without introducing command-specific orchestration logic; review workflow and review-pr task follow ARCHITECTURE_REVIEW_PIPELINE stages for architecture-relevant artifacts, preserving the pipeline's exclusions and the command's inputs, outputs, and acceptance path; backward compatible; framework version 3.5.0 (EP-008, issue #62)
+  - Domain Sprint 2 planned (2026-08-04): roadmap DOMAIN_SPRINT_2_ROADMAP.md (PRD-004) — the Domain capability-contract extension (DES-009 v0.2.0 → v0.3.0): concrete capability value objects, capability errors, concrete contract methods, and streaming behavior, sequenced before the concrete provider capabilities; GitHub issues #64-#70 created under milestone #5 with dependencies, acceptance criteria, and implementation order
+  - Infrastructure Sprint 2 planned (2026-08-04): roadmap INFRASTRUCTURE_SPRINT_2_ROADMAP.md (PRD-005) — the concrete provider capabilities (Text Generation, Conversation, Streaming) on the OpenAI-compatible adapter over the existing transport seam (DES-010 v1.0.0 → v1.1.0, additive); depends on the Domain capability extension (PRD-004); GitHub issues #71-#76 created under milestone #7 with dependencies, acceptance criteria, and implementation order
+  - Domain Capability Contract Extension Freeze (2026-08-05): DES-009 DOMAIN_API.md v0.3.0 ratified — the capability contract extension of Domain Sprint 2 Stage 1: the capability request, response, and streaming value objects; the capability error abstraction; the concrete methods on TextGenerationContract, ConversationContract, and StreamingContract; and the streaming behavior, additive and backward-compatible over Domain API Freeze v1; reviewed with the documentation review checklist and verified against ARC-002, ARC-004, ARC-007, ARC-008, ARC-009, ADR-0001/ADR-0002, and the frozen Foundation API (DES-001..DES-008) (issue #64)
 
 milestones:
   Foundation API Freeze v1:
@@ -93,6 +97,14 @@ milestones:
       - Public API frozen.
       - Future API changes require specification revision.
       - Implementation proceeds against frozen contracts.
+  Domain Capability Contract Extension Freeze:
+    Status: Ratified
+    Scope:
+      - DES-009 DOMAIN_API v0.3.0 capability contract extension
+    Outcome:
+      - Public API extended additively over Domain API Freeze v1.
+      - Capability contract frozen; a further change requires specification revision.
+      - Implementation of the extension proceeds against the frozen contract.
   Infrastructure API Freeze v1:
     Status: Ratified
     Scope:
@@ -143,15 +155,42 @@ milestones:
       - Provider adapters complete 2026-08-04 (issue #30); 8 tests green on the Linux build (package suite 134 green); the `OpenAICompatibleProviderAdapter` shell conforms to the realized capability contracts (`TextGenerationContract`, `ConversationContract`, `StreamingContract`), wires the transport and the credential storage, owns no business logic or application state, and reports live availability through the transport seam in Omnia's own terms (ARC-004 Capability Discovery); concrete capability call methods deferred until the Domain contract is extended (DES-010 §3.6).
       - Package verification complete 2026-08-04 (issue #31); full unit-test pass on the integrated branch (OmniaInfrastructure 136, OmniaDomain 231, OmniaFoundation 136, root 1); OmniaInfrastructure depends only on OmniaDomain and OmniaFoundation (ARC-009); no UI framework, business rules, or presentation state in the package; platform backends (Keychain, FoundationNetworking) isolated behind conditional compilation; internal dependency graph acyclic; credential material never in logs; black-box coverage added for the adapter's public initializer (package suite 136 green).
       - Milestone closed 2026-08-04; all Phase issues #22-#31 closed; all phase PRs merged into feature/repository-foundation.
+  Domain Sprint 2 – Implementation:
+    Status: Active
+    Scope:
+      - DES-009 v0.3.0 Domain capability contract extension (specification and freeze)
+      - Domain capability design and freeze (value objects, errors, methods, streaming behavior)
+      - Capability value objects
+      - Capability errors
+      - Concrete contract methods (TextGenerationContract, ConversationContract, StreamingContract)
+      - Streaming behavior (state machine: active, complete, interrupted)
+      - Verification and test matrix
+    Outcome:
+      - Planned 2026-08-04; roadmap DOMAIN_SPRINT_2_ROADMAP.md (PRD-004); issues #64-#70 under milestone #5.
+      - Stage 1 complete 2026-08-05: DES-009 v0.3.0 ratified (Domain Capability Contract Extension Freeze, issue #64).
+      - Extends the Domain contract so the concrete provider capabilities can be implemented in Infrastructure Sprint 2.
+  Infrastructure Sprint 2 – Implementation:
+    Status: Planned
+    Scope:
+      - DES-010 v1.1.0 Infrastructure capability specification and freeze
+      - Capability mapping (Domain types to internal DTOs)
+      - Text Generation capability (generateText over chat-completions)
+      - Conversation capability (sendMessage over chat-completions)
+      - Streaming capability (stream over SSE, completion and interruption events)
+      - Package verification
+    Outcome:
+      - Planned 2026-08-04; roadmap INFRASTRUCTURE_SPRINT_2_ROADMAP.md (PRD-005); issues #71-#76 under milestone #7.
+      - Sequenced after Domain Sprint 2 (PRD-004); depends on the extended Domain capability contract (DES-009 v0.3.0).
 
 next_tasks:
   - Keep the package building and its tests green at every step
   - Implement remaining DES-001 Phase 3 primitives when required (shared value types, typed-error abstraction)
-  - Kick off Infrastructure Sprint 2 (milestone #7): create its GitHub issues against the roadmap and implement the next Infrastructure phases
+  - Continue Domain Sprint 2 (milestone #5): the capability contract extension is frozen (DES-009 v0.3.0, issue #64); implement the extension per PRD-004 (issues #65-#70)
+  - After Domain Sprint 2, kick off Infrastructure Sprint 2 (milestone #7): implement the concrete provider capabilities (issues #71-#76, PRD-005)
   - Engineering Platform v2 (milestone #14, planning only per RFC-002): schedule v2 roadmap items as individual GitHub issues — Track A realization integration (wire PIPELINE-001 into the registry dispatch DONE via EP-006; wire PIPELINE-002 into an architecture review command DONE via EP-008), Track B automation (RFC-001 validate-platform script DONE via EP-007; automated package verification), Track C verification (black-box package-surface suite, CI pipeline, docs-drift check), Track D governance and tooling (recurring retrospective template, review sign-off for security-sensitive changes, project-board CLI helper, start-sprint checklist)
 
 blocked: []
 
 known_issues: []
 
-last_updated: 2026-08-04
+last_updated: 2026-08-05
