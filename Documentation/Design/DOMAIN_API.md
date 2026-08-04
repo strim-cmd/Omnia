@@ -55,7 +55,7 @@ The Domain layer is what keeps Omnia platform-independent: it imports no UI, no 
 
 This document specifies the initial public API inventory, the package responsibility boundaries, the dependency rules, the design principles, the evolution rules, and the ordered sequence in which the contract is implemented. It is derived only from the Domain Sprint 1 Roadmap (`DOMAIN_SPRINT_1_ROADMAP.md`), the Product Charter (`PRODUCT_CHARTER.md`), the Product Principles (`PRODUCT_PRINCIPLES.md`), and the approved architecture (ARC-002, ARC-003, ARC-004, ARC-005, ARC-007, ARC-008, ARC-009, ADR-0001, ADR-0002). It introduces no concept that the roadmap and the architecture do not establish.
 
-This revision (v0.3.0) extends the capability contract of §3.1 with the capability value objects, the concrete capability methods on the three realized capability contracts, the capability errors of §3.9, and the streaming behavior of §3.3, exactly as the Domain Sprint 2 Roadmap sequences it (`DOMAIN_SPRINT_2_ROADMAP.md` §Requirements). The extension is additive and backward-compatible (§6.3); the existing public API of the frozen Domain API Freeze v1 is unchanged.
+This revision (v0.3.0) extends the capability contract of §3.1 with the capability value objects, the concrete capability methods on the three realized capability contracts, the capability errors of §3.9, and the streaming behavior of §3.3, exactly as the Domain Sprint 2 Roadmap sequences it (`DOMAIN_SPRINT_2_ROADMAP.md` §Requirements). The extension is additive and backward-compatible (§6.3); the existing public API of the frozen Domain API Freeze v1 is unchanged. The concrete design of the extension — the value-object inventory, the error taxonomy, the contract-method signatures, and the streaming state machine — is frozen in §3.11 and is the single source of truth for the implementation of the extension (PRD-004 Stage 2).
 
 The specification governs the package alone. It defines no behavior of the Foundation, Application, Infrastructure, Presentation, or application-shell layers; those are specified by their own documents.
 
@@ -286,6 +286,83 @@ The following are evaluated and intentionally NOT part of the initial public API
 
 A category excluded here is introduced only through the evolution rules of Section 6, never by convenience (ARC-008).
 
+### 3.11 Domain Capability Design (Frozen)
+
+This subsection records the concrete design of the capability extension of §3.1, §3.3, §3.8, and §3.9. It is the frozen single source of truth for the implementation of the extension (PRD-004 Stage 2, `DOMAIN_SPRINT_2_ROADMAP.md` §Implementation Order): the types and methods declared here are realized exactly as declared by the implementation issues that follow it. The design is additive and backward-compatible over Domain API Freeze v1 (§6.3); it adds new declarations only and changes no existing public API.
+
+#### 3.11.1 Capability Value Objects
+
+The value objects of the three realized capabilities (§3.1, §3.8), all immutable, equal by content, `Equatable` and `Sendable` (ARC-003):
+
+| Type | Nature | Content |
+|---|---|---|
+| `CapabilityRequestIdentity` | `Identifier<CapabilityRequestIdentityKind>` (DES-002) | The typed identity of a capability request, used to correlate a response or a streaming update to its request. |
+| `TextGenerationRequest` | value object | `identity: CapabilityRequestIdentity`, `prompt: String`, `model: ModelReference`. |
+| `TextGenerationResponse` | value object | `text: String` — the produced text. |
+| `ConversationRequest` | value object | `identity: CapabilityRequestIdentity`, `history: [Message]`, `model: ModelReference`. |
+| `ConversationResponse` | value object | `message: Message` — the assistant's reply, to be appended to the history. |
+| `StreamingRequest` | value object | `identity: CapabilityRequestIdentity`, `history: [Message]`, `model: ModelReference`. |
+| `StreamingUpdate` | value object (enum) | The incremental delivery events of §3.1: `contentDelta` carrying a content fragment; `completion` carrying the assembled assistant `Message`; `interruption` carrying the preserved partial content. Every event carries its request identity. |
+
+Normative statements:
+
+- Every request carries a `CapabilityRequestIdentity` built on the Foundation `Identifier` primitive (DES-002) and a `ModelReference`; raw identity or model values are never used (DES-004 — Strong typing).
+- The value objects depend only on the existing Domain vocabulary (`Message`, `ModelReference`), `CapabilityRequestIdentity`, and the Foundation primitives; they MUST NOT depend on the capability contracts they extend (DES-009 §3.8).
+- The value objects contain no provider-specific concept (ARC-004).
+- `StreamingUpdate` events carry the request identity so a consumer can correlate an event to its in-flight request.
+
+#### 3.11.2 Capability Errors
+
+The typed failure surface of the capability operations (§3.9), built on the Foundation error abstraction (DES-001 §3.9) and `Equatable` and `Sendable`:
+
+| Error | Meaning |
+|---|---|
+| `CapabilityError.providerUnavailable` | No provider can deliver the requested capability, or the provider is unavailable (ARC-004). |
+| `CapabilityError.invalidRequest` | The capability request is invalid in Domain terms. |
+| `CapabilityError.invalidResponse` | The capability response could not be decoded (ARC-004). |
+| `CapabilityError.streamingInterrupted(partialContent:)` | A stream ended before completion and its interruption event could not be delivered; the partial content received so far is preserved, never discarded (ARC-001). |
+
+Normative statements:
+
+- `CapabilityError` carries no provider, transport, or decoding detail (DES-009 §3.9).
+- Credential-resolution failures of the capability operations surface as the existing `CredentialStorageError`; they are never wrapped or redefined by `CapabilityError` (DES-009 §3.7, §3.9).
+- `streamingInterrupted` preserves the partial content received so far; it is never silently discarded (ARC-001).
+
+#### 3.11.3 Concrete Contract Methods
+
+The concrete methods that realize the three capability contracts (§3.1):
+
+| Contract | Method |
+|---|---|
+| `TextGenerationContract` | `generateText(from request: TextGenerationRequest) async throws -> TextGenerationResponse` |
+| `ConversationContract` | `sendMessage(_ request: ConversationRequest) async throws -> ConversationResponse` |
+| `StreamingContract` | `stream(_ request: StreamingRequest) async throws -> AsyncThrowingStream<StreamingUpdate, Error>` |
+
+Normative statements:
+
+- The methods are provider-agnostic and typed against the capability value objects; they reference no provider (ARC-004).
+- The contracts remain protocol-only declarations; the implementation of the methods belongs to the Infrastructure adapters, never to the Domain (ARC-009, DES-009 §2.1).
+- Every failure is expressed in the capability errors of §3.11.2; nothing fails silently (ARC-001).
+- The streaming method returns an async sequence of streaming updates: content deltas delivered incrementally, ending with the completion event carrying the assembled assistant message or, on interruption, the interruption event carrying the preserved partial content (ARC-001, DES-009 §3.3).
+
+#### 3.11.4 Streaming State Machine
+
+The streaming lifecycle of the extended contract (§3.3). The states are **active**, **complete**, and **interrupted**. The legal transitions are:
+
+- `active → active` — the stream continues delivering content deltas.
+- `active → complete` — terminal: the stream ends with the completion event carrying the assembled assistant message.
+- `active → interrupted` — terminal: the stream ends with the interruption event carrying the preserved partial content; interruption is cooperative through the stream lifecycle and the Foundation cancellation primitive (DES-008).
+- `complete` and `interrupted` are terminal — no transition leaves them. Resumption after interruption is a new stream, a new request with a new identity, that starts from the preserved partial content; the Conversation aggregate carries the partial content forward (`beginStreaming` from `.interrupted`, Domain API Freeze v1).
+
+Failure path: when a stream fails before any terminal event can be delivered, it throws `CapabilityError.streamingInterrupted(partialContent:)`, preserving the content received so far (ARC-001).
+
+Normative statements:
+
+- Partial content is never silently discarded; an interruption always carries the preserved partial content as incomplete (ARC-001).
+- Completion always carries the assembled assistant message so the Application layer can append and persist it (ARC-001, DES-009 §3.3).
+- The stream-level state machine (active, complete, interrupted) is the capability-stream contract; the Conversation aggregate's frozen state machine (idle, streaming, interrupted) records the same lifecycle at the aggregate level, and the two are consistent (DES-009 §3.3, ARC-001).
+- The state machine requires no provider-specific concept (DES-009 §4).
+
 ## 4. Dependency Rules
 
 OmniaDomain occupies the Domain position of the dependency graph (ARC-002, ADR-0002). Its dependency rules are absolute:
@@ -354,7 +431,7 @@ The initial implementation follows the Domain Sprint 1 Roadmap (`DOMAIN_SPRINT_1
 - keeps the package building and its tests green at every step;
 - completes with the contract documented and the API covered by tests before any cross-package consumer is added.
 
-The initial phases (Phase 1 through Phase 8) realize the contract of the frozen Domain API Freeze v1. The capability extension of this revision (v0.3.0) is implemented after those phases, in the order defined by the Domain Sprint 2 Roadmap (`DOMAIN_SPRINT_2_ROADMAP.md` §Implementation Order): the capability value objects, then the capability errors, then the concrete methods on `TextGenerationContract`, `ConversationContract`, and `StreamingContract`, then the package verification — with the extension specification frozen before any of its types are implemented (Domain Capability Contract Extension Freeze, `PROJECT_STATE.md`).
+The initial phases (Phase 1 through Phase 8) realize the contract of the frozen Domain API Freeze v1. The capability extension of this revision (v0.3.0) is implemented after those phases, in the order defined by the Domain Sprint 2 Roadmap (`DOMAIN_SPRINT_2_ROADMAP.md` §Implementation Order): the capability value objects, then the capability errors, then the concrete methods on `TextGenerationContract`, `ConversationContract`, and `StreamingContract`, then the package verification — with the extension specification frozen before any of its types are implemented (Domain Capability Contract Extension Freeze, `PROJECT_STATE.md`). The implementation realizes exactly the frozen design of §3.11; a deviation from that design is a defect and is resolved by correcting the implementation, never by silently changing the design (DES-004 §1).
 
 ### Phase 1 — Value Objects and Shared Vocabulary
 
