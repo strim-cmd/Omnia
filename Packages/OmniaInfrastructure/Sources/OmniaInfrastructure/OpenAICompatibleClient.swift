@@ -69,6 +69,34 @@ internal struct OpenAICompatibleClient: Sendable {
         return Self.chunkStream(from: transport.stream(httpRequest))
     }
 
+    /// Reports whether `endpoint` is reachable and authenticated (DES-010 §3.6).
+    ///
+    /// Resolves the credential and probes the endpoint through the transport
+    /// seam with a minimal `GET /models` request; any credential or transport
+    /// failure reports `false`, so raw values never surface and availability is
+    /// reported by the Infrastructure layer in Omnia's own terms (ARC-004
+    /// Capability Discovery, DES-009 §3.1).
+    func probeAvailability(endpoint: URL, credential: CredentialReference) async -> Bool {
+        let apiKey: String
+        do {
+            apiKey = try await credentialStorage.credential(for: credential).withValue { $0 }
+        } catch {
+            return false
+        }
+        let request = ProviderHTTPRequest(
+            url: endpoint.appendingPathComponent("models"),
+            method: "GET",
+            headers: ["Authorization": "Bearer \(apiKey)"],
+            body: nil
+        )
+        do {
+            _ = try await transport.send(request)
+            return true
+        } catch {
+            return false
+        }
+    }
+
     private func makeRequest(
         request: ChatCompletionRequest,
         endpoint: URL,
