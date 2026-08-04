@@ -74,7 +74,7 @@ internal struct ConfigurationSerializer<Value: Codable & Equatable & Sendable>: 
     }
 }
 
-private extension ConfigurationLevel {
+extension ConfigurationLevel {
     /// The fixed storage order: provider settings, then workspace overrides,
     /// then global defaults, then capability preferences (ARC-004, ARC-007).
     static let storageOrder: [ConfigurationLevel] = [
