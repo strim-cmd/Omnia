@@ -23,15 +23,22 @@ import OmniaDomain
 /// Serialized-form stability: each document is stored as a single UTF-8 JSON
 /// file whose keys are ordered, so the persisted form is deterministic and
 /// round-trips exactly across versions (DES-004 §4, ARC-005).
+///
+/// Key contract: a `key` is a canonical identity string — letters, digits, and
+/// hyphens (a UUID is the canonical form). Keys are percent-encoded when mapped
+/// to file names (Foundation's `URL.appendingPathComponent`), so characters
+/// outside that set do not round-trip through `allKeys()`; repositories must
+/// address documents by canonical identity strings only.
 internal struct JSONDocumentStore: Sendable {
     /// The directory that holds the store's JSON files.
     let directoryURL: URL
 
     /// Creates a store rooted at `directoryURL`.
     ///
-    /// The directory is created lazily on the first write; a store rooted at a
-    /// directory that is actually a regular file fails every operation with
-    /// `RepositoryError.storageUnavailable`.
+    /// The directory is created lazily on the first write. A store rooted at a
+    /// path that is actually a regular file cannot write: every save fails with
+    /// `RepositoryError.storageUnavailable`, while loads, deletes, and lists
+    /// treat it as holding no documents.
     init(directoryURL: URL) {
         self.directoryURL = directoryURL
     }
