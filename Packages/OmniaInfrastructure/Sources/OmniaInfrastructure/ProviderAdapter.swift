@@ -4,27 +4,23 @@ import OmniaDomain
 /// The provider adapter shell for OpenAI-compatible endpoints (DES-010 §3.6,
 /// ARC-004).
 ///
-/// The adapter conforms to the Domain capability contracts — text generation,
-/// conversation, and streaming — realizing the capabilities the OpenAI-
-/// compatible provider delivers (DES-009 §3.1). It wires the provider transport
-/// and the credential storage to the contracts the application consumes, and is
-/// bound by the Composition Root to a provider connection's endpoint and
-/// stored credential (ARC-006, ARC-009).
+/// The adapter wires the provider transport and the credential storage to the
+/// capability contracts the application consumes, and is bound by the
+/// Composition Root to a provider connection's endpoint and stored credential
+/// (ARC-006, ARC-009).
 ///
 /// It is a shell: it owns no business logic and no application state (ARC-004
-/// Adapter Model). The concrete capability call methods are held back until the
-/// Domain capability contract is extended (DES-010 §3.6, ARC-004, DES-009
-/// §3.1); the transport seam is wired now so the adapter is testable without a
-/// network (ARC-001, ARC-006). Live availability is reported here, by the
-/// Infrastructure layer, never by the Domain (ARC-004 Capability Discovery,
-/// DES-009 §3.1). Provider-specific code is confined to this adapter; provider
-/// APIs never leave the package (ARC-004, ARC-009).
-public struct OpenAICompatibleProviderAdapter:
-    TextGenerationContract,
-    ConversationContract,
-    StreamingContract,
-    Sendable
-{
+/// Adapter Model), and the transport seam is wired now so the adapter is
+/// testable without a network (ARC-001, ARC-006). The Domain capability
+/// contracts now declare the concrete capability call methods (DES-009 §3.11.3);
+/// the adapter's conformance to them returns with the concrete capability
+/// surface implemented by Infrastructure Sprint 2 (DES-010 v1.1.0, PRD-005);
+/// it never claims to deliver a capability it cannot deliver yet. Live
+/// availability is reported here, by the Infrastructure layer, never by the
+/// Domain (ARC-004 Capability Discovery, DES-009 §3.1). Provider-specific code
+/// is confined to this adapter; provider APIs never leave the package (ARC-004,
+/// ARC-009).
+public struct OpenAICompatibleProviderAdapter: Sendable {
     private let client: OpenAICompatibleClient
     private let endpoint: URL
     private let credential: CredentialReference
