@@ -17,14 +17,17 @@ related_documents:
   - .ai/prompts/workflows/release.md
   - .ai/prompts/workflows/documentation.md
   - .ai/prompts/workflows/design.md
+  - .ai/prompts/workflows/platform-validation.md
   - .ai/prompts/tasks/complete-issue.md
   - .ai/prompts/tasks/review-pr.md
   - .ai/prompts/tasks/prepare-release.md
   - .ai/prompts/tasks/create-document.md
   - .ai/prompts/tasks/create-rfc.md
   - .ai/prompts/tasks/create-api.md
+  - .ai/prompts/tasks/validate-platform.md
   - .ai/checklists/code-review.md
   - .ai/checklists/documentation-review.md
+  - .ai/checklists/platform-validation.md
 tags:
   - ai
   - orchestrator
@@ -57,6 +60,7 @@ The agent MUST resolve every command against this registry before executing. The
 | `Update Issue #N` | `workflows/github.md` | `tasks/update-issue.md` | — | Acceptance criteria preservation |
 | `Close Issue #N` | `workflows/github.md` | `tasks/close-issue.md` | — | Verify acceptance criteria met |
 | `Create Milestone` | `workflows/github.md` | `tasks/create-milestone.md` | — | Roadmap-derived validation |
+| `Validate Engineering Platform` | `workflows/platform-validation.md` | `tasks/validate-platform.md` | `checklists/platform-validation.md` | Blocking → fix and re-run; Clean → certify integrity; findings reported before change ratification |
 | `Continue <Sprint>` | Re-read `PROJECT_STATE.md`; resolve next task; dispatch through this registry | — | Per resolved task | Per resolved task |
 
 ## Resolution Rules
@@ -82,4 +86,5 @@ Entries are never removed; deprecated entries are marked deprecated and retained
 - `.ai/orchestrator/README.md` — orchestrator overview and architecture
 - `.ai/specifications/WORKFLOW_ORCHESTRATOR_SPECIFICATION.md` — the architectural contract
 - `.ai/specifications/COMMAND_INTERFACE_SPECIFICATION.md` — the single supported user interaction surface and the canonical command set
+- `.ai/specifications/PLATFORM_VALIDATION_SPECIFICATION.md` — the Validation Suite contract
 - `.ai/AI_CONSTITUTION.md` — governing rules

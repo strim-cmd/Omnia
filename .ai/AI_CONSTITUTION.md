@@ -1,7 +1,7 @@
 ---
 title: AI Constitution
 document_id: CONST-001
-version: 1.5.0
+version: 1.6.0
 status: Ratified
 owner: Chief AI Architect
 project: Omnia
@@ -13,6 +13,7 @@ related_documents:
   - .ai/orchestrator/REGISTRY.md
   - .ai/specifications/WORKFLOW_ORCHESTRATOR_SPECIFICATION.md
   - .ai/specifications/COMMAND_INTERFACE_SPECIFICATION.md
+  - .ai/specifications/PLATFORM_VALIDATION_SPECIFICATION.md
   - Documentation/Product/PRODUCT_CHARTER.md
   - Documentation/Product/VISION.md
   - .ai/standards/
@@ -236,3 +237,15 @@ The Engineering Command Interface is the single supported user interaction surfa
 5. **Unrecognized commands.** A command that does not match the registry is reported in the user's preferred language and is never executed.
 6. **Interactive gates.** Interactive decision gates (blocking fixes, clean merges, non-blocking confirmations) are part of the command interface and follow the Workflow Orchestrator specification.
 7. **Language separation.** Engineering artifacts remain in English. All user-facing interaction uses the user's preferred language.
+
+## Engineering Platform Validation Suite
+
+The Engineering Platform Validation Suite certifies the integrity of the Engineering Platform itself. It is defined by the Validation Suite specification (`.ai/specifications/PLATFORM_VALIDATION_SPECIFICATION.md`).
+
+1. **Repository-defined checks.** The suite is a defined set of checks in the repository: reference resolution, registry integrity, version and identifier consistency, document structure, absence of placeholders, style artifacts, and absence of contradictions.
+2. **Command invocation.** The suite runs through the `Validate Engineering Platform` command, resolved against the Workflow Registry (`.ai/orchestrator/REGISTRY.md`) to the platform-validation workflow, the validate-platform task, and the platform-validation checklist.
+3. **Whole-platform scope.** The suite validates the entire `.ai` directory, not a single document.
+4. **Deterministic outcome.** The same platform state always produces the same suite outcome. Findings are reported with document paths and exact locations.
+5. **Gate integration.** The suite outcome follows the standard decision gates: blocking findings are fixed automatically and the suite is re-run until it passes; a passing suite certifies integrity but does not by itself approve a change.
+6. **Explicit non-coverage.** The suite does not validate Omnia product code, the CI pipeline, or automated package verification; those are separate backlog items.
+7. **Language separation.** Engineering artifacts remain in English. The suite outcome is reported to the user in the user's preferred language.
