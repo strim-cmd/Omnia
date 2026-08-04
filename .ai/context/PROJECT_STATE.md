@@ -4,9 +4,9 @@ phase: Infrastructure
 
 status: Active
 
-current_sprint: Infrastructure Sprint 1
+current_sprint: Infrastructure Sprint 2
 
-current_milestone: Infrastructure Sprint 1
+current_milestone: Infrastructure Sprint 2
 
 repository_foundation: Complete
 ai_foundation: Complete
