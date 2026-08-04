@@ -1,7 +1,7 @@
 ---
 title: AI Engineering Framework
 document_id: FRAMEWORK-001
-version: 3.3.0
+version: 3.4.0
 status: Ratified
 owner: Chief AI Architect
 project: Omnia
@@ -27,7 +27,7 @@ tags:
 
 ## Version
 
-3.3.0
+3.4.0
 
 ## Status
 
@@ -113,6 +113,8 @@ The framework is organized in five layers:
 │       ├── PRD.md
 │       ├── RFC.md
 │       └── ADR.md
+├── scripts/
+│   └── validate-platform.sh
 ├── specifications/
 │   ├── COMMAND_INTERFACE_SPECIFICATION.md
 │   ├── PIPELINE_SPECIFICATION.md
@@ -182,6 +184,8 @@ The framework is organized in five layers:
 | Platform Validation | `checklists/platform-validation.md` |
 
 ## Version History
+
+- 3.4.0 — Automated the Engineering Platform Validation Suite (EP-007). Added the validation script `.ai/scripts/validate-platform.sh` (VAL-000 v1.2.0) as the primary execution mechanism: a deterministic encoding of all validation categories — reference resolution, registry integrity (including every populated `Pipeline` field), version and identifier consistency, document structure, absence of placeholders, style artifacts, and absence of contradictions — with per-category pass/fail output and a non-zero exit on failure. The manual checklist remains the authoritative specification and fallback. Updated the platform-validation workflow and validate-platform task to run the script and reconcile with the checklist. Fixed a broken registry reference in the documentation workflow. Added `.gitattributes` (`*.sh text eol=lf`) to keep shell scripts line-ending stable. Framework version 3.4.0.
 
 - 3.3.0 — Wired the New Document Pipeline into the `Create Document` dispatch as the first Realization integration (EP-006). Added a `Pipeline` column to the Workflow Registry (ORCH-REG-001 v1.1.0) and populated the `Create Document` row with `pipelines/NEW_DOCUMENT_PIPELINE.md` (PIPELINE-001); added the pipeline-resolution rule to the registry and the pipeline-attachment procedure to its adding-entries section. Updated the documentation workflow and create-document task to follow the NEW_DOCUMENT_PIPELINE stages. Extended the Validation Suite registry-integrity check (VAL-000 v1.1.0, category 2) and the platform-validation checklist and task to resolve every populated `Pipeline` field. Framework version 3.3.0.
 

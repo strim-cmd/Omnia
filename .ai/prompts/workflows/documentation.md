@@ -4,7 +4,7 @@ Reusable process for creating a repository document.
 
 > Command Mode — Intent-Driven Operation (`.ai/AI_CONSTITUTION.md`): automatically invoked from user intent; the user never specifies process.
 
-> Realized by the New Document Pipeline (`.ai/pipelines/NEW_DOCUMENT_PIPELINE.md`, PIPELINE-001). The pipeline defines the stage-level coordination of this workflow — classify the request, identify governing specifications, collect context, select participants, draft, self-review, architecture/consistency review, human review, approval, and repository integration — as registered in the Workflow Registry (`../orchestrator/REGISTRY.md`).
+> Realized by the New Document Pipeline (`.ai/pipelines/NEW_DOCUMENT_PIPELINE.md`, PIPELINE-001). The pipeline defines the stage-level coordination of this workflow — classify the request, identify governing specifications, collect context, select participants, draft, self-review, architecture/consistency review, human review, approval, and repository integration — as registered in the Workflow Registry (`.ai/orchestrator/REGISTRY.md`).
 
 ## Steps
 

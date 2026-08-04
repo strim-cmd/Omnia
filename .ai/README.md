@@ -39,6 +39,7 @@ The `.ai` directory is the AI foundation of the repository. It governs how AI ag
 - `.ai/checklists/` — reusable review checklists (code review, documentation review).
 - `.ai/agents/` — reusable engineering role definitions (Chief Architect, Principal Architect, Principal Software Engineer, Reviewer, Release Manager).
 - `.ai/pipelines/` — multi-stage pipeline definitions (New Document, Architecture Review).
+- `.ai/scripts/` — repository-defined automation scripts (validation script).
 - `.ai/specifications/` — engineering contracts (agent specification, pipeline specification, Workflow Orchestrator specification, Engineering Command Interface specification, Engineering Platform Validation Suite specification).
 - `.ai/examples/` — reference examples of framework usage.
 
@@ -131,4 +132,4 @@ Commands are resolved against the Workflow Registry (`.ai/orchestrator/REGISTRY.
 | Update Issue #N | Registry resolves to `prompts/workflows/github.md` via `prompts/tasks/update-issue.md`. |
 | Close Issue #N | Registry resolves to `prompts/workflows/github.md` via `prompts/tasks/close-issue.md`. |
 | Create Milestone | Registry resolves to `prompts/workflows/github.md` via `prompts/tasks/create-milestone.md`. |
-| Validate Engineering Platform | Registry resolves to `prompts/workflows/platform-validation.md` via `prompts/tasks/validate-platform.md` with `checklists/platform-validation.md`. |
+| Validate Engineering Platform | Registry resolves to `prompts/workflows/platform-validation.md` via `prompts/tasks/validate-platform.md` with `checklists/platform-validation.md`; executed by the validation script (`scripts/validate-platform.sh`). |
