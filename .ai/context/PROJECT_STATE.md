@@ -63,6 +63,7 @@ completed:
   - Domain Sprint 2 planned (2026-08-04): roadmap DOMAIN_SPRINT_2_ROADMAP.md (PRD-004) — the Domain capability-contract extension (DES-009 v0.2.0 → v0.3.0): concrete capability value objects, capability errors, concrete contract methods, and streaming behavior, sequenced before the concrete provider capabilities; GitHub issues #64-#70 created under milestone #5 with dependencies, acceptance criteria, and implementation order
   - Infrastructure Sprint 2 planned (2026-08-04): roadmap INFRASTRUCTURE_SPRINT_2_ROADMAP.md (PRD-005) — the concrete provider capabilities (Text Generation, Conversation, Streaming) on the OpenAI-compatible adapter over the existing transport seam (DES-010 v1.0.0 → v1.1.0, additive); depends on the Domain capability extension (PRD-004); GitHub issues #71-#76 created under milestone #7 with dependencies, acceptance criteria, and implementation order
   - Domain Capability Contract Extension Freeze (2026-08-05): DES-009 DOMAIN_API.md v0.3.0 ratified — the capability contract extension of Domain Sprint 2 Stage 1: the capability request, response, and streaming value objects; the capability error abstraction; the concrete methods on TextGenerationContract, ConversationContract, and StreamingContract; and the streaming behavior, additive and backward-compatible over Domain API Freeze v1; reviewed with the documentation review checklist and verified against ARC-002, ARC-004, ARC-007, ARC-008, ARC-009, ADR-0001/ADR-0002, and the frozen Foundation API (DES-001..DES-008) (issue #64)
+  - Domain Capability Design Frozen (2026-08-05): Domain Sprint 2 Stage 2 complete — the concrete design of the capability extension detailed within DES-009 v0.3.0 (§3.11) and frozen as the single source of truth for implementation: the value-object inventory (CapabilityRequestIdentity on Identifier, TextGenerationRequest/Response, ConversationRequest/Response, StreamingRequest, StreamingUpdate events), the capability error taxonomy (CapabilityError: providerUnavailable, invalidRequest, invalidResponse, streamingInterrupted(partialContent:)), the concrete contract methods (generateText, sendMessage, stream), and the streaming state machine (active, complete, interrupted) with legal transitions; reviewed with the documentation review checklist (issue #65)
 
 milestones:
   Foundation API Freeze v1:
@@ -168,6 +169,7 @@ milestones:
     Outcome:
       - Planned 2026-08-04; roadmap DOMAIN_SPRINT_2_ROADMAP.md (PRD-004); issues #64-#70 under milestone #5.
       - Stage 1 complete 2026-08-05: DES-009 v0.3.0 ratified (Domain Capability Contract Extension Freeze, issue #64).
+      - Stage 2 complete 2026-08-05: capability design frozen within DES-009 v0.3.0 (§3.11, issue #65).
       - Extends the Domain contract so the concrete provider capabilities can be implemented in Infrastructure Sprint 2.
   Infrastructure Sprint 2 – Implementation:
     Status: Planned
@@ -185,7 +187,7 @@ milestones:
 next_tasks:
   - Keep the package building and its tests green at every step
   - Implement remaining DES-001 Phase 3 primitives when required (shared value types, typed-error abstraction)
-  - Continue Domain Sprint 2 (milestone #5): the capability contract extension is frozen (DES-009 v0.3.0, issue #64); implement the extension per PRD-004 (issues #65-#70)
+  - Continue Domain Sprint 2 (milestone #5): the capability contract extension is frozen (DES-009 v0.3.0) and the capability design is frozen (§3.11, issue #65); implement the extension against the frozen design per PRD-004 (issues #66-#70)
   - After Domain Sprint 2, kick off Infrastructure Sprint 2 (milestone #7): implement the concrete provider capabilities (issues #71-#76, PRD-005)
   - Engineering Platform v2 (milestone #14, planning only per RFC-002): schedule v2 roadmap items as individual GitHub issues — Track A realization integration (wire PIPELINE-001 into the registry dispatch DONE via EP-006; wire PIPELINE-002 into an architecture review command DONE via EP-008), Track B automation (RFC-001 validate-platform script DONE via EP-007; automated package verification), Track C verification (black-box package-surface suite, CI pipeline, docs-drift check), Track D governance and tooling (recurring retrospective template, review sign-off for security-sensitive changes, project-board CLI helper, start-sprint checklist)
 
