@@ -6,4 +6,4 @@ Implementations of the Domain contracts and platform services: provider adapters
 - **Dependencies**: OmniaDomain, OmniaFoundation
 - **Specification**: `Documentation/Architecture/09_PACKAGE_STRUCTURE.md` (ARC-009)
 
-Status: skeleton. No implementation yet.
+Status: in progress. Storage engine foundation implemented (file-based JSON document store, DES-010 Phase 1).
