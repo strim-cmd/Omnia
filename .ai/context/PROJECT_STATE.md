@@ -65,6 +65,7 @@ completed:
   - Domain Capability Contract Extension Freeze (2026-08-05): DES-009 DOMAIN_API.md v0.3.0 ratified — the capability contract extension of Domain Sprint 2 Stage 1: the capability request, response, and streaming value objects; the capability error abstraction; the concrete methods on TextGenerationContract, ConversationContract, and StreamingContract; and the streaming behavior, additive and backward-compatible over Domain API Freeze v1; reviewed with the documentation review checklist and verified against ARC-002, ARC-004, ARC-007, ARC-008, ARC-009, ADR-0001/ADR-0002, and the frozen Foundation API (DES-001..DES-008) (issue #64)
   - Domain Capability Design Frozen (2026-08-05): Domain Sprint 2 Stage 2 complete — the concrete design of the capability extension detailed within DES-009 v0.3.0 (§3.11) and frozen as the single source of truth for implementation: the value-object inventory (CapabilityRequestIdentity on Identifier, TextGenerationRequest/Response, ConversationRequest/Response, StreamingRequest, StreamingUpdate events), the capability error taxonomy (CapabilityError: providerUnavailable, invalidRequest, invalidResponse, streamingInterrupted(partialContent:)), the concrete contract methods (generateText, sendMessage, stream), and the streaming state machine (active, complete, interrupted) with legal transitions; reviewed with the documentation review checklist (issue #65)
   - Domain Sprint 2 Stage 3a complete (2026-08-05): capability value objects implemented exactly per the frozen design (DES-009 §3.11.1) — CapabilityRequestIdentity (typed identity on the Foundation Identifier, DES-002), TextGenerationRequest/Response, ConversationRequest/Response (assistant Message), StreamingRequest, and the StreamingUpdate events (contentDelta, completion, interruption, each carrying its request identity); all Equatable & Sendable value types owning no business logic (ARC-002); verified on the Linux build (issue #66)
+  - Domain Sprint 2 Stage 3b complete (2026-08-05): capability errors implemented exactly per the frozen taxonomy (DES-009 §3.11.2) — CapabilityError with providerUnavailable, invalidRequest, invalidResponse, and streamingInterrupted(partialContent:), built on the Foundation error abstraction (DES-001 §3.9); Equatable & Sendable, owning no logic (ARC-002), carrying no provider, transport, or decoding detail and never wrapping CredentialStorageError (ARC-004, DES-009 §3.7, §3.9); verified on the Linux build (issue #67)
 
 milestones:
   Foundation API Freeze v1:
@@ -172,6 +173,7 @@ milestones:
       - Stage 1 complete 2026-08-05: DES-009 v0.3.0 ratified (Domain Capability Contract Extension Freeze, issue #64).
       - Stage 2 complete 2026-08-05: capability design frozen within DES-009 v0.3.0 (§3.11, issue #65).
       - Stage 3a complete 2026-08-05: capability value objects implemented per the frozen design (issue #66).
+      - Stage 3b complete 2026-08-05: capability errors implemented per the frozen taxonomy (issue #67).
       - Extends the Domain contract so the concrete provider capabilities can be implemented in Infrastructure Sprint 2.
   Infrastructure Sprint 2 – Implementation:
     Status: Planned
@@ -189,7 +191,7 @@ milestones:
 next_tasks:
   - Keep the package building and its tests green at every step
   - Implement remaining DES-001 Phase 3 primitives when required (shared value types, typed-error abstraction)
-  - Continue Domain Sprint 2 (milestone #5): the capability contract extension is frozen (DES-009 v0.3.0), the capability design is frozen (§3.11, issue #65), and the capability value objects are implemented (issue #66); implement the capability errors, concrete contract methods, streaming behavior, and verification per PRD-004 (issues #67-#70)
+  - Continue Domain Sprint 2 (milestone #5): the capability contract extension is frozen (DES-009 v0.3.0), the capability design is frozen (§3.11, issue #65), and the capability value objects and errors are implemented (issues #66, #67); implement the concrete contract methods, streaming behavior, and verification per PRD-004 (issues #68-#70)
   - After Domain Sprint 2, kick off Infrastructure Sprint 2 (milestone #7): implement the concrete provider capabilities (issues #71-#76, PRD-005)
   - Engineering Platform v2 (milestone #14, planning only per RFC-002): schedule v2 roadmap items as individual GitHub issues — Track A realization integration (wire PIPELINE-001 into the registry dispatch DONE via EP-006; wire PIPELINE-002 into an architecture review command DONE via EP-008), Track B automation (RFC-001 validate-platform script DONE via EP-007; automated package verification), Track C verification (black-box package-surface suite, CI pipeline, docs-drift check), Track D governance and tooling (recurring retrospective template, review sign-off for security-sensitive changes, project-board CLI helper, start-sprint checklist)
 
