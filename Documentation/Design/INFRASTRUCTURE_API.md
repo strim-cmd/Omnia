@@ -1,7 +1,7 @@
 ---
 title: OmniaInfrastructure Public API Contract
 document_id: DES-010
-version: 1.0.0
+version: 1.1.0
 status: Ratified
 owner: Founder
 project: Omnia
@@ -10,9 +10,10 @@ authors:
 reviewers:
   - Chief Architect
 created: 2026-08-04
-last_updated: 2026-08-04
+last_updated: 2026-08-05
 related_documents:
   - Documentation/Product/Roadmap/INFRASTRUCTURE_SPRINT_1_ROADMAP.md
+  - Documentation/Product/Roadmap/INFRASTRUCTURE_SPRINT_2_ROADMAP.md
   - Documentation/Design/DOMAIN_API.md
   - Documentation/Design/FOUNDATION_API.md
   - Documentation/Architecture/02_LAYERED_ARCHITECTURE.md
@@ -49,6 +50,8 @@ The Infrastructure layer is where platform and provider reality lives (ARC-002).
 
 This document specifies the initial public API inventory, the package responsibility boundaries, the dependency rules, the design principles, the evolution rules, and the ordered sequence in which the contract is implemented. It is derived only from the Infrastructure Sprint 1 Roadmap (`INFRASTRUCTURE_SPRINT_1_ROADMAP.md`), the frozen Domain API contract (`DOMAIN_API.md`, DES-009), the Product Charter (`PRODUCT_CHARTER.md`), the Product Principles (`PRODUCT_PRINCIPLES.md`), and the approved architecture (ARC-002, ARC-004, ARC-005, ARC-006, ARC-008, ARC-009, ADR-0001, ADR-0002). It introduces no concept that the roadmap and the architecture do not establish.
 
+This revision (v1.1.0) extends the provider adapter category of §3.6 with the adapter's concrete capability surface — the three capability call methods, the Domain-to-DTO mapping rules, the error-translation rules, and the streaming lifecycle — exactly as the Infrastructure Sprint 2 Roadmap sequences it (`INFRASTRUCTURE_SPRINT_2_ROADMAP.md` §Requirements). The extension is additive and backward-compatible (§6.3); the existing public API of the frozen Infrastructure API Freeze v1 is unchanged. The concrete capability surface is specified in §3.9 and is the single source of truth for the implementation of the capabilities (PRD-005 Stage 1).
+
 The specification governs the package alone. It defines no behavior of the Foundation, Domain, Application, Presentation, or application-shell layers; those are specified by their own documents.
 
 ## 2. Package Responsibilities
@@ -83,7 +86,7 @@ A type that acquires business, UI, provider, or composition meaning is a boundar
 
 ## 3. Public API Inventory
 
-The initial public API is organized into the categories below. Each category states its purpose, its intended consumers, its stability expectations, and its ownership. The categories are the contract; the concrete declarations are defined during implementation and MUST conform to this inventory. The categories realize the Infrastructure surfaces defined in the Infrastructure Sprint 1 Roadmap (`INFRASTRUCTURE_SPRINT_1_ROADMAP.md` §Requirements).
+The initial public API is organized into the categories below. Each category states its purpose, its intended consumers, its stability expectations, and its ownership. The categories are the contract; the concrete declarations are defined during implementation and MUST conform to this inventory. The categories realize the Infrastructure surfaces defined in the Infrastructure Sprint 1 Roadmap (`INFRASTRUCTURE_SPRINT_1_ROADMAP.md` §Requirements); the concrete capability surface of this revision realizes the capability surface of the Infrastructure Sprint 2 Roadmap (`INFRASTRUCTURE_SPRINT_2_ROADMAP.md` §Requirements).
 
 The public surface of the package is the set of concrete implementations exposed for composition by the Composition Root (ARC-006, ARC-009). No upper package depends on them directly; the Composition Root binds them to the Domain contracts consumers depend on (ARC-009).
 
@@ -164,7 +167,7 @@ Normative statements:
 
 ### 3.6 Provider Adapters
 
-- **Purpose**: adapter shells that conform to the Domain capability contracts — `TextGenerationContract`, `ConversationContract`, and `StreamingContract` (DES-009 §3.1, ARC-004) — wiring the transport and the credential storage to the contracts the application consumes.
+- **Purpose**: the adapter that conforms to the Domain capability contracts — `TextGenerationContract`, `ConversationContract`, and `StreamingContract` (DES-009 §3.1, ARC-004) — realizing their concrete capability methods over the transport seam (§3.9), and wiring the transport and the credential storage to the contracts the application consumes.
 - **Intended consumers**: the Composition Root, which binds them to the Domain capability contracts consumed by the Application layer (ARC-006, ARC-009).
 - **Stability expectations**: stable. The adapters implement frozen Domain contracts (ARC-008, DES-009 §6).
 - **Ownership**: Provider module (Infrastructure surface, ARC-007).
@@ -173,7 +176,7 @@ Normative statements:
 
 - Adapters MUST contain no business logic (ARC-004).
 - Adapters MUST expose capabilities in Omnia's terms and MUST surface failures in Domain terms (ARC-004 Adapter Model, DES-009 §3.9).
-- Adapters MUST implement the transport seam now; the concrete text-generation, conversation, and streaming call methods are added when the Domain capability contract is extended (ARC-004, DES-009 §3.1).
+- Adapters MUST realize the concrete capability methods of the extended Domain capability contract over the transport seam; the concrete surface — the three call methods, the Domain-to-DTO mapping rules, the error-translation rules, and the streaming lifecycle — is specified in §3.9 (DES-009 §3.11.3, PRD-005 Stage 1).
 - Live availability MUST be reported by the Infrastructure layer, never by the Domain (ARC-004 Capability Discovery, DES-009 §3.1).
 - Provider-specific code MUST be confined to the adapters; provider APIs MUST NOT leak above the package (ARC-004, ARC-009).
 
@@ -198,10 +201,68 @@ The following are evaluated and intentionally NOT part of the initial public API
 - use cases and application services — owned by OmniaApplication;
 - the user interface — owned by OmniaPresentation;
 - business rules and domain contracts — owned by OmniaDomain;
-- concrete capability implementations beyond the transport seam — the Domain capability contracts are marker protocols today; concrete call methods arrive when the Domain contract is extended (ARC-004, DES-009 §3.1);
+- provider capabilities beyond the concrete surface of §3.9 — only the three realized capabilities (Text Generation, Conversation, and Streaming) gain concrete call methods in this contract; the remaining ARC-004 capabilities — Vision, Image Generation, Embeddings, Tool Calling, Structured Output, Audio, and Reasoning — remain extension points and are not realized by this contract (ARC-004, DES-009 §3.1);
 - storage technologies beyond the file-based JSON document store — replaceability is preserved by the repository contracts (ARC-005).
 
 A category excluded here is introduced only through the evolution rules of Section 6, never by convenience (ARC-008).
+
+### 3.9 Infrastructure Capability Surface (Frozen)
+
+This subsection records the concrete capability surface of the provider adapter category of §3.6. It is the frozen single source of truth for the implementation of the capabilities (PRD-005 Stage 1, `INFRASTRUCTURE_SPRINT_2_ROADMAP.md` §Implementation Order): the adapter realizes the methods declared here exactly as declared, over the internal OpenAI-compatible client and transport of §3.5. The surface is additive and backward-compatible over Infrastructure API Freeze v1 (§6.3); it adds concrete declarations only and changes no existing public API.
+
+#### 3.9.1 The Concrete Capability Methods
+
+`OpenAICompatibleProviderAdapter` (DES-010 §3.6) conforms to the three Domain capability contracts and realizes their concrete methods (DES-009 §3.11.3):
+
+| Contract (DES-009 §3.1, §3.11.3) | Adapter method |
+|---|---|
+| `TextGenerationContract` | `generateText(from request: TextGenerationRequest) async throws -> TextGenerationResponse` |
+| `ConversationContract` | `sendMessage(_ request: ConversationRequest) async throws -> ConversationResponse` |
+| `StreamingContract` | `stream(_ request: StreamingRequest) async throws -> AsyncThrowingStream<StreamingUpdate, Error>` |
+
+Normative statements:
+
+- The adapter MUST conform to the three Domain capability contracts and MUST realize the concrete methods exactly as the Domain declares them (DES-009 §3.11.3); it implements contracts, it never defines them (ARC-002, DES-010 §2.1).
+- The methods MUST be provider-agnostic at the boundary: they accept and return only the Domain capability value objects (DES-009 §3.11.1); provider-specific request, response, and chunk shapes never cross the package boundary (ARC-004, DES-010 §2.2).
+- The adapter owns no business logic and no application state; it composes the internal client of §3.5 and the credential storage of §3.4, and nothing else (ARC-004 Adapter Model, ARC-009).
+- Availability reporting (`isAvailable`) is unchanged and remains produced by the Infrastructure layer, never by the Domain (ARC-004 Capability Discovery, DES-009 §3.1).
+
+#### 3.9.2 Domain-to-DTO Mapping Rules
+
+The methods translate the Domain capability types (DES-009 §3.11.1) to and from the internal chat-completions DTOs of §3.5 (`ChatCompletionRequest`, `ChatCompletionResponse`, `ChatCompletionChunk`). The mapping is confined to the adapter's translation layer; the DTOs remain internal to the package (ARC-004, DES-010 §3.5).
+
+Normative statements:
+
+- The text generation request maps to a non-streaming `ChatCompletionRequest`: its `prompt` becomes a single user `ChatMessage`, `ModelReference.name` becomes `model`, and `stream` is `false`.
+- The conversation request maps to a non-streaming `ChatCompletionRequest`: its message history becomes the `messages` list (`system`, `user`, and `assistant` roles in order), `ModelReference.name` becomes `model`, and `stream` is `false`.
+- The streaming request maps to a streaming `ChatCompletionRequest`: its message history becomes the `messages` list, `ModelReference.name` becomes `model`, and `stream` is `true`.
+- A non-streaming response maps back from the first choice's assistant message: the produced `text` of `TextGenerationResponse`, or the assistant `Message` of `ConversationResponse` (DES-009 §3.11.1).
+- Each streamed chunk's content delta maps to a `StreamingUpdate.contentDelta` carrying the request identity; the end of the stream maps to the `StreamingUpdate.completion` carrying the assembled assistant `Message` (DES-009 §3.11.3, §3.11.4).
+- The mapping MUST NOT alter the Domain vocabulary: requests and responses are expressed only in the existing Domain vocabulary (`Message`, `ModelReference`) and the capability value objects (DES-009 §3.11.1, DES-009 §3.8).
+- Provider-specific detail — wire roles, chunk shapes, finish reasons, usage — MUST NOT cross the package boundary (ARC-004, DES-010 §3.5).
+
+#### 3.9.3 Error Translation Rules
+
+Every failure is surfaced in the terms the Domain owns; raw platform, transport, or provider errors are never exposed (ARC-004, DES-009 §3.9, DES-010 §3.7).
+
+Normative statements:
+
+- A credential-resolution failure MUST surface as the existing Domain `CredentialStorageError`; it MUST NOT be wrapped or redefined by `CapabilityError` (DES-009 §3.7, §3.9).
+- A transport or decoding failure MUST be translated into the Domain capability errors of DES-009 §3.11.2: `providerUnavailable` when no provider can deliver the requested capability or the provider is unavailable, `invalidRequest` when the capability request cannot be represented, and `invalidResponse` when the capability response could not be decoded.
+- The translation from the internal `ProviderTransportError` of §3.7 to the Domain capability errors is confined to the adapter; the internal transport error surface never crosses the package boundary.
+- A streaming failure before a terminal event MUST throw `CapabilityError.streamingInterrupted(partialContent:)`, preserving the content received so far; nothing fails silently (ARC-001, DES-009 §3.11.4).
+
+#### 3.9.4 Streaming Lifecycle
+
+The streaming capability delivers the internal client's chunk stream (§3.5) as the Domain streaming updates, honoring the streaming-state invariants of DES-009 §3.3 and §3.11.4.
+
+Normative statements:
+
+- Content deltas MUST be delivered incrementally as `StreamingUpdate.contentDelta`, each carrying its request identity (DES-009 §3.11.1).
+- The stream MUST end with the `StreamingUpdate.completion` event carrying the assembled assistant message, so the Application layer can append and persist it (ARC-001, DES-009 §3.3).
+- On interruption — cooperative through the stream lifecycle and the Foundation cancellation primitive (DES-008) — the stream MUST end with the `StreamingUpdate.interruption` event carrying the preserved partial content as incomplete; partial content MUST NEVER be silently discarded (ARC-001, DES-009 §3.11.4).
+- A cancelled stream ends with the interruption event, never a lost response (DES-008, PRD-005).
+- The adapter delivers exactly the events the Domain declares and invents no stream lifecycle of its own (ARC-002, DES-009 §3.11.4).
 
 ## 4. Dependency Rules
 
@@ -264,6 +325,7 @@ A significant removal is recorded in the package's version history and, when arc
 - The serialized form of stored data MUST remain stable; stored data keeps its meaning when the package evolves (DES-004 §4, ARC-005).
 - The dependency graph MUST remain acyclic, and OmniaInfrastructure MUST remain dependent only on OmniaDomain and OmniaFoundation (ARC-002, ADR-0002).
 - The initial contract is frozen as **Infrastructure API Freeze v1**; a change to a frozen public API requires a specification revision, and every change to this contract updates this document in the same change (DES-004 §4, PRODUCT_PRINCIPLES — Documentation First).
+- The capability surface of this revision is frozen as **Infrastructure Capability Freeze**; from this revision, the concrete capability surface of §3.9 is part of the frozen contract, and a further change to it requires another specification revision, exactly as Infrastructure API Freeze v1 does (PROJECT_STATE.md).
 
 ## 7. Initial Implementation Plan
 
@@ -303,9 +365,12 @@ The full verification of the package against the completion criteria of the road
 
 No API beyond the categories of Section 3 enters the package in these phases. Each phase ends in a state that is a valid, documented, tested increment of the public contract.
 
+The initial phases (Phase 1 through Phase 7) realize the contract of the frozen Infrastructure API Freeze v1. The capability surface of this revision (v1.1.0) is implemented after those phases, in the order defined by the Infrastructure Sprint 2 Roadmap (`INFRASTRUCTURE_SPRINT_2_ROADMAP.md` §Implementation Order): the capability mapping, then the text generation capability, then the conversation capability, then the streaming capability, then the package verification — with the surface specification frozen before any of its types are implemented (Infrastructure Capability Freeze, `PROJECT_STATE.md`). The implementation realizes exactly the frozen surface of §3.9; a deviation from that surface is a defect and is resolved by correcting the implementation, never by silently changing the surface (DES-004 §1).
+
 ## Related Documents
 
 - `Documentation/Product/Roadmap/INFRASTRUCTURE_SPRINT_1_ROADMAP.md` — the roadmap that sequences this contract.
+- `Documentation/Product/Roadmap/INFRASTRUCTURE_SPRINT_2_ROADMAP.md` — the roadmap that sequences the capability surface of this revision.
 - `Documentation/Design/DOMAIN_API.md` — the frozen Domain contract this package implements.
 - `Documentation/Design/FOUNDATION_API.md` — the parent contract of the package this package depends on.
 - `Documentation/Architecture/02_LAYERED_ARCHITECTURE.md`
