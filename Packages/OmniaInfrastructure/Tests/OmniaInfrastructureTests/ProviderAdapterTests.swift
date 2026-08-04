@@ -65,6 +65,38 @@ final class ProviderAdapterTests: XCTestCase {
         XCTAssertTrue(type(of: streaming) == OpenAICompatibleProviderAdapter.self)
     }
 
+    // MARK: - Public initializer
+
+    func testPublicInitializer_ConformsToTheRealizedCapabilityContracts() {
+        let storage = SecureCredentialStorage(backend: InMemoryCredentialStorageBackend())
+        let adapter = OpenAICompatibleProviderAdapter(
+            endpoint: endpoint,
+            credential: CredentialReference(),
+            credentialStorage: storage
+        )
+
+        let textGeneration: any TextGenerationContract = adapter
+        let conversation: any ConversationContract = adapter
+        let streaming: any StreamingContract = adapter
+
+        XCTAssertTrue(type(of: textGeneration) == OpenAICompatibleProviderAdapter.self)
+        XCTAssertTrue(type(of: conversation) == OpenAICompatibleProviderAdapter.self)
+        XCTAssertTrue(type(of: streaming) == OpenAICompatibleProviderAdapter.self)
+    }
+
+    func testPublicInitializer_ReportsUnavailableWithoutNetworkWhenNoCredentialIsStored() async {
+        let storage = SecureCredentialStorage(backend: InMemoryCredentialStorageBackend())
+        let adapter = OpenAICompatibleProviderAdapter(
+            endpoint: endpoint,
+            credential: CredentialReference(),
+            credentialStorage: storage
+        )
+
+        let available = await adapter.isAvailable()
+
+        XCTAssertFalse(available)
+    }
+
     // MARK: - Availability probe
 
     func testIsAvailable_ReportsTrueWhenTheEndpointAnswers() async throws {
