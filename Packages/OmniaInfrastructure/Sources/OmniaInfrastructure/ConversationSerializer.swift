@@ -62,7 +62,7 @@ internal struct ConversationSerializer: Sendable {
             }
             try conversation.append(Message(role: role, content: message.content))
         }
-        try restore(streamingState: dto.streamingState, into: &conversation)
+        try Self.restore(streamingState: dto.streamingState, into: &conversation)
         return conversation
     }
 
@@ -93,7 +93,7 @@ internal struct ConversationSerializer: Sendable {
     /// Replays the stored streaming state through the aggregate's own public
     /// transitions; the history is restored before any stream begins, so the
     /// streaming invariants of the aggregate are preserved (DES-009 §3.3).
-    private func restore(
+    private static func restore(
         streamingState dto: ConversationStreamingStateDTO,
         into conversation: inout Conversation
     ) throws {

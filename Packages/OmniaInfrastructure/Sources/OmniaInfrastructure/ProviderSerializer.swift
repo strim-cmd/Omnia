@@ -116,8 +116,12 @@ internal struct ProviderSerializer: Sendable {
             )
         )
         let provider = Provider(connection: connection)
-        for next in Self.path(to: state) {
-            try provider.transition(to: next)
+        do {
+            for next in Self.path(to: state) {
+                try provider.transition(to: next)
+            }
+        } catch {
+            throw RepositoryError.storageUnavailable
         }
         return provider
     }

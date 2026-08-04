@@ -34,6 +34,11 @@ internal struct WorkspaceSerializer: Sendable {
     }
 
     /// Restores a `Workspace` from its stored representation.
+    ///
+    /// Restoration is total: every stored field is validated during `Codable`
+    /// decoding (identities restore only through their canonical form), so this
+    /// mapping never fails — unlike the serializers whose stored forms carry
+    /// string-encoded values validated on restore.
     func fromDTO(_ dto: WorkspaceDTO) -> Workspace {
         Workspace(
             identity: dto.identity,
