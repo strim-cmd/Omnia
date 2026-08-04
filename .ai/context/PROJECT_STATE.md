@@ -45,6 +45,10 @@ completed:
   - Infrastructure Sprint 1 Phase 5 complete (2026-08-04): Provider repository implementation — FileProviderRepository over the storage engine and Provider serializer, storing the declared connection and lifecycle state by identity, never credentials (ARC-004, ARC-005), save-replaces-by-identity, idempotent delete, stable listing order, storage failures translated to RepositoryError.storageUnavailable; 12 deterministic unit tests green on the Linux build (issue #26)
   - Infrastructure Sprint 1 Phase 6 complete (2026-08-04): Configuration repository implementation — FileConfigurationRepository over the storage engine and Configuration serializer, storing typed values per ConfigurationLevel (DES-009 §3.5–§3.6), addressed by document keys composed of the level's serialized name and the key's name; the frozen Domain contract leaves Value unconstrained (Equatable & Sendable), so the repository bridges with a type-erased JSON payload at the storage boundary; never credentials, a stored value may hold only a CredentialReference pointer (ARC-004, ARC-005); storage and type-mismatch failures translated to RepositoryError.storageUnavailable (DES-009 §3.9); 14 deterministic unit tests green on the Linux build (issue #27)
   - Infrastructure Sprint 1 Phase 7 complete (2026-08-04): Secure credential storage implementation — SecureCredentialStorage, the concrete CredentialStorageProtocol over a replaceable platform backend seam (CredentialStorageBackend): the Keychain backend on Apple platforms (kSecClassGenericPassword, update-on-duplicate replace that never destroys the stored credential on failure) and the in-memory actor backend for the Linux build and automated tests, selected by the default initializer (DES-010 §3.4, ARC-005); honors the contract failures exactly — credentialNotFound and storageUnavailable (DES-009 §3.9); secrets never enter logs, analytics, or any representation — Credential descriptions stay redacted (ARC-001, ARC-005); 9 deterministic unit tests green on the Linux build (issue #28)
+  - Infrastructure Sprint 1 Phase 8 complete (2026-08-04): provider transport seam and OpenAI-compatible client — the internal chat-completions DTOs and JSON serialization, SSE streaming primitives (CRLF-normalized decoding), and failure translation into ProviderTransportError (raw transport errors never leak); 28 tests green on the Linux build (issue #29)
+  - Infrastructure Sprint 1 Phase 9 complete (2026-08-04): OpenAICompatibleProviderAdapter — the adapter shell conforms to the realized capability contracts (TextGenerationContract, ConversationContract, StreamingContract), wires the transport and the credential storage, owns no business logic or application state, and probes live availability through the transport seam in Omnia's own terms; 8 tests green on the Linux build (issue #30)
+  - Infrastructure Sprint 1 Phase 10 complete (2026-08-04): package verification — full unit-test pass on the integrated branch (OmniaInfrastructure 136, OmniaDomain 231, OmniaFoundation 136, root 1); dependency verification that OmniaInfrastructure depends only on OmniaDomain and OmniaFoundation (ARC-009); layer verification that no UI framework, business rules, or presentation state enter the package and that platform backends (Keychain, FoundationNetworking) are isolated behind conditional compilation; internal dependency graph confirmed acyclic; credential material never in logs (ARC-001, ARC-005); black-box coverage added for the adapter's public initializer (issue #31)
+  - Infrastructure Sprint 1 milestone closed (2026-08-04); GitHub issues #22-#31 closed; all phase PRs merged into feature/repository-foundation
 
 milestones:
   Foundation API Freeze v1:
@@ -104,7 +108,7 @@ milestones:
       - 231 tests passing, verified on the fully integrated branch (PRs #14–#21); 0 build or test warnings.
       - Milestone closed 2026-08-04; all Phase issues #7-#13 closed; all PRs #14-#21 merged into feature/repository-foundation.
   Infrastructure Sprint 1 – Implementation:
-    Status: Active
+    Status: Complete
     Scope:
       - DES-010 Infrastructure API specification and freeze (complete)
       - Storage engine foundation (file-based JSON document store) (complete)
@@ -115,7 +119,7 @@ milestones:
       - Secure credential storage (Keychain backend seam + in-memory backend) (complete)
       - Provider transport and OpenAI-compatible client (complete)
       - Provider adapters (complete)
-      - Package verification
+      - Package verification (complete)
     Outcome:
       - Planned 2026-08-04; roadmap and issues #22-#31 created under milestone #6.
       - DES-010 ratified 2026-08-04 (Infrastructure API Freeze v1, issue #22 closed).
@@ -127,13 +131,13 @@ milestones:
       - Secure credential storage implementation complete 2026-08-04 (issue #28); 9 tests green on the Linux build; secrets never enter logs or any representation.
       - Provider transport and OpenAI-compatible client complete 2026-08-04 (issue #29); 28 tests green on the Linux build (package suite 126 green); the `ProviderTransport` seam with no network in tests, the OpenAI-compatible HTTP client, internal chat-completions DTOs and JSON serialization, SSE streaming primitives, and failure translation into `ProviderTransportError` (raw errors never leak; credentials by reference, secrets confined to the authorization header).
       - Provider adapters complete 2026-08-04 (issue #30); 8 tests green on the Linux build (package suite 134 green); the `OpenAICompatibleProviderAdapter` shell conforms to the realized capability contracts (`TextGenerationContract`, `ConversationContract`, `StreamingContract`), wires the transport and the credential storage, owns no business logic or application state, and reports live availability through the transport seam in Omnia's own terms (ARC-004 Capability Discovery); concrete capability call methods deferred until the Domain contract is extended (DES-010 §3.6).
-      - Implementation in progress; Package verification implementation next.
+      - Package verification complete 2026-08-04 (issue #31); full unit-test pass on the integrated branch (OmniaInfrastructure 136, OmniaDomain 231, OmniaFoundation 136, root 1); OmniaInfrastructure depends only on OmniaDomain and OmniaFoundation (ARC-009); no UI framework, business rules, or presentation state in the package; platform backends (Keychain, FoundationNetworking) isolated behind conditional compilation; internal dependency graph acyclic; credential material never in logs; black-box coverage added for the adapter's public initializer (package suite 136 green).
+      - Milestone closed 2026-08-04; all Phase issues #22-#31 closed; all phase PRs merged into feature/repository-foundation.
 
 next_tasks:
-  - Implement Infrastructure Sprint 1 Phase 10 (issue #31): package verification — full unit-test pass, dependency verification that OmniaInfrastructure depends only on OmniaDomain and OmniaFoundation, layer verification that no UI framework or business rules enter the package, and confirmation that the internal dependency graph is acyclic (ARC-002, ARC-004, ARC-008, ARC-009), per INFRASTRUCTURE_SPRINT_1_ROADMAP.md and the frozen DES-010
-  - Implement the remaining OmniaInfrastructure package phases (#31) against the frozen DES-010 contract and the frozen Domain API, per INFRASTRUCTURE_SPRINT_1_ROADMAP.md implementation order
   - Keep the package building and its tests green at every step
   - Implement remaining DES-001 Phase 3 primitives when required (shared value types, typed-error abstraction)
+  - Plan the next sprint against the product roadmap (Application Foundation) and create its GitHub issues and milestone
 
 blocked: []
 
