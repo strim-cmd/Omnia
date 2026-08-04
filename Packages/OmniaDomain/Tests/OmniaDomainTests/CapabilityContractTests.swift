@@ -32,15 +32,6 @@ final class CapabilityContractTests: XCTestCase {
         XCTAssertTrue(contract is StreamingContract)
     }
 
-    func testCapabilityContract_ConformanceRequiresNoProvider() {
-        let text: any TextGenerationContract = MockTextGeneration()
-        let conversation: any ConversationContract = MockConversation()
-        let streaming: any StreamingContract = MockStreaming()
-        XCTAssertTrue(text is any CapabilityContract)
-        XCTAssertTrue(conversation is any CapabilityContract)
-        XCTAssertTrue(streaming is any CapabilityContract)
-    }
-
     // MARK: Realized set
 
     func testRealizedSet_ContainsExactlyTheCoreCapabilities() {

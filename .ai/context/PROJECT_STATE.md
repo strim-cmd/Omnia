@@ -31,7 +31,7 @@ completed:
   - Foundation Sprint 2 – Implementation
   - OmniaFoundation package complete (Identifier, Environment, Lifecycle, Logging, Clock, Cancellation, SemanticVersion; 136 tests green)
   - Domain Sprint 1 – Implementation (DES-009 phases 1-8): value objects, capability contract and provider model, configuration model, credential storage protocol, aggregates, repository protocols, domain services and policies
-  - OmniaDomain package complete (value objects, capability contract, configuration model, credential storage protocol, aggregates, four repository protocols, two domain services, two policies; 218 tests green)
+  - OmniaDomain package complete (value objects, capability contract, configuration model, credential storage protocol, aggregates, four repository protocols, two domain services, two policies; 231 tests green)
 
 milestones:
   Foundation API Freeze v1:
@@ -80,7 +80,7 @@ milestones:
     Outcome:
       - OmniaDomain package implemented against the frozen contract.
       - OmniaDomain depends only on OmniaFoundation; dependency graph acyclic; no forbidden imports.
-      - 218 tests passing.
+      - 231 tests passing, verified on the fully integrated branch (PRs #14–#21); 0 build or test warnings.
 
 next_tasks:
   - Implement the OmniaInfrastructure package (Stage 2) against the frozen Domain API contract per Documentation/Product/Roadmap/DOMAIN_SPRINT_1_ROADMAP.md Non-Goals (deferred)

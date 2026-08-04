@@ -1,7 +1,7 @@
 ---
 title: OmniaDomain Public API Contract
 document_id: DES-009
-version: 0.1.0
+version: 0.2.0
 status: Ratified
 owner: Founder
 project: Omnia
@@ -245,14 +245,16 @@ Normative statements:
 The contract declares typed failures for:
 
 - provider selection — when no provider can deliver the required capability (ARC-004);
-- provider lifecycle transitions — when a transition is invalid (ARC-004, DES-007);
-- conversation streaming interruption — when a stream ends before completion (ARC-001).
+- provider lifecycle transitions — when a transition is invalid or the provider is unknown (ARC-004, DES-007);
+- conversation streaming interruption — when a stream ends before completion (ARC-001);
+- repository operations — when the storage backing a repository cannot be reached (`RepositoryError.storageUnavailable`);
+- credential storage — when no credential is stored for a reference, or the secure storage cannot be reached (`CredentialStorageError`).
 
 Normative statements:
 
 - Failures MUST be represented by typed errors built on the Foundation error abstraction (DES-001 §3.9); raw error values are never exposed.
 - Failures MUST be explicit; no domain operation fails silently (ARC-001).
-- No error with provider, storage, or UI meaning is defined by this package (ARC-004, ARC-009).
+- No error with provider-adapter, storage-engine, or UI meaning is defined by this package: the Domain never declares the failures of a concrete provider, a concrete storage technology, or a user interface, which belong to the Infrastructure and Presentation layers (ARC-004, ARC-009). The storage-unavailable failures of the repository and credential-storage contracts are Domain-owned abstractions of a failed contract; they carry no storage-technology detail and never carry credential material.
 
 ### 3.10 Excluded from the Initial Contract
 
