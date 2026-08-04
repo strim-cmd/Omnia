@@ -81,7 +81,7 @@ The sprint is complete when the revision is ratified, the three concrete capabil
 2. Review the revision with the Documentation workflow (`.ai/prompts/workflows/documentation.md`) and the documentation review checklist (`.ai/checklists/documentation-review.md`), and verify it against `ARC-002`, `ARC-004`, `ARC-005`, `ARC-006`, `ARC-008`, `ARC-009`, `ADR-0001`/`ADR-0002`, the extended `DES-009` v0.3.0, and the existing frozen `DES-010`.
 3. Record the freeze. From that point, the revision is part of the frozen contract; a further change requires another specification revision, exactly as Infrastructure API Freeze v1 does (`PROJECT_STATE.md`).
 
-Milestone: **Infrastructure Capability Freeze** — `DES-010` v1.1.0 status is Ratified and the revision is recorded in `PROJECT_STATE.md`.
+Milestone: **Infrastructure Capability Freeze** — ratified on 2026-08-05; `DES-010` v1.1.0 status is Ratified and the revision is recorded in `PROJECT_STATE.md`.
 
 ### Stage 2 — Implementation
 

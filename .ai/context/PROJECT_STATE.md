@@ -17,6 +17,7 @@ foundation_api: Frozen (v1)
 domain_api: Frozen (v1)
 domain_capability_contract_extension: Frozen (v1)
 infrastructure_api: Frozen (v1)
+infrastructure_capability_surface: Frozen (v1)
 omnia_foundation: Complete
 
 completed:
@@ -70,6 +71,7 @@ completed:
   - Domain Sprint 2 Stage 3d complete (2026-08-05): streaming behavior implemented per the frozen design (DES-009 §3.11.4) — StreamingState, the stream-level state machine with the states active, complete, and interrupted and the legal transitions active→active (content delta, accumulating content), active→complete (terminal, carrying the assembled assistant message), and active→interrupted (terminal, preserving the partial content as incomplete); complete and interrupted are terminal and resumption after interruption is a new stream starting from the preserved partial content; interruption is cooperative through the stream lifecycle and the Foundation cancellation primitive (DES-008); partial content is never silently discarded and completion always carries the assembled assistant message (ARC-001); consistent with the Conversation aggregate's state machine (idle, streaming, interrupted); verified on the Linux build, OmniaDomain 311 tests and OmniaInfrastructure 136 tests green (issue #69)
   - Domain Sprint 2 Stage 4 complete (2026-08-05): verification of the extended OmniaDomain package per PRD-004 (issue #70) — the DES-009 v0.3.0 test matrix exercised black-box against the public capability surface: capability equivalence (values equal by content, typed identities never collide across concepts), streaming state transitions follow the frozen machine (active→active accumulates, active→complete and active→interrupted are terminal, terminal states reject further transitions with StreamingStateError.notActive), availability (an unavailable capability surfaces the typed CapabilityError.providerUnavailable), invalid-input handling (malformed identity strings and malformed JSON rejected), and interruption end-to-end (partial content preserved and never discarded; resumption carries it forward); full test pass on the Linux build — OmniaDomain 318 tests and OmniaInfrastructure 136 tests, 0 failures and 0 warnings; dependency verification that OmniaDomain depends only on OmniaFoundation with an acyclic internal dependency graph (the capability value objects never reference the contracts) and no forbidden or cross-package imports; layer verification that no Infrastructure/Application/Presentation concept enters the package (issue #70)
   - Domain Sprint 2 milestone closed (2026-08-05); GitHub issues #64-#70 closed; all phase PRs merged into feature/repository-foundation; the extended Domain capability contract (DES-009 v0.3.0) is verified and ready for the concrete provider capabilities of Infrastructure Sprint 2
+  - Infrastructure Capability Surface Freeze (2026-08-05): DES-010 INFRASTRUCTURE_API.md v1.1.0 ratified — the adapter's concrete capability surface of Infrastructure Sprint 2 Stage 1: the three capability call methods on OpenAICompatibleProviderAdapter (generateText, sendMessage, stream, conforming to DES-009 §3.11.3), the Domain-to-DTO mapping rules, the error-translation rules, and the streaming lifecycle, specified in the frozen §3.9 as the single source of truth for implementation; additive and backward-compatible over Infrastructure API Freeze v1 (§6.3); reviewed with the documentation review checklist and verified against ARC-002, ARC-004, ARC-005, ARC-006, ARC-008, ARC-009, ADR-0001/ADR-0002, the extended DES-009 v0.3.0, and the frozen DES-010 v1.0.0 (issue #71)
 
 milestones:
   Foundation API Freeze v1:
@@ -120,6 +122,14 @@ milestones:
       - Public API frozen.
       - Future API changes require specification revision.
       - Implementation proceeds against frozen contracts.
+  Infrastructure Capability Freeze:
+    Status: Ratified
+    Scope:
+      - DES-010 INFRASTRUCTURE_API v1.1.0 concrete capability surface (§3.9)
+    Outcome:
+      - Public API extended additively over Infrastructure API Freeze v1.
+      - Adapter concrete capability surface frozen; a further change requires specification revision.
+      - Implementation of the capabilities proceeds against the frozen surface.
   Domain Sprint 1 – Implementation:
     Status: Complete
     Scope:
@@ -184,7 +194,7 @@ milestones:
       - Milestone closed 2026-08-05; all Phase issues #64-#70 closed; all phase PRs merged into feature/repository-foundation.
       - Extends the Domain contract so the concrete provider capabilities can be implemented in Infrastructure Sprint 2.
   Infrastructure Sprint 2 – Implementation:
-    Status: Planned
+    Status: Active
     Scope:
       - DES-010 v1.1.0 Infrastructure capability specification and freeze
       - Capability mapping (Domain types to internal DTOs)
@@ -195,11 +205,12 @@ milestones:
     Outcome:
       - Planned 2026-08-04; roadmap INFRASTRUCTURE_SPRINT_2_ROADMAP.md (PRD-005); issues #71-#76 under milestone #7.
       - Sequenced after Domain Sprint 2 (PRD-004); depends on the extended Domain capability contract (DES-009 v0.3.0).
+      - Stage 1 complete 2026-08-05: DES-010 v1.1.0 ratified (Infrastructure Capability Surface Freeze, issue #71) — the adapter's concrete capability surface frozen in §3.9 as the single source of truth for the capability implementation.
 
 next_tasks:
   - Keep the package building and its tests green at every step
   - Implement remaining DES-001 Phase 3 primitives when required (shared value types, typed-error abstraction)
-  - Domain Sprint 2 complete (2026-08-05): milestone #5 closed — capability contract extension frozen, designed, implemented, and verified (issues #64-#70); next is Infrastructure Sprint 2 (milestone #7): kick off the concrete provider capabilities (issues #71-#76, PRD-005) against the verified DES-009 v0.3.0 contract
+  - Continue Infrastructure Sprint 2 (milestone #7): the concrete capability surface is frozen (DES-010 v1.1.0, issue #71); implement the concrete provider capabilities per PRD-005 — the capability mapping, then the text generation, conversation, and streaming capabilities, then the package verification (issues #72-#76) against the frozen §3.9 surface
   - Engineering Platform v2 (milestone #14, planning only per RFC-002): schedule v2 roadmap items as individual GitHub issues — Track A realization integration (wire PIPELINE-001 into the registry dispatch DONE via EP-006; wire PIPELINE-002 into an architecture review command DONE via EP-008), Track B automation (RFC-001 validate-platform script DONE via EP-007; automated package verification), Track C verification (black-box package-surface suite, CI pipeline, docs-drift check), Track D governance and tooling (recurring retrospective template, review sign-off for security-sensitive changes, project-board CLI helper, start-sprint checklist)
 
 blocked: []
