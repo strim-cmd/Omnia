@@ -11,14 +11,15 @@ This guide is the onboarding document for every AI agent. Read it before doing a
 Every AI agent MUST read these documents in order before making any change:
 
 1. `.ai/AI_CONSTITUTION.md` — the binding rules for every AI agent
-2. `Documentation/Product/PRODUCT_CHARTER.md` — what the product is
-3. `Documentation/Product/VISION.md` — why the product exists
-4. `.ai/context/` — the current state of the project
-5. `.ai/standards/` — the rules for code and documentation
-6. `.ai/prompts/` — reusable workflows, task prompts, and document templates
-7. `.ai/checklists/` — reusable review checklists
-8. `.ai/VERSION.md` — the current framework version and supported capabilities
-9. `.ai/agents/` — reusable engineering role definitions
+2. `.ai/orchestrator/REGISTRY.md` — the command-to-workflow dispatch table
+3. `Documentation/Product/PRODUCT_CHARTER.md` — what the product is
+4. `Documentation/Product/VISION.md` — why the product exists
+5. `.ai/context/` — the current state of the project
+6. `.ai/standards/` — the rules for code and documentation
+7. `.ai/prompts/` — reusable workflows, task prompts, and document templates
+8. `.ai/checklists/` — reusable review checklists
+9. `.ai/VERSION.md` — the current framework version and supported capabilities
+10. `.ai/agents/` — reusable engineering role definitions
 
 ## The .ai Directory
 
@@ -26,6 +27,7 @@ The `.ai` directory is the AI foundation of the repository. It governs how AI ag
 
 - `.ai/AI_CONSTITUTION.md` — the highest-priority document. Binding rules for every AI agent.
 - `.ai/VERSION.md` — the current framework version, architecture, and supported capabilities.
+- `.ai/orchestrator/` — the Workflow Orchestrator: registry-driven dispatch, repository-derived state, and decision gates.
 - `.ai/context/` — current project state and working summaries. These are pointers; the source documents win on conflict.
 - `.ai/standards/` — engineering standards: Swift, testing, UI, security, git, and documentation.
 - `.ai/prompts/` — reusable workflows, task prompts, and document templates.
@@ -35,7 +37,7 @@ The `.ai` directory is the AI foundation of the repository. It governs how AI ag
 - `.ai/checklists/` — reusable review checklists (code review, documentation review).
 - `.ai/agents/` — reusable engineering role definitions (Chief Architect, Principal Architect, Principal Software Engineer, Reviewer, Release Manager).
 - `.ai/pipelines/` — multi-stage pipeline definitions (New Document, Architecture Review).
-- `.ai/specifications/` — engineering contracts (agent and pipeline specifications).
+- `.ai/specifications/` — engineering contracts (agent specification, pipeline specification, Workflow Orchestrator specification).
 - `.ai/examples/` — reference examples of framework usage.
 
 ## Development Workflow
@@ -111,12 +113,19 @@ Engineering artifacts (commits, pull requests, issues, milestones, documentation
 
 ## Command Reference
 
-Commands are resolved against the GitHub artifact and the current project state, following the Intent-Driven Operation, Task Execution, and Interactive Execution Mode rules in `.ai/AI_CONSTITUTION.md`. The AI agent selects the workflow and task prompts automatically.
+Commands are resolved against the Workflow Registry (`.ai/orchestrator/REGISTRY.md`) and the current project state, following the Intent-Driven Operation, Task Execution, Workflow Orchestrator, and Interactive Execution Mode rules in `.ai/AI_CONSTITUTION.md`. The AI agent selects the workflow and task prompts automatically through the registry.
 
-| Command pattern | Resolution |
+| Command pattern | Registry resolution |
 | --- | --- |
-| Complete Issue #N | Treat the GitHub Issue as authoritative, then follow `prompts/tasks/complete-issue.md` via `prompts/workflows/issue-lifecycle.md` (Interactive Execution Mode). |
-| Review PR #N | Follow `prompts/tasks/review-pr.md` via `prompts/workflows/review.md` with `checklists/code-review.md`. |
-| Continue <Sprint> | Determine the next task from `context/PROJECT_STATE.md` and the matching roadmap, then follow the relevant workflow. |
-| Prepare Release vX.Y.Z | Follow `prompts/tasks/prepare-release.md` via `prompts/workflows/release.md`. |
-| Create <Document/RFC/API/Issue/Milestone> | Follow the corresponding `prompts/tasks/` prompt. |
+| Complete Issue #N | Registry resolves to `prompts/workflows/issue-lifecycle.md` via `prompts/tasks/complete-issue.md` with `checklists/code-review.md` and Interactive Execution Mode decision gates. |
+| Review PR #N | Registry resolves to `prompts/workflows/review.md` via `prompts/tasks/review-pr.md` with `checklists/code-review.md`. |
+| Implement PR #N | Registry resolves to `prompts/workflows/implementation.md` via `prompts/tasks/implement-pr.md`. |
+| Continue <Sprint> | Re-read `context/PROJECT_STATE.md`; resolve next task; dispatch through the registry. |
+| Prepare Release vX.Y.Z | Registry resolves to `prompts/workflows/release.md` via `prompts/tasks/prepare-release.md`. |
+| Create Document | Registry resolves to `prompts/workflows/documentation.md` via `prompts/tasks/create-document.md` with `checklists/documentation-review.md`. |
+| Create RFC | Registry resolves to `prompts/workflows/design.md` via `prompts/tasks/create-rfc.md`. |
+| Create API | Registry resolves to `prompts/workflows/design.md` via `prompts/tasks/create-api.md`. |
+| Create Issue | Registry resolves to `prompts/workflows/github.md` via `prompts/tasks/create-issue.md`. |
+| Update Issue #N | Registry resolves to `prompts/workflows/github.md` via `prompts/tasks/update-issue.md`. |
+| Close Issue #N | Registry resolves to `prompts/workflows/github.md` via `prompts/tasks/close-issue.md`. |
+| Create Milestone | Registry resolves to `prompts/workflows/github.md` via `prompts/tasks/create-milestone.md`. |

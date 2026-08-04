@@ -211,6 +211,14 @@ Deferred improvements, not implemented in this sprint:
 - The package verification phase is the highest-leverage step of the sprint: it certified the whole package and caught the only real coverage gap, at the lowest cost.
 - Documentation drift is silent: `PROJECT_STATE.md` stays correct because every phase updates it; README's status section requires an explicit check at each sprint boundary.
 
+### Outcome
+
+Infrastructure Sprint 1 marked the transition from prompt-oriented AI usage to process-oriented engineering.
+
+Future improvements should focus on evolving the Engineering Platform itself rather than increasing prompt complexity. User intent should remain concise while repository-defined workflows continue to absorb execution details.
+
+This principle becomes the foundation of Engineering Platform v2.
+
 ## Related Documents
 
 - `Documentation/Product/Roadmap/INFRASTRUCTURE_SPRINT_1_ROADMAP.md` — the sprint planning artifact and completion criteria.
