@@ -1,7 +1,7 @@
 ---
 title: Workflow Registry
 document_id: ORCH-REG-001
-version: 1.1.0
+version: 1.2.0
 status: Ratified
 owner: Chief AI Architect
 project: Omnia
@@ -51,7 +51,7 @@ The agent MUST resolve every command against this registry before executing. The
 | Command Pattern | Workflow | Task | Pipeline | Checklist | Decision Gates |
 | --- | --- | --- | --- | --- | --- |
 | `Complete Issue #N` | `workflows/issue-lifecycle.md` | `tasks/complete-issue.md` | — | `checklists/code-review.md` | Blocking → auto-fix + re-review loop; Clean → auto-merge; Non-blocking → interactive confirmation |
-| `Review PR #N` | `workflows/review.md` | `tasks/review-pr.md` | — | `checklists/code-review.md` | Blocking → report with rationale; Clean → approve and record; Approve with Recommendations → summarize and ask before merge |
+| `Review PR #N` | `workflows/review.md` | `tasks/review-pr.md` | `pipelines/ARCHITECTURE_REVIEW_PIPELINE.md` | `checklists/code-review.md` | Blocking → report with rationale; Clean → approve and record; Approve with Recommendations → summarize and ask before merge |
 | `Implement PR #N` | `workflows/implementation.md` | `tasks/implement-pr.md` | — | — | Verify tests pass, documentation updated |
 | `Prepare Release vX.Y.Z` | `workflows/release.md` | `tasks/prepare-release.md` | — | — | Human approval gate per pipeline |
 | `Create Document` | `workflows/documentation.md` | `tasks/create-document.md` | `pipelines/NEW_DOCUMENT_PIPELINE.md` | `checklists/documentation-review.md` | Architectural review gate |

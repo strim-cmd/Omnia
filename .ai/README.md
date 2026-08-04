@@ -121,7 +121,7 @@ Commands are resolved against the Workflow Registry (`.ai/orchestrator/REGISTRY.
 | Command pattern | Registry resolution |
 | --- | --- |
 | Complete Issue #N | Registry resolves to `prompts/workflows/issue-lifecycle.md` via `prompts/tasks/complete-issue.md` with `checklists/code-review.md` and Interactive Execution Mode decision gates. |
-| Review PR #N | Registry resolves to `prompts/workflows/review.md` via `prompts/tasks/review-pr.md` with `checklists/code-review.md`. |
+| Review PR #N | Registry resolves to `prompts/workflows/review.md` via `prompts/tasks/review-pr.md` with `checklists/code-review.md`; realized by the Architecture Review Pipeline (`pipelines/ARCHITECTURE_REVIEW_PIPELINE.md`) per the registry `Pipeline` column. |
 | Implement PR #N | Registry resolves to `prompts/workflows/implementation.md` via `prompts/tasks/implement-pr.md`. |
 | Continue <Sprint> | Re-read `context/PROJECT_STATE.md`; resolve next task; dispatch through the registry. |
 | Prepare Release vX.Y.Z | Registry resolves to `prompts/workflows/release.md` via `prompts/tasks/prepare-release.md`. |

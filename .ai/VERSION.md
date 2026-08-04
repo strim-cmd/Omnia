@@ -1,7 +1,7 @@
 ---
 title: AI Engineering Framework
 document_id: FRAMEWORK-001
-version: 3.4.0
+version: 3.5.0
 status: Ratified
 owner: Chief AI Architect
 project: Omnia
@@ -27,7 +27,7 @@ tags:
 
 ## Version
 
-3.4.0
+3.5.0
 
 ## Status
 
@@ -143,7 +143,7 @@ The framework is organized in five layers:
 | Pipeline | File | Dispatch |
 | --- | --- | --- |
 | New Document Pipeline | `pipelines/NEW_DOCUMENT_PIPELINE.md` | `Create Document` (via Workflow Registry `Pipeline` column) |
-| Architecture Review Pipeline | `pipelines/ARCHITECTURE_REVIEW_PIPELINE.md` | Not yet wired (deferred Track A item) |
+| Architecture Review Pipeline | `pipelines/ARCHITECTURE_REVIEW_PIPELINE.md` | `Review PR #N` (via Workflow Registry `Pipeline` column) |
 
 ## Supported Workflows
 
@@ -184,6 +184,8 @@ The framework is organized in five layers:
 | Platform Validation | `checklists/platform-validation.md` |
 
 ## Version History
+
+- 3.5.0 — Wired the Architecture Review Pipeline into the `Review PR #N` dispatch as the second Realization integration (EP-008). Populated the `Review PR #N` row's `Pipeline` column in the Workflow Registry (ORCH-REG-001 v1.2.0) with `pipelines/ARCHITECTURE_REVIEW_PIPELINE.md` (PIPELINE-002), reusing the generic `Pipeline` column mechanism, resolution rule, and attachment procedure established by EP-006; no command-specific orchestration logic was introduced. Updated the review workflow and review-pr task to follow the ARCHITECTURE_REVIEW_PIPELINE stages for architecture-relevant artifacts, preserving the pipeline's artifact exclusions and the command's inputs, outputs, and acceptance path. Framework version 3.5.0.
 
 - 3.4.0 — Automated the Engineering Platform Validation Suite (EP-007). Added the validation script `.ai/scripts/validate-platform.sh` (VAL-000 v1.2.0) as the primary execution mechanism: a deterministic encoding of all validation categories — reference resolution, registry integrity (including every populated `Pipeline` field), version and identifier consistency, document structure, absence of placeholders, style artifacts, and absence of contradictions — with per-category pass/fail output and a non-zero exit on failure. The manual checklist remains the authoritative specification and fallback. Updated the platform-validation workflow and validate-platform task to run the script and reconcile with the checklist. Fixed a broken registry reference in the documentation workflow. Added `.gitattributes` (`*.sh text eol=lf`) to keep shell scripts line-ending stable. Framework version 3.4.0.
 
