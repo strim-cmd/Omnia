@@ -52,6 +52,7 @@ completed:
   - Infrastructure Sprint 1 milestone closed (2026-08-04); GitHub issues #22-#31 closed; all phase PRs merged into feature/repository-foundation
   - Infrastructure Sprint 1 retrospective complete (2026-08-04): RETRO-001 ratified — achievements, engineering successes, recurring problems, workflow pain points, tooling observations, process improvements, and the Engineering Platform v2 backlog (issue #43); no improvements implemented, per the issue scope
   - EP-001 follow-up complete (2026-08-04): RETRO-002 ratified — documented how EP-002 (Workflow Orchestrator) validated the orchestrator architecture (ORCH-000) from execution evidence: intent-to-workflow transformation, registry-driven dispatch, repository-derived state, clean and non-blocking decision gates, language separation, minimal interaction, and repository-derived recovery; blocking gate, command-pattern rejection, and RFC gate recorded as not yet exercised (issue #48)
+  - Engineering Command Interface established (2026-08-04): the single supported user interaction surface of the Engineering Platform — command grammar (Verb [Object]), canonical supported command set defined by the Workflow Registry, registry-based resolution, and unrecognized commands reported and never executed; CMD-000 ratified; CONST-001 v1.5.0; framework version 3.1.0 (EP-003, issue #51)
 
 milestones:
   Foundation API Freeze v1:
