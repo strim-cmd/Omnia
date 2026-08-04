@@ -1,7 +1,7 @@
 ---
 title: AI Engineering Framework
 document_id: FRAMEWORK-001
-version: 2.4.0
+version: 2.5.0
 status: Ratified
 owner: Chief AI Architect
 project: Omnia
@@ -27,7 +27,7 @@ tags:
 
 ## Version
 
-2.4.0
+2.5.0
 
 ## Status
 
@@ -85,11 +85,13 @@ The framework is organized in five layers:
 │   │   ├── design.md
 │   │   ├── documentation.md
 │   │   ├── release.md
-│   │   └── github.md
+│   │   ├── github.md
+│   │   └── issue-lifecycle.md
 │   ├── tasks/
 │   │   ├── README.md
 │   │   ├── implement-pr.md
 │   │   ├── review-pr.md
+│   │   ├── complete-issue.md
 │   │   ├── create-document.md
 │   │   ├── create-rfc.md
 │   │   ├── create-api.md
@@ -125,6 +127,7 @@ The framework is organized in five layers:
 | Documentation | `prompts/workflows/documentation.md` |
 | Release | `prompts/workflows/release.md` |
 | GitHub | `prompts/workflows/github.md` |
+| Interactive Execution (issue lifecycle) | `prompts/workflows/issue-lifecycle.md` |
 
 ## Supported Tasks
 
@@ -132,6 +135,7 @@ The framework is organized in five layers:
 | --- | --- |
 | Implement PR | `prompts/tasks/implement-pr.md` |
 | Review PR | `prompts/tasks/review-pr.md` |
+| Complete Issue | `prompts/tasks/complete-issue.md` |
 | Create Document | `prompts/tasks/create-document.md` |
 | Create RFC | `prompts/tasks/create-rfc.md` |
 | Create API | `prompts/tasks/create-api.md` |
@@ -150,6 +154,7 @@ The framework is organized in five layers:
 
 ## Version History
 
+- 2.5.0 — Added Interactive Execution Mode: "Complete Issue #N" runs the full issue lifecycle automatically — implementation, pull request creation, review, merge, and issue closure — through the Interactive Execution workflow (`prompts/workflows/issue-lifecycle.md`) and the complete-issue task (`prompts/tasks/complete-issue.md`). Interactive decision gates: blocking review issues are fixed automatically, clean reviews are merged automatically, and non-blocking recommendations are summarized and confirmed in the user's preferred language. Engineering artifacts are always in English; user interaction is in the user's preferred language.
 - 2.4.0 — Finalized command mode through a single Intent-Driven Operation principle in the AI Constitution: user prompts express intent only, workflows are discovered automatically, GitHub Issues/PRs/Milestones and PROJECT_STATE are the authoritative project state, and `.ai` is the single source of engineering process truth.
 - 2.3.0 — Added command mode: task execution rules in the AI Constitution, a command reference in the README, and short task-oriented commands as the preferred interface.
 - 2.2.0 — Added GitHub project management: the GitHub workflow (`prompts/workflows/github.md`) and GitHub tasks (create-issue, update-issue, close-issue, create-milestone). GitHub is the authoritative project management system, managed through the GitHub CLI.

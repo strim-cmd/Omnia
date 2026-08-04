@@ -1,7 +1,7 @@
 ---
 title: AI Constitution
 document_id: CONST-001
-version: 1.2.0
+version: 1.3.0
 status: Ratified
 owner: Chief AI Architect
 project: Omnia
@@ -198,3 +198,13 @@ When a task references a GitHub Issue, Pull Request, Milestone, or active Sprint
 9. Consider the task complete only when the Definition of Done is satisfied.
 
 The user is not required to repeat these instructions.
+
+### Interactive Execution Mode
+
+For issue-completing commands (for example, "Complete Issue #N."), the agent runs the full lifecycle automatically — implementation, pull request creation, review, merge, and issue closure — through the Interactive Execution workflow (`prompts/workflows/issue-lifecycle.md`), pausing for the user only at the interactive decision gates:
+
+1. **Blocking review issues are fixed automatically** without asking; the review is then repeated until no blocking issues remain.
+2. **A clean review pass is merged automatically** without asking.
+3. **Non-blocking review recommendations are confirmed interactively**: the agent summarizes them in the user's preferred language and asks whether to address them before merging.
+4. **Engineering artifacts are always in English.** Commits, pull requests, issues, milestones, and documentation are written in English.
+5. **User interaction is in the user's preferred language**, inferred from how the user communicates. Every summary and every question is written in that language.
