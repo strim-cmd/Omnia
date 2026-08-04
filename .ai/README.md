@@ -124,7 +124,7 @@ Commands are resolved against the Workflow Registry (`.ai/orchestrator/REGISTRY.
 | Implement PR #N | Registry resolves to `prompts/workflows/implementation.md` via `prompts/tasks/implement-pr.md`. |
 | Continue <Sprint> | Re-read `context/PROJECT_STATE.md`; resolve next task; dispatch through the registry. |
 | Prepare Release vX.Y.Z | Registry resolves to `prompts/workflows/release.md` via `prompts/tasks/prepare-release.md`. |
-| Create Document | Registry resolves to `prompts/workflows/documentation.md` via `prompts/tasks/create-document.md` with `checklists/documentation-review.md`. |
+| Create Document | Registry resolves to `prompts/workflows/documentation.md` via `prompts/tasks/create-document.md` with `checklists/documentation-review.md`; realized by the New Document Pipeline (`pipelines/NEW_DOCUMENT_PIPELINE.md`) per the registry `Pipeline` column. |
 | Create RFC | Registry resolves to `prompts/workflows/design.md` via `prompts/tasks/create-rfc.md`. |
 | Create API | Registry resolves to `prompts/workflows/design.md` via `prompts/tasks/create-api.md`. |
 | Create Issue | Registry resolves to `prompts/workflows/github.md` via `prompts/tasks/create-issue.md`. |

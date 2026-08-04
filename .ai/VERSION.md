@@ -1,7 +1,7 @@
 ---
 title: AI Engineering Framework
 document_id: FRAMEWORK-001
-version: 3.2.0
+version: 3.3.0
 status: Ratified
 owner: Chief AI Architect
 project: Omnia
@@ -27,7 +27,7 @@ tags:
 
 ## Version
 
-3.2.0
+3.3.0
 
 ## Status
 
@@ -136,6 +136,13 @@ The framework is organized in five layers:
 | Engineering Command Interface | `specifications/COMMAND_INTERFACE_SPECIFICATION.md` |
 | Engineering Platform Validation Suite | `specifications/PLATFORM_VALIDATION_SPECIFICATION.md` |
 
+## Supported Pipelines
+
+| Pipeline | File | Dispatch |
+| --- | --- | --- |
+| New Document Pipeline | `pipelines/NEW_DOCUMENT_PIPELINE.md` | `Create Document` (via Workflow Registry `Pipeline` column) |
+| Architecture Review Pipeline | `pipelines/ARCHITECTURE_REVIEW_PIPELINE.md` | Not yet wired (deferred Track A item) |
+
 ## Supported Workflows
 
 | Workflow | File |
@@ -175,6 +182,8 @@ The framework is organized in five layers:
 | Platform Validation | `checklists/platform-validation.md` |
 
 ## Version History
+
+- 3.3.0 — Wired the New Document Pipeline into the `Create Document` dispatch as the first Realization integration (EP-006). Added a `Pipeline` column to the Workflow Registry (ORCH-REG-001 v1.1.0) and populated the `Create Document` row with `pipelines/NEW_DOCUMENT_PIPELINE.md` (PIPELINE-001); added the pipeline-resolution rule to the registry and the pipeline-attachment procedure to its adding-entries section. Updated the documentation workflow and create-document task to follow the NEW_DOCUMENT_PIPELINE stages. Extended the Validation Suite registry-integrity check (VAL-000 v1.1.0, category 2) and the platform-validation checklist and task to resolve every populated `Pipeline` field. Framework version 3.3.0.
 
 - 3.2.0 — Added the Engineering Platform Validation Suite: the repository-defined set of checks that certifies the integrity of the Engineering Platform itself. Introduced `specifications/PLATFORM_VALIDATION_SPECIFICATION.md` (VAL-000): validation categories (reference resolution, registry integrity, version and identifier consistency, document structure, absence of placeholders, style artifacts, absence of contradictions), pass criteria, invocation through the `Validate Engineering Platform` command, and integration with the decision gates. Added `checklists/platform-validation.md`, the `platform-validation` workflow (`prompts/workflows/platform-validation.md`), and the `validate-platform` task (`prompts/tasks/validate-platform.md`); registered the command in the Workflow Registry. Updated the AI Constitution with the Engineering Platform Validation Suite section (CONST-001 v1.6.0). Updated the README command reference. Framework version 3.2.0.
 - 3.1.0 — Established the Engineering Command Interface as the single supported user interaction surface of the Engineering Platform. Introduced `specifications/COMMAND_INTERFACE_SPECIFICATION.md` (CMD-000): the command grammar (Verb [Object]), the canonical supported command set defined by the Workflow Registry, registry-based resolution, and the rule that unrecognized commands are reported and never executed. Updated the AI Constitution with the Engineering Command Interface section (CONST-001 v1.5.0). Updated the README Command Mode and Command Reference sections to reference the command interface. Updated the Workflow Registry resolution rules and related documents. Framework version 3.1.0.
