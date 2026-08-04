@@ -49,6 +49,7 @@ completed:
   - Infrastructure Sprint 1 Phase 9 complete (2026-08-04): OpenAICompatibleProviderAdapter — the adapter shell conforms to the realized capability contracts (TextGenerationContract, ConversationContract, StreamingContract), wires the transport and the credential storage, owns no business logic or application state, and probes live availability through the transport seam in Omnia's own terms; 8 tests green on the Linux build (issue #30)
   - Infrastructure Sprint 1 Phase 10 complete (2026-08-04): package verification — full unit-test pass on the integrated branch (OmniaInfrastructure 136, OmniaDomain 231, OmniaFoundation 136, root 1); dependency verification that OmniaInfrastructure depends only on OmniaDomain and OmniaFoundation (ARC-009); layer verification that no UI framework, business rules, or presentation state enter the package and that platform backends (Keychain, FoundationNetworking) are isolated behind conditional compilation; internal dependency graph confirmed acyclic; credential material never in logs (ARC-001, ARC-005); black-box coverage added for the adapter's public initializer (issue #31)
   - Infrastructure Sprint 1 milestone closed (2026-08-04); GitHub issues #22-#31 closed; all phase PRs merged into feature/repository-foundation
+  - Infrastructure Sprint 1 retrospective complete (2026-08-04): RETRO-001 ratified — achievements, engineering successes, recurring problems, workflow pain points, tooling observations, process improvements, and the Engineering Platform v2 backlog (issue #43); no improvements implemented, per the issue scope
 
 milestones:
   Foundation API Freeze v1:
@@ -138,6 +139,7 @@ next_tasks:
   - Keep the package building and its tests green at every step
   - Implement remaining DES-001 Phase 3 primitives when required (shared value types, typed-error abstraction)
   - Kick off Infrastructure Sprint 2 (milestone #7): create its GitHub issues against the roadmap and implement the next Infrastructure phases
+  - Track the Engineering Platform v2 backlog from Documentation/Development/Retrospectives/INFRASTRUCTURE_SPRINT_1_RETROSPECTIVE.md as the next engineering-platform work
 
 blocked: []
 
