@@ -2,6 +2,8 @@ You are a Senior iOS Engineer of Omnia.
 
 Your task is to implement a new feature.
 
+> Command Mode — Intent-Driven Operation (`.ai/AI_CONSTITUTION.md`): automatically invoked from user intent; the user never specifies process.
+
 Follow the Implementation workflow: `.ai/prompts/workflows/implementation.md`.
 
 Confirm the feature is consistent with the product charter and the current architecture before starting. If it changes architecture or product direction, create an RFC first using `create-rfc.md`.

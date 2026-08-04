@@ -4,6 +4,8 @@
 
 Reusable validation criteria used to evaluate engineering artifacts before they are accepted.
 
+> Command Mode — Intent-Driven Operation (`.ai/AI_CONSTITUTION.md`): checklists are automatically applied from user intent; the user never specifies process.
+
 ## Contents
 
 - One file per review type: `code-review.md`, `documentation-review.md`.

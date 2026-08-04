@@ -2,6 +2,8 @@
 
 Reusable process for preparing a release.
 
+> Command Mode — Intent-Driven Operation (`.ai/AI_CONSTITUTION.md`): automatically invoked from user intent; the user never specifies process.
+
 ## Steps
 
 1. Read `.ai/standards/DOCUMENTATION.md`.

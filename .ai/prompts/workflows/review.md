@@ -2,6 +2,8 @@
 
 Reusable process for reviewing an engineering artifact before it is accepted.
 
+> Command Mode — Intent-Driven Operation (`.ai/AI_CONSTITUTION.md`): automatically invoked from user intent; the user never specifies process.
+
 ## Steps
 
 1. Read the artifact and the applicable checklist in `.ai/checklists/`.

@@ -2,6 +2,8 @@
 
 Reusable process for producing a design proposal (RFC) before architecture or product direction changes.
 
+> Command Mode — Intent-Driven Operation (`.ai/AI_CONSTITUTION.md`): automatically invoked from user intent; the user never specifies process.
+
 ## Steps
 
 1. Read the RFC template at `.ai/prompts/templates/RFC.md`.

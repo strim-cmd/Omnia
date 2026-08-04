@@ -4,6 +4,8 @@
 
 Task-specific prompts that tell an AI agent how to perform a specific job.
 
+> Command Mode — Intent-Driven Operation (`.ai/AI_CONSTITUTION.md`): tasks are automatically invoked from user intent; the user never specifies process.
+
 ## Contents
 
 - One file per task: `implement-pr.md`, `review-pr.md`, `create-document.md`, `create-rfc.md`, `create-api.md`, `prepare-release.md`, `create-issue.md`, `update-issue.md`, `close-issue.md`, `create-milestone.md`.

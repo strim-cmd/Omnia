@@ -2,6 +2,8 @@
 
 Reusable process for implementing a feature or change in Omnia.
 
+> Command Mode — Intent-Driven Operation (`.ai/AI_CONSTITUTION.md`): automatically invoked from user intent; the user never specifies process.
+
 ## Preconditions
 
 1. Confirm the change is consistent with the Product Charter and the current architecture.

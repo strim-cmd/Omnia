@@ -36,6 +36,7 @@ completed:
   - Domain Sprint 1 milestone closed (2026-08-04); GitHub issues #7-#13 closed; PRs #14-#21 merged
   - Infrastructure Sprint 1 planned (2026-08-04); roadmap INFRASTRUCTURE_SPRINT_1_ROADMAP.md; GitHub issues #22-#31 created under milestone #6 with dependencies, acceptance criteria, and implementation order
   - AI framework command mode (2026-08-04): short task-oriented commands are the preferred interface; AI Constitution Task Execution rules (CONST-001 v1.1.0) and README command reference added; framework version 2.3.0
+  - AI framework command mode finalized (2026-08-04): single Intent-Driven Operation principle (CONST-001 v1.2.0) — user prompts express intent only, workflows are discovered automatically, GitHub Issues/PRs/Milestones and PROJECT_STATE are the authoritative project state, `.ai` is the single source of engineering process truth; every workflow, checklist, and task references Command Mode consistently; framework version 2.4.0
   - Infrastructure API Freeze v1 (2026-08-04); DES-010 INFRASTRUCTURE_API.md ratified; GitHub issue #22 complete
 
 milestones:

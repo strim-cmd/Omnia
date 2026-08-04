@@ -2,6 +2,8 @@
 
 Evaluate the documentation change against `.ai/standards/DOCUMENTATION.md`. Approve only when the checklist passes.
 
+> Command Mode — Intent-Driven Operation (`.ai/AI_CONSTITUTION.md`): automatically invoked from user intent; the user never specifies process.
+
 - [ ] Written in English and Markdown.
 - [ ] Clear purpose.
 - [ ] Required sections present: Purpose, Scope, Requirements, Non-Goals, Related Documents.

@@ -1,7 +1,7 @@
 ---
 title: AI Constitution
 document_id: CONST-001
-version: 1.1.0
+version: 1.2.0
 status: Ratified
 owner: Chief AI Architect
 project: Omnia
@@ -174,7 +174,16 @@ No rule in this document may depend on a specific AI model.
 - `.ai/standards/`
 - `.ai/prompts/`
 
-## Task Execution
+## Intent-Driven Operation
+
+The Omnia engineering process is driven by a single principle: **the user expresses intent, the framework expresses process.**
+
+1. **User prompts express intent only, never process.** The user states what to achieve (for example, "Complete Issue #22." or "Prepare Release v2.3.0."). The user does not specify workflows, steps, checklists, or conventions. The user is not required to repeat repository rules or instructions.
+2. **Workflows are always discovered automatically.** The AI agent infers the appropriate workflow from the GitHub Issue, Pull Request, Milestone, or Sprint referenced by the prompt, and selects it from `.ai/prompts/workflows/`. The user never names or selects a workflow.
+3. **GitHub Issues, Pull Requests, Milestones, and PROJECT_STATE are the authoritative project state.** The AI agent reads the current project state from `.ai/context/PROJECT_STATE.md` and the relevant GitHub artifacts instead of asking the user to restate it.
+4. **`.ai/` is the single source of engineering process truth.** All engineering process — standards, workflows, checklists, templates, and task prompts — lives in `.ai/`. The user does not supply process instructions.
+
+### Task Execution
 
 When a task references a GitHub Issue, Pull Request, Milestone, or active Sprint, the AI agent MUST:
 

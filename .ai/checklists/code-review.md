@@ -2,6 +2,8 @@
 
 Evaluate the change against every applicable item. A change must pass all applicable items to be approved.
 
+> Command Mode — Intent-Driven Operation (`.ai/AI_CONSTITUTION.md`): automatically invoked from user intent; the user never specifies process.
+
 ## Product Principles
 
 - [ ] The change is consistent with the Product Charter and Product Principles.

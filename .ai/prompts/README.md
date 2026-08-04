@@ -4,6 +4,8 @@
 
 Operational instructions for engineering tasks. The prompts framework separates reusable workflows from task-specific prompts, backed by reusable templates and checklists.
 
+> Command Mode — Intent-Driven Operation (`.ai/AI_CONSTITUTION.md`): workflows, tasks, and templates are automatically invoked from user intent; the user never specifies process.
+
 ## Structure
 
 - `workflows/` — reusable engineering processes (implementation, review, design, documentation, release). Referenced by tasks.

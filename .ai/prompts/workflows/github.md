@@ -2,6 +2,8 @@
 
 Reusable process for AI agents to use GitHub as the authoritative project management system for Omnia, through the GitHub CLI (`gh`).
 
+> Command Mode — Intent-Driven Operation (`.ai/AI_CONSTITUTION.md`): automatically invoked from user intent; the user never specifies process.
+
 ## Purpose
 
 GitHub records the project's plan and progress: issues, milestones, labels, and the Omnia Roadmap project. This workflow defines how agents create, update, and close that state so the result stays consistent with the AI Engineering Framework.

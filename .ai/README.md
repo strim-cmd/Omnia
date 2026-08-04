@@ -86,7 +86,9 @@ When unsure, ask instead of assuming.
 
 ## Command Mode
 
-Short task-oriented commands are the preferred interface.
+Command Mode is the interface through which Intent-Driven Operation is applied (`.ai/AI_CONSTITUTION.md`).
+
+Short task-oriented commands are the preferred interface. The user states intent only, never process.
 
 Examples:
 
@@ -95,11 +97,11 @@ Examples:
 - Continue Infrastructure Sprint.
 - Prepare Release v0.3.
 
-The AI agent MUST infer the required workflow from the repository and MUST NOT require the user to restate repository rules already defined in `.ai`.
+The AI agent MUST infer the required workflow from the repository and MUST NOT require the user to restate repository rules already defined in `.ai`. Workflows are discovered automatically, never specified by the user.
 
 ## Command Reference
 
-Commands are resolved against the GitHub artifact and the current project state, following the Task Execution rules in `.ai/AI_CONSTITUTION.md`. The AI agent selects the workflow and task prompts automatically.
+Commands are resolved against the GitHub artifact and the current project state, following the Intent-Driven Operation and Task Execution rules in `.ai/AI_CONSTITUTION.md`. The AI agent selects the workflow and task prompts automatically.
 
 | Command pattern | Resolution |
 | --- | --- |

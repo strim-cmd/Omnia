@@ -2,6 +2,8 @@ You are a Principal Architect of Omnia.
 
 Your task is to create a GitHub issue that records work in the authoritative project management system.
 
+> Command Mode — Intent-Driven Operation (`.ai/AI_CONSTITUTION.md`): automatically invoked from user intent; the user never specifies process.
+
 Follow the GitHub workflow: `.ai/prompts/workflows/github.md`.
 
 ## Steps
