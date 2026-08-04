@@ -11,15 +11,16 @@ This guide is the onboarding document for every AI agent. Read it before doing a
 Every AI agent MUST read these documents in order before making any change:
 
 1. `.ai/AI_CONSTITUTION.md` — the binding rules for every AI agent
-2. `.ai/orchestrator/REGISTRY.md` — the command-to-workflow dispatch table
-3. `Documentation/Product/PRODUCT_CHARTER.md` — what the product is
-4. `Documentation/Product/VISION.md` — why the product exists
-5. `.ai/context/` — the current state of the project
-6. `.ai/standards/` — the rules for code and documentation
-7. `.ai/prompts/` — reusable workflows, task prompts, and document templates
-8. `.ai/checklists/` — reusable review checklists
-9. `.ai/VERSION.md` — the current framework version and supported capabilities
-10. `.ai/agents/` — reusable engineering role definitions
+2. `.ai/orchestrator/README.md` — the Workflow Orchestrator structure and purpose
+3. `.ai/orchestrator/REGISTRY.md` — the command-to-workflow dispatch table
+4. `Documentation/Product/PRODUCT_CHARTER.md` — what the product is
+5. `Documentation/Product/VISION.md` — why the product exists
+6. `.ai/context/` — the current state of the project
+7. `.ai/standards/` — the rules for code and documentation
+8. `.ai/prompts/` — reusable workflows, task prompts, and document templates
+9. `.ai/checklists/` — reusable review checklists
+10. `.ai/VERSION.md` — the current framework version and supported capabilities
+11. `.ai/agents/` — reusable engineering role definitions
 
 ## The .ai Directory
 

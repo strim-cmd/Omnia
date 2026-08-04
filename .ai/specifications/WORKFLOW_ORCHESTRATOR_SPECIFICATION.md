@@ -35,12 +35,12 @@ The Workflow Orchestrator is the execution engine behind intent-driven commands.
 
 This specification is designed to achieve:
 
-- **Determinism** -- the same intent and project state always produce the same execution path.
-- **Repository-driven state** -- all state is read from the repository, never from tool session context.
-- **Resumability** -- every execution can be interrupted and resumed by re-reading the repository.
-- **Minimal user interaction** -- the agent pauses only when a human engineering decision is required.
-- **Language separation** -- engineering artifacts in English; user interaction in the preferred language.
-- **Traceability** -- every execution is traceable through the registry, workflows, and project state.
+- **Determinism** — the same intent and project state always produce the same execution path.
+- **Repository-driven state** — all state is read from the repository, never from tool session context.
+- **Resumability** — every execution can be interrupted and resumed by re-reading the repository.
+- **Minimal user interaction** — the agent pauses only when a human engineering decision is required.
+- **Language separation** — engineering artifacts in English; user interaction in the preferred language.
+- **Traceability** — every execution is traceable through the registry, workflows, and project state.
 
 ## Execution Model
 
@@ -148,9 +148,9 @@ The Workflow Orchestrator dispatches workflows. Pipelines (defined per `.ai/spec
 
 ## Related Documents
 
-- `.ai/orchestrator/README.md` -- overview and structure
-- `.ai/orchestrator/REGISTRY.md` -- the command dispatch table
-- `.ai/AI_CONSTITUTION.md` -- governing rules
-- `.ai/specifications/PIPELINE_SPECIFICATION.md` -- pipeline definitions
-- `.ai/prompts/workflows/` -- workflow definitions
-- `.ai/prompts/tasks/` -- task prompts
+- `.ai/orchestrator/README.md` — overview and structure
+- `.ai/orchestrator/REGISTRY.md` — the command dispatch table
+- `.ai/AI_CONSTITUTION.md` — governing rules
+- `.ai/specifications/PIPELINE_SPECIFICATION.md` — pipeline definitions
+- `.ai/prompts/workflows/` — workflow definitions
+- `.ai/prompts/tasks/` — task prompts

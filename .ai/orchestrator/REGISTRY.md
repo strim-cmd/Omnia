@@ -46,7 +46,7 @@ The agent MUST resolve every command against this registry before executing. The
 | Command Pattern | Workflow | Task | Checklist | Decision Gates |
 | --- | --- | --- | --- | --- |
 | `Complete Issue #N` | `workflows/issue-lifecycle.md` | `tasks/complete-issue.md` | `checklists/code-review.md` | Blocking → auto-fix + re-review loop; Clean → auto-merge; Non-blocking → interactive confirmation |
-| `Review PR #N` | `workflows/review.md` | `tasks/review-pr.md` | `checklists/code-review.md` | Blocking → report with rationale; Clean → approve and record |
+| `Review PR #N` | `workflows/review.md` | `tasks/review-pr.md` | `checklists/code-review.md` | Blocking → report with rationale; Clean → approve and record; Approve with Recommendations → summarize and ask before merge |
 | `Implement PR #N` | `workflows/implementation.md` | `tasks/implement-pr.md` | — | Verify tests pass, documentation updated |
 | `Prepare Release vX.Y.Z` | `workflows/release.md` | `tasks/prepare-release.md` | — | Human approval gate per pipeline |
 | `Create Document` | `workflows/documentation.md` | `tasks/create-document.md` | `checklists/documentation-review.md` | Architectural review gate |
