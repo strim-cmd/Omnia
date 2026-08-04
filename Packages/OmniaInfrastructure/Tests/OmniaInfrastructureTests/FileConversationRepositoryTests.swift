@@ -132,4 +132,26 @@ final class FileConversationRepositoryTests: XCTestCase {
             XCTAssertEqual(error as? RepositoryError, .storageUnavailable)
         }
     }
+
+    func testConversation_WithCorruptedStoredDocument_ThrowsStorageUnavailable() async throws {
+        let repository = makeRepository()
+        let identity = ConversationIdentity()
+        let badRoleDocument = Data(
+            """
+            {"identity":"\(identity.canonicalString)","history":[{"role":"admin","content":"x"}],"streamingState":{"state":"idle","partialContent":null}}
+            """.utf8
+        )
+        try badRoleDocument.write(
+            to: directoryURL
+                .appendingPathComponent(identity.canonicalString)
+                .appendingPathExtension("json")
+        )
+
+        do {
+            _ = try await repository.conversation(with: identity)
+            XCTFail("Expected RepositoryError.storageUnavailable")
+        } catch {
+            XCTAssertEqual(error as? RepositoryError, .storageUnavailable)
+        }
+    }
 }

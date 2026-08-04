@@ -90,6 +90,24 @@ final class FileWorkspaceRepositoryTests: XCTestCase {
         XCTAssertTrue(workspaces.isEmpty)
     }
 
+    func testAllWorkspaces_ReturnsWorkspacesInStableSortedOrder() async throws {
+        let repository = makeRepository()
+        let gamma = Workspace(identity: WorkspaceIdentity(), name: "Gamma")
+        let alpha = Workspace(identity: WorkspaceIdentity(), name: "Alpha")
+        let beta = Workspace(identity: WorkspaceIdentity(), name: "Beta")
+
+        try await repository.save(gamma)
+        try await repository.save(alpha)
+        try await repository.save(beta)
+
+        let workspaces = try await repository.allWorkspaces()
+        let expected = [alpha, beta, gamma].sorted {
+            $0.identity.canonicalString < $1.identity.canonicalString
+        }
+
+        XCTAssertEqual(workspaces, expected)
+    }
+
     // MARK: - Delete
 
     func testDelete_RemovesTheWorkspace() async throws {
@@ -129,6 +147,23 @@ final class FileWorkspaceRepositoryTests: XCTestCase {
 
         do {
             try await repository.save(Workspace(identity: WorkspaceIdentity(), name: "x"))
+            XCTFail("Expected RepositoryError.storageUnavailable")
+        } catch {
+            XCTAssertEqual(error as? RepositoryError, .storageUnavailable)
+        }
+    }
+
+    func testWorkspace_WithCorruptedStoredDocument_ThrowsStorageUnavailable() async throws {
+        let repository = makeRepository()
+        let identity = WorkspaceIdentity()
+        try Data("not a stored workspace".utf8).write(
+            to: directoryURL
+                .appendingPathComponent(identity.canonicalString)
+                .appendingPathExtension("json")
+        )
+
+        do {
+            _ = try await repository.workspace(with: identity)
             XCTFail("Expected RepositoryError.storageUnavailable")
         } catch {
             XCTAssertEqual(error as? RepositoryError, .storageUnavailable)
