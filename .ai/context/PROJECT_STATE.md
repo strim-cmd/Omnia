@@ -40,6 +40,7 @@ completed:
   - Infrastructure API Freeze v1 (2026-08-04); DES-010 INFRASTRUCTURE_API.md ratified; GitHub issue #22 complete
   - Infrastructure Sprint 1 Phase 2 complete (2026-08-04): file-based JSON document store foundation (JSONDocumentStore) — save, load, delete, and list by identity; JSON serialization plumbing; storage-error translation to RepositoryError.storageUnavailable; 11 deterministic unit tests green on the Linux build (issue #23)
   - Infrastructure Sprint 1 Phase 3 complete (2026-08-04): Infrastructure-owned DTOs and JSON serializers for the Workspace, Conversation (with full message history), Provider (connection and lifecycle state), and configuration aggregates — WorkspaceSerializer, ConversationSerializer, ProviderSerializer, ConfigurationSerializer; never credentials, only CredentialReference pointers; deterministic stored form (sorted keys/arrays) that round-trips exactly; 29 serializer unit tests green on the Linux build (issue #24)
+  - Infrastructure Sprint 1 Phase 4 complete (2026-08-04): Workspace and Conversation repository implementations over the storage engine and serializers — FileWorkspaceRepository and FileConversationRepository, each owning its document directory, storing whole aggregates by identity (full message history and streaming state for Conversation), save-replaces-by-identity, idempotent delete, no business rules (ARC-005), storage failures translated to RepositoryError.storageUnavailable; 16 deterministic unit tests green on the Linux build (issue #25)
 
 milestones:
   Foundation API Freeze v1:
@@ -104,7 +105,7 @@ milestones:
       - DES-010 Infrastructure API specification and freeze (complete)
       - Storage engine foundation (file-based JSON document store) (complete)
       - Aggregate serializers (complete)
-      - Workspace and Conversation repository implementations
+      - Workspace and Conversation repository implementations (complete)
       - Provider repository implementation
       - Configuration repository implementation
       - Secure credential storage (Keychain backend seam + in-memory backend)
@@ -116,10 +117,11 @@ milestones:
       - DES-010 ratified 2026-08-04 (Infrastructure API Freeze v1, issue #22 closed).
       - Storage engine foundation complete 2026-08-04 (issue #23); 11 tests green on the Linux build.
       - Aggregate serializers complete 2026-08-04 (issue #24); 29 tests green on the Linux build; never credentials, only references.
-      - Implementation in progress; Workspace and Conversation repository implementations next.
+      - Workspace and Conversation repository implementations complete 2026-08-04 (issue #25); 16 tests green on the Linux build.
+      - Implementation in progress; Provider repository implementation next.
 
 next_tasks:
-  - Implement Infrastructure Sprint 1 Phase 4 (issue #25): the Workspace and Conversation repository implementations over the storage engine and serializers, per INFRASTRUCTURE_SPRINT_1_ROADMAP.md and the frozen DES-010
+  - Implement Infrastructure Sprint 1 Phase 5 (issue #26): the Provider repository implementation over the storage engine and serializer, per INFRASTRUCTURE_SPRINT_1_ROADMAP.md and the frozen DES-010
   - Implement the remaining OmniaInfrastructure package phases (#26-#31) against the frozen DES-010 contract and the frozen Domain API, per INFRASTRUCTURE_SPRINT_1_ROADMAP.md implementation order
   - Keep the package building and its tests green at every step
   - Implement remaining DES-001 Phase 3 primitives when required (shared value types, typed-error abstraction)
