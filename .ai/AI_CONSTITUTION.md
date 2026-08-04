@@ -1,7 +1,7 @@
 ---
 title: AI Constitution
 document_id: CONST-001
-version: 1.3.0
+version: 1.4.0
 status: Ratified
 owner: Chief AI Architect
 project: Omnia
@@ -9,6 +9,9 @@ created: 2026-08-02
 last_updated: 2026-08-04
 related_documents:
   - .ai/README.md
+  - .ai/orchestrator/README.md
+  - .ai/orchestrator/REGISTRY.md
+  - .ai/specifications/WORKFLOW_ORCHESTRATOR_SPECIFICATION.md
   - Documentation/Product/PRODUCT_CHARTER.md
   - Documentation/Product/VISION.md
   - .ai/standards/
@@ -208,3 +211,15 @@ For issue-completing commands (for example, "Complete Issue #N."), the agent run
 3. **Non-blocking review recommendations are confirmed interactively**: the agent summarizes them in the user's preferred language and asks whether to address them before merging.
 4. **Engineering artifacts are always in English.** Commits, pull requests, issues, milestones, and documentation are written in English.
 5. **User interaction is in the user's preferred language**, inferred from how the user communicates. Every summary and every question is written in that language.
+
+## Workflow Orchestrator
+
+The Workflow Orchestrator is the execution engine behind intent-driven commands.
+
+1. **Registry-driven dispatch.** All command dispatch flows through the Workflow Registry (`.ai/orchestrator/REGISTRY.md`). The agent resolves user intent against the registry before executing. The agent does not invent workflow paths that are not in the registry.
+2. **Repository-derived state.** Project state is always read from the repository: `.ai/context/PROJECT_STATE.md` for project status, GitHub artifacts for task-specific state. The agent never relies on tool session context for state.
+3. **Always resumable.** Execution is always resumable. If an execution is interrupted, the agent re-reads the registry and project state to determine the next step. Continuation is repository-derived, not session-derived.
+4. **Deterministic execution.** The same intent and project state always produce the same execution path. The registry is the single source of truth for dispatch; workflows are the single source of truth for process.
+5. **Decision gates.** Decision gates are applied automatically per the Workflow Orchestrator specification (`.ai/specifications/WORKFLOW_ORCHESTRATOR_SPECIFICATION.md`): blocking issues are fixed automatically, clean passes merge automatically, non-blocking recommendations are confirmed interactively.
+6. **Minimal interaction.** The agent pauses only when a human engineering decision is required. All other operations proceed automatically.
+7. **Language separation.** Engineering artifacts remain in English. User interaction uses the user's preferred language.

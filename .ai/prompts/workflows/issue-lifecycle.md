@@ -6,9 +6,14 @@ Reusable process for completing a GitHub issue end to end: implement the change,
 
 ## Preconditions
 
-1. The GitHub issue is open and its acceptance criteria are the authoritative task definition.
-2. The Implementation workflow preconditions are satisfied (`implementation.md`).
-3. `gh` is installed and authenticated (`github.md`).
+1. The command has been resolved against the Workflow Registry (`.ai/orchestrator/REGISTRY.md`).
+2. The GitHub issue is open and its acceptance criteria are the authoritative task definition.
+3. The Implementation workflow preconditions are satisfied (`implementation.md`).
+4. `gh` is installed and authenticated (`github.md`).
+
+## Orchestrator Resolution
+
+The Workflow Orchestrator resolves `Complete Issue #N` against the registry before executing this lifecycle. The registry determines the workflow, task prompt, checklist, and decision gates. Project state is loaded from `.ai/context/PROJECT_STATE.md` and the GitHub issue artifact. If execution is interrupted at any point, the agent re-reads the registry and project state to resume.
 
 ## Steps
 
