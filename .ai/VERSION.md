@@ -1,7 +1,7 @@
 ---
 title: AI Engineering Framework
 document_id: FRAMEWORK-001
-version: 3.1.0
+version: 3.2.0
 status: Ratified
 owner: Chief AI Architect
 project: Omnia
@@ -27,7 +27,7 @@ tags:
 
 ## Version
 
-3.1.0
+3.2.0
 
 ## Status
 
@@ -64,7 +64,8 @@ The framework is organized in five layers:
 ├── checklists/
 │   ├── README.md
 │   ├── code-review.md
-│   └── documentation-review.md
+│   ├── documentation-review.md
+│   └── platform-validation.md
 ├── context/
 │   ├── ARCHITECTURE.md
 │   ├── PRODUCT.md
@@ -90,7 +91,8 @@ The framework is organized in five layers:
 │   │   ├── documentation.md
 │   │   ├── release.md
 │   │   ├── github.md
-│   │   └── issue-lifecycle.md
+│   │   ├── issue-lifecycle.md
+│   │   └── platform-validation.md
 │   ├── tasks/
 │   │   ├── README.md
 │   │   ├── implement-pr.md
@@ -103,7 +105,8 @@ The framework is organized in five layers:
 │   │   ├── create-issue.md
 │   │   ├── update-issue.md
 │   │   ├── close-issue.md
-│   │   └── create-milestone.md
+│   │   ├── create-milestone.md
+│   │   └── validate-platform.md
 │   └── templates/
 │       ├── README.md
 │       ├── DOCUMENT.md
@@ -113,6 +116,7 @@ The framework is organized in five layers:
 ├── specifications/
 │   ├── COMMAND_INTERFACE_SPECIFICATION.md
 │   ├── PIPELINE_SPECIFICATION.md
+│   ├── PLATFORM_VALIDATION_SPECIFICATION.md
 │   └── WORKFLOW_ORCHESTRATOR_SPECIFICATION.md
 └── standards/
     ├── DOCUMENTATION.md
@@ -130,6 +134,7 @@ The framework is organized in five layers:
 | Pipeline | `specifications/PIPELINE_SPECIFICATION.md` |
 | Workflow Orchestrator | `specifications/WORKFLOW_ORCHESTRATOR_SPECIFICATION.md` |
 | Engineering Command Interface | `specifications/COMMAND_INTERFACE_SPECIFICATION.md` |
+| Engineering Platform Validation Suite | `specifications/PLATFORM_VALIDATION_SPECIFICATION.md` |
 
 ## Supported Workflows
 
@@ -142,6 +147,7 @@ The framework is organized in five layers:
 | Release | `prompts/workflows/release.md` |
 | GitHub | `prompts/workflows/github.md` |
 | Interactive Execution (issue lifecycle) | `prompts/workflows/issue-lifecycle.md` |
+| Platform Validation | `prompts/workflows/platform-validation.md` |
 
 ## Supported Tasks
 
@@ -158,6 +164,7 @@ The framework is organized in five layers:
 | Update Issue | `prompts/tasks/update-issue.md` |
 | Close Issue | `prompts/tasks/close-issue.md` |
 | Create Milestone | `prompts/tasks/create-milestone.md` |
+| Validate Platform | `prompts/tasks/validate-platform.md` |
 
 ## Supported Checklists
 
@@ -165,9 +172,11 @@ The framework is organized in five layers:
 | --- | --- |
 | Code Review | `checklists/code-review.md` |
 | Documentation Review | `checklists/documentation-review.md` |
+| Platform Validation | `checklists/platform-validation.md` |
 
 ## Version History
 
+- 3.2.0 — Added the Engineering Platform Validation Suite: the repository-defined set of checks that certifies the integrity of the Engineering Platform itself. Introduced `specifications/PLATFORM_VALIDATION_SPECIFICATION.md` (VAL-000): validation categories (reference resolution, registry integrity, version and identifier consistency, document structure, absence of placeholders, style artifacts, absence of contradictions), pass criteria, invocation through the `Validate Engineering Platform` command, and integration with the decision gates. Added `checklists/platform-validation.md`, the `platform-validation` workflow (`prompts/workflows/platform-validation.md`), and the `validate-platform` task (`prompts/tasks/validate-platform.md`); registered the command in the Workflow Registry. Updated the AI Constitution with the Engineering Platform Validation Suite section (CONST-001 v1.6.0). Updated the README command reference. Framework version 3.2.0.
 - 3.1.0 — Established the Engineering Command Interface as the single supported user interaction surface of the Engineering Platform. Introduced `specifications/COMMAND_INTERFACE_SPECIFICATION.md` (CMD-000): the command grammar (Verb [Object]), the canonical supported command set defined by the Workflow Registry, registry-based resolution, and the rule that unrecognized commands are reported and never executed. Updated the AI Constitution with the Engineering Command Interface section (CONST-001 v1.5.0). Updated the README Command Mode and Command Reference sections to reference the command interface. Updated the Workflow Registry resolution rules and related documents. Framework version 3.1.0.
 - 3.0.0 — Added the Workflow Orchestrator: the execution engine behind intent-driven commands. Introduced `orchestrator/REGISTRY.md` (the authoritative command-to-workflow dispatch table), `orchestrator/README.md` (structure and purpose), and `specifications/WORKFLOW_ORCHESTRATOR_SPECIFICATION.md` (the architectural contract defining execution model, repository-derived state, decision gates, recovery, and language rules). Updated the AI Constitution with the Workflow Orchestrator section (CONST-001 v1.4.0). Updated the issue-lifecycle workflow to reference registry resolution. Updated the README command reference to route all commands through the registry. Framework version 3.0.0.
 - 2.5.0 — Added Interactive Execution Mode: "Complete Issue #N" runs the full issue lifecycle automatically — implementation, pull request creation, review, merge, and issue closure — through the Interactive Execution workflow (`prompts/workflows/issue-lifecycle.md`) and the complete-issue task (`prompts/tasks/complete-issue.md`). Interactive decision gates: blocking review issues are fixed automatically, clean reviews are merged automatically, and non-blocking recommendations are summarized and confirmed in the user's preferred language. Engineering artifacts are always in English; user interaction is in the user's preferred language.

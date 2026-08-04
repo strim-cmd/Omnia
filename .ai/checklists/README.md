@@ -8,7 +8,7 @@ Reusable validation criteria used to evaluate engineering artifacts before they 
 
 ## Contents
 
-- One file per review type: `code-review.md`, `documentation-review.md`.
+- One file per review type: `code-review.md`, `documentation-review.md`, `platform-validation.md`.
 - Criteria only: checkable items with pass/fail.
 
 ## Exclusions
