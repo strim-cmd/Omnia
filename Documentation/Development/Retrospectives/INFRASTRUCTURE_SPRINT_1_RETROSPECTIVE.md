@@ -226,3 +226,4 @@ This principle becomes the foundation of Engineering Platform v2.
 - `.ai/context/PROJECT_STATE.md` — the authoritative phase-by-phase record of the sprint.
 - `.ai/AI_CONSTITUTION.md` (CONST-001) — the governing engineering process, including the interactive execution mode introduced during the sprint.
 - `README.md` — the repository entry point; its Roadmap and Project Status sections reference this sprint.
+- `Documentation/Development/Retrospectives/EP_001_FOLLOWUP_WORKFLOW_ORCHESTRATOR_VALIDATION.md` (RETRO-002) — the follow-up that records how EP-002 (Workflow Orchestrator) validated this retrospective's predictions.
