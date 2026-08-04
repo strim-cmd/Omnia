@@ -55,6 +55,7 @@ completed:
   - Engineering Command Interface established (2026-08-04): the single supported user interaction surface of the Engineering Platform — command grammar (Verb [Object]), canonical supported command set defined by the Workflow Registry, registry-based resolution, and unrecognized commands reported and never executed; CMD-000 ratified; CONST-001 v1.5.0; framework version 3.1.0 (EP-003, issue #51)
   - Engineering Platform Validation Suite established (2026-08-04): the repository-defined set of checks that certifies the integrity of the Engineering Platform itself — reference resolution, registry integrity, version and identifier consistency, document structure, absence of placeholders, style artifacts, and absence of contradictions; invocable as the `Validate Engineering Platform` command; VAL-000 ratified; CONST-001 v1.6.0; framework version 3.2.0 (EP-004, issue #53)
   - Workflow Orchestrator execution-path validation complete (2026-08-04): EP-005 exercised the three previously untested orchestrator paths (ORCH-000) — RFC gate (Design workflow + RFC-001 created and ratified as exercise), command-pattern rejection (non-registry command reported in user's preferred language and never executed), and blocking gate (controlled defect auto-fixed, verification re-run, review repeated until clean); RETRO-003 ratified; every ORCH-000 property now validated by observed execution (EP-005, issue #55)
+  - Engineering Platform v1 closed (2026-08-04): RFC-002 ratified (Accepted) — Engineering Platform v1 (FRAMEWORK-001 v3.2.0, CONST-001 v1.6.0, ORCH-000, CMD-000, VAL-000, PIPELINE-000) complete and validated; milestone #13 Engineering Platform v1 closed; milestone #14 Engineering Platform v2 created as planning only — roadmap tracks (Realization integration, Automation, Verification, Governance and tooling) from RETRO-001 backlog + pipeline dispatch integration + RFC-001; no v2 item implemented
 
 milestones:
   Foundation API Freeze v1:
@@ -144,7 +145,7 @@ next_tasks:
   - Keep the package building and its tests green at every step
   - Implement remaining DES-001 Phase 3 primitives when required (shared value types, typed-error abstraction)
   - Kick off Infrastructure Sprint 2 (milestone #7): create its GitHub issues against the roadmap and implement the next Infrastructure phases
-  - Track the Engineering Platform v2 backlog from Documentation/Development/Retrospectives/INFRASTRUCTURE_SPRINT_1_RETROSPECTIVE.md as the next engineering-platform work
+  - Engineering Platform v2 (milestone #14, planning only per RFC-002): schedule v2 roadmap items as individual GitHub issues — Track A realization integration (wire PIPELINE-001/002 into the registry dispatch), Track B automation (RFC-001 validate-platform script, automated package verification), Track C verification (black-box package-surface suite, CI pipeline, docs-drift check), Track D governance and tooling (recurring retrospective template, review sign-off for security-sensitive changes, project-board CLI helper, start-sprint checklist); none implemented
 
 blocked: []
 
