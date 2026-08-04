@@ -8,7 +8,7 @@ Task-specific prompts that tell an AI agent how to perform a specific job.
 
 ## Contents
 
-- One file per task: `implement-pr.md`, `review-pr.md`, `create-document.md`, `create-rfc.md`, `create-api.md`, `prepare-release.md`, `create-issue.md`, `update-issue.md`, `close-issue.md`, `create-milestone.md`.
+- One file per task: `implement-pr.md`, `review-pr.md`, `complete-issue.md`, `create-document.md`, `create-rfc.md`, `create-api.md`, `prepare-release.md`, `create-issue.md`, `update-issue.md`, `close-issue.md`, `create-milestone.md`.
 - Task prompts only: role, task, and definition of done.
 
 ## Exclusions

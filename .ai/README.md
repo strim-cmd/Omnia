@@ -99,13 +99,23 @@ Examples:
 
 The AI agent MUST infer the required workflow from the repository and MUST NOT require the user to restate repository rules already defined in `.ai`. Workflows are discovered automatically, never specified by the user.
 
+## Interactive Execution Mode
+
+Interactive Execution Mode is how issue-completing commands run. "Complete Issue #N." performs the full lifecycle automatically: implementation, pull request creation, review, merge, and issue closure (`.ai/prompts/workflows/issue-lifecycle.md`). The agent pauses only at the interactive decision gates:
+
+- A review with blocking issues is fixed automatically, without asking.
+- A clean review pass is merged automatically, without asking.
+- A review with only non-blocking recommendations is summarized in the user's preferred language and the user is asked whether to address them before merging.
+
+Engineering artifacts (commits, pull requests, issues, milestones, documentation) are always written in English. All user interaction is in the user's preferred language, inferred from how the user communicates.
+
 ## Command Reference
 
-Commands are resolved against the GitHub artifact and the current project state, following the Intent-Driven Operation and Task Execution rules in `.ai/AI_CONSTITUTION.md`. The AI agent selects the workflow and task prompts automatically.
+Commands are resolved against the GitHub artifact and the current project state, following the Intent-Driven Operation, Task Execution, and Interactive Execution Mode rules in `.ai/AI_CONSTITUTION.md`. The AI agent selects the workflow and task prompts automatically.
 
 | Command pattern | Resolution |
 | --- | --- |
-| Complete Issue #N | Treat the GitHub Issue as authoritative, then follow `prompts/tasks/implement-pr.md` via `prompts/workflows/implementation.md`. |
+| Complete Issue #N | Treat the GitHub Issue as authoritative, then follow `prompts/tasks/complete-issue.md` via `prompts/workflows/issue-lifecycle.md` (Interactive Execution Mode). |
 | Review PR #N | Follow `prompts/tasks/review-pr.md` via `prompts/workflows/review.md` with `checklists/code-review.md`. |
 | Continue <Sprint> | Determine the next task from `context/PROJECT_STATE.md` and the matching roadmap, then follow the relevant workflow. |
 | Prepare Release vX.Y.Z | Follow `prompts/tasks/prepare-release.md` via `prompts/workflows/release.md`. |
