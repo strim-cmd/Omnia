@@ -1,7 +1,7 @@
 ---
 title: EP-001 Follow-up: Workflow Orchestrator Validation (EP-002)
 document_id: RETRO-002
-version: 1.0.0
+version: 1.0.1
 status: Ratified
 owner: Chief AI Architect
 project: Omnia
@@ -53,10 +53,10 @@ It does not cover product, architecture, or design foundations, and it does not 
 
 ## Requirements
 
-1. The follow-up records the observed validation evidence for every orchestrator architecture property defined in ORCH-000.
-2. Every claim resolves against the repository state and the GitHub artifacts it references.
-3. Properties that were not exercised by the EP-002 lifecycle are recorded as unvalidated, not as validated.
-4. The document is consistent with RETRO-001 and ORCH-000 and does not contradict either.
+1. EP-002's execution validated the core of the Workflow Orchestrator architecture while implementing it: issue #45 ran through the full issue lifecycle — implementation, PR creation, review, merge, and closure.
+2. Every orchestrator property defined in ORCH-000 is classified as validated or unvalidated strictly by the observed execution evidence recorded in this document.
+3. Every claim resolves against the repository state and the GitHub artifacts it references.
+4. The findings are consistent with RETRO-001 and ORCH-000 and contradict neither.
 
 ## Validation Evidence
 
