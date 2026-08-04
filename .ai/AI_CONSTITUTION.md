@@ -1,7 +1,7 @@
 ---
 title: AI Constitution
 document_id: CONST-001
-version: 1.4.0
+version: 1.5.0
 status: Ratified
 owner: Chief AI Architect
 project: Omnia
@@ -12,6 +12,7 @@ related_documents:
   - .ai/orchestrator/README.md
   - .ai/orchestrator/REGISTRY.md
   - .ai/specifications/WORKFLOW_ORCHESTRATOR_SPECIFICATION.md
+  - .ai/specifications/COMMAND_INTERFACE_SPECIFICATION.md
   - Documentation/Product/PRODUCT_CHARTER.md
   - Documentation/Product/VISION.md
   - .ai/standards/
@@ -223,3 +224,15 @@ The Workflow Orchestrator is the execution engine behind intent-driven commands.
 5. **Decision gates.** Decision gates are applied automatically per the Workflow Orchestrator specification (`.ai/specifications/WORKFLOW_ORCHESTRATOR_SPECIFICATION.md`): blocking issues are fixed automatically, clean passes merge automatically, non-blocking recommendations are confirmed interactively.
 6. **Minimal interaction.** The agent pauses only when a human engineering decision is required. All other operations proceed automatically.
 7. **Language separation.** Engineering artifacts remain in English. User interaction uses the user's preferred language.
+
+## Engineering Command Interface
+
+The Engineering Command Interface is the single supported user interaction surface of the Engineering Platform. It is defined by the Engineering Command Interface specification (`.ai/specifications/COMMAND_INTERFACE_SPECIFICATION.md`).
+
+1. **Commands only.** All user interaction with the Engineering Platform occurs through supported commands. Free-form engineering instructions are not a supported interaction surface: unsupported phrasing is reported, never interpreted.
+2. **Canonical command set.** A command is supported if and only if its pattern appears in the Workflow Registry (`.ai/orchestrator/REGISTRY.md`). The agent does not invent commands that are absent from the registry.
+3. **Intent only.** A command expresses what to achieve, never how. The user does not specify workflows, steps, checklists, or conventions.
+4. **Registry resolution.** Every command resolves through the Workflow Registry before execution. Resolution produces the workflow, task, checklist, and decision gates.
+5. **Unrecognized commands.** A command that does not match the registry is reported in the user's preferred language and is never executed.
+6. **Interactive gates.** Interactive decision gates (blocking fixes, clean merges, non-blocking confirmations) are part of the command interface and follow the Workflow Orchestrator specification.
+7. **Language separation.** Engineering artifacts remain in English. All user-facing interaction uses the user's preferred language.

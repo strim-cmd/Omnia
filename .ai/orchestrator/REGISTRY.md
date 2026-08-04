@@ -11,6 +11,7 @@ related_documents:
   - .ai/AI_CONSTITUTION.md
   - .ai/orchestrator/README.md
   - .ai/specifications/WORKFLOW_ORCHESTRATOR_SPECIFICATION.md
+  - .ai/specifications/COMMAND_INTERFACE_SPECIFICATION.md
   - .ai/prompts/workflows/issue-lifecycle.md
   - .ai/prompts/workflows/review.md
   - .ai/prompts/workflows/release.md
@@ -61,7 +62,7 @@ The agent MUST resolve every command against this registry before executing. The
 ## Resolution Rules
 
 1. **Exact match first.** Match the command pattern against the leftmost column. Use the most specific match available.
-2. **Registry is authoritative.** If a command pattern is not in this table, the agent MUST NOT execute it. Instead, report the unrecognized command and ask for clarification.
+2. **Registry is authoritative.** If a command pattern is not in this table, the agent MUST NOT execute it. Instead, report the unrecognized command and ask for clarification, per the Engineering Command Interface specification (`.ai/specifications/COMMAND_INTERFACE_SPECIFICATION.md`).
 3. **State before action.** Before executing any resolved workflow, read `PROJECT_STATE.md` and the referenced GitHub artifact to determine current state.
 4. **Recovery.** If an execution is interrupted, re-read this registry and `PROJECT_STATE.md` to determine the next step. Do not rely on session context.
 5. **Gate semantics.** Decision gates are defined in the Workflow Orchestrator specification (`.ai/specifications/WORKFLOW_ORCHESTRATOR_SPECIFICATION.md`). The agent MUST apply the correct gate type for each workflow.
@@ -80,4 +81,5 @@ Entries are never removed; deprecated entries are marked deprecated and retained
 
 - `.ai/orchestrator/README.md` — orchestrator overview and architecture
 - `.ai/specifications/WORKFLOW_ORCHESTRATOR_SPECIFICATION.md` — the architectural contract
+- `.ai/specifications/COMMAND_INTERFACE_SPECIFICATION.md` — the single supported user interaction surface and the canonical command set
 - `.ai/AI_CONSTITUTION.md` — governing rules

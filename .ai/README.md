@@ -13,14 +13,15 @@ Every AI agent MUST read these documents in order before making any change:
 1. `.ai/AI_CONSTITUTION.md` — the binding rules for every AI agent
 2. `.ai/orchestrator/README.md` — the Workflow Orchestrator structure and purpose
 3. `.ai/orchestrator/REGISTRY.md` — the command-to-workflow dispatch table
-4. `Documentation/Product/PRODUCT_CHARTER.md` — what the product is
-5. `Documentation/Product/VISION.md` — why the product exists
-6. `.ai/context/` — the current state of the project
-7. `.ai/standards/` — the rules for code and documentation
-8. `.ai/prompts/` — reusable workflows, task prompts, and document templates
-9. `.ai/checklists/` — reusable review checklists
-10. `.ai/VERSION.md` — the current framework version and supported capabilities
-11. `.ai/agents/` — reusable engineering role definitions
+4. `.ai/specifications/COMMAND_INTERFACE_SPECIFICATION.md` — the Engineering Command Interface specification
+5. `Documentation/Product/PRODUCT_CHARTER.md` — what the product is
+6. `Documentation/Product/VISION.md` — why the product exists
+7. `.ai/context/` — the current state of the project
+8. `.ai/standards/` — the rules for code and documentation
+9. `.ai/prompts/` — reusable workflows, task prompts, and document templates
+10. `.ai/checklists/` — reusable review checklists
+11. `.ai/VERSION.md` — the current framework version and supported capabilities
+12. `.ai/agents/` — reusable engineering role definitions
 
 ## The .ai Directory
 
@@ -38,7 +39,7 @@ The `.ai` directory is the AI foundation of the repository. It governs how AI ag
 - `.ai/checklists/` — reusable review checklists (code review, documentation review).
 - `.ai/agents/` — reusable engineering role definitions (Chief Architect, Principal Architect, Principal Software Engineer, Reviewer, Release Manager).
 - `.ai/pipelines/` — multi-stage pipeline definitions (New Document, Architecture Review).
-- `.ai/specifications/` — engineering contracts (agent specification, pipeline specification, Workflow Orchestrator specification).
+- `.ai/specifications/` — engineering contracts (agent specification, pipeline specification, Workflow Orchestrator specification, Engineering Command Interface specification).
 - `.ai/examples/` — reference examples of framework usage.
 
 ## Development Workflow
@@ -89,9 +90,9 @@ When unsure, ask instead of assuming.
 
 ## Command Mode
 
-Command Mode is the interface through which Intent-Driven Operation is applied (`.ai/AI_CONSTITUTION.md`).
+Command Mode is the interface through which Intent-Driven Operation is applied (`.ai/AI_CONSTITUTION.md`). It is realized by the Engineering Command Interface (`.ai/specifications/COMMAND_INTERFACE_SPECIFICATION.md`), the single supported user interaction surface of the Engineering Platform.
 
-Short task-oriented commands are the preferred interface. The user states intent only, never process.
+Short task-oriented commands are the interface. The user states intent only, never process.
 
 Examples:
 
@@ -100,7 +101,7 @@ Examples:
 - Continue Infrastructure Sprint.
 - Prepare Release v0.3.
 
-The AI agent MUST infer the required workflow from the repository and MUST NOT require the user to restate repository rules already defined in `.ai`. Workflows are discovered automatically, never specified by the user.
+A command is supported if and only if its pattern appears in the Workflow Registry (`.ai/orchestrator/REGISTRY.md`). Commands that do not match the registry are reported in the user's preferred language and never executed. The AI agent MUST infer the required workflow from the repository and MUST NOT require the user to restate repository rules already defined in `.ai`. Workflows are discovered automatically, never specified by the user.
 
 ## Interactive Execution Mode
 
@@ -114,7 +115,7 @@ Engineering artifacts (commits, pull requests, issues, milestones, documentation
 
 ## Command Reference
 
-Commands are resolved against the Workflow Registry (`.ai/orchestrator/REGISTRY.md`) and the current project state, following the Intent-Driven Operation, Task Execution, Workflow Orchestrator, and Interactive Execution Mode rules in `.ai/AI_CONSTITUTION.md`. The AI agent selects the workflow and task prompts automatically through the registry.
+Commands are resolved against the Workflow Registry (`.ai/orchestrator/REGISTRY.md`) and the current project state, following the Intent-Driven Operation, Task Execution, Workflow Orchestrator, Engineering Command Interface, and Interactive Execution Mode rules in `.ai/AI_CONSTITUTION.md`. The AI agent selects the workflow and task prompts automatically through the registry.
 
 | Command pattern | Registry resolution |
 | --- | --- |

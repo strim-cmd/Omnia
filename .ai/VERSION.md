@@ -1,7 +1,7 @@
 ---
 title: AI Engineering Framework
 document_id: FRAMEWORK-001
-version: 3.0.0
+version: 3.1.0
 status: Ratified
 owner: Chief AI Architect
 project: Omnia
@@ -27,7 +27,7 @@ tags:
 
 ## Version
 
-3.0.0
+3.1.0
 
 ## Status
 
@@ -111,6 +111,7 @@ The framework is organized in five layers:
 │       ├── RFC.md
 │       └── ADR.md
 ├── specifications/
+│   ├── COMMAND_INTERFACE_SPECIFICATION.md
 │   ├── PIPELINE_SPECIFICATION.md
 │   └── WORKFLOW_ORCHESTRATOR_SPECIFICATION.md
 └── standards/
@@ -128,6 +129,7 @@ The framework is organized in five layers:
 | --- | --- |
 | Pipeline | `specifications/PIPELINE_SPECIFICATION.md` |
 | Workflow Orchestrator | `specifications/WORKFLOW_ORCHESTRATOR_SPECIFICATION.md` |
+| Engineering Command Interface | `specifications/COMMAND_INTERFACE_SPECIFICATION.md` |
 
 ## Supported Workflows
 
@@ -166,6 +168,7 @@ The framework is organized in five layers:
 
 ## Version History
 
+- 3.1.0 — Established the Engineering Command Interface as the single supported user interaction surface of the Engineering Platform. Introduced `specifications/COMMAND_INTERFACE_SPECIFICATION.md` (CMD-000): the command grammar (Verb [Object]), the canonical supported command set defined by the Workflow Registry, registry-based resolution, and the rule that unrecognized commands are reported and never executed. Updated the AI Constitution with the Engineering Command Interface section (CONST-001 v1.5.0). Updated the README Command Mode and Command Reference sections to reference the command interface. Updated the Workflow Registry resolution rules and related documents. Framework version 3.1.0.
 - 3.0.0 — Added the Workflow Orchestrator: the execution engine behind intent-driven commands. Introduced `orchestrator/REGISTRY.md` (the authoritative command-to-workflow dispatch table), `orchestrator/README.md` (structure and purpose), and `specifications/WORKFLOW_ORCHESTRATOR_SPECIFICATION.md` (the architectural contract defining execution model, repository-derived state, decision gates, recovery, and language rules). Updated the AI Constitution with the Workflow Orchestrator section (CONST-001 v1.4.0). Updated the issue-lifecycle workflow to reference registry resolution. Updated the README command reference to route all commands through the registry. Framework version 3.0.0.
 - 2.5.0 — Added Interactive Execution Mode: "Complete Issue #N" runs the full issue lifecycle automatically — implementation, pull request creation, review, merge, and issue closure — through the Interactive Execution workflow (`prompts/workflows/issue-lifecycle.md`) and the complete-issue task (`prompts/tasks/complete-issue.md`). Interactive decision gates: blocking review issues are fixed automatically, clean reviews are merged automatically, and non-blocking recommendations are summarized and confirmed in the user's preferred language. Engineering artifacts are always in English; user interaction is in the user's preferred language.
 - 2.4.0 — Finalized command mode through a single Intent-Driven Operation principle in the AI Constitution: user prompts express intent only, workflows are discovered automatically, GitHub Issues/PRs/Milestones and PROJECT_STATE are the authoritative project state, and `.ai` is the single source of engineering process truth.
