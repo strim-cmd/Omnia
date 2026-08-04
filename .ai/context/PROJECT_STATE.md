@@ -39,6 +39,7 @@ completed:
   - AI framework command mode finalized (2026-08-04): single Intent-Driven Operation principle (CONST-001 v1.2.0) — user prompts express intent only, workflows are discovered automatically, GitHub Issues/PRs/Milestones and PROJECT_STATE are the authoritative project state, `.ai` is the single source of engineering process truth; every workflow, checklist, and task references Command Mode consistently; framework version 2.4.0
   - Infrastructure API Freeze v1 (2026-08-04); DES-010 INFRASTRUCTURE_API.md ratified; GitHub issue #22 complete
   - Infrastructure Sprint 1 Phase 2 complete (2026-08-04): file-based JSON document store foundation (JSONDocumentStore) — save, load, delete, and list by identity; JSON serialization plumbing; storage-error translation to RepositoryError.storageUnavailable; 11 deterministic unit tests green on the Linux build (issue #23)
+  - Infrastructure Sprint 1 Phase 3 complete (2026-08-04): Infrastructure-owned DTOs and JSON serializers for the Workspace, Conversation (with full message history), Provider (connection and lifecycle state), and configuration aggregates — WorkspaceSerializer, ConversationSerializer, ProviderSerializer, ConfigurationSerializer; never credentials, only CredentialReference pointers; deterministic stored form (sorted keys/arrays) that round-trips exactly; 29 serializer unit tests green on the Linux build (issue #24)
 
 milestones:
   Foundation API Freeze v1:
@@ -102,7 +103,7 @@ milestones:
     Scope:
       - DES-010 Infrastructure API specification and freeze (complete)
       - Storage engine foundation (file-based JSON document store) (complete)
-      - Aggregate serializers
+      - Aggregate serializers (complete)
       - Workspace and Conversation repository implementations
       - Provider repository implementation
       - Configuration repository implementation
@@ -114,11 +115,12 @@ milestones:
       - Planned 2026-08-04; roadmap and issues #22-#31 created under milestone #6.
       - DES-010 ratified 2026-08-04 (Infrastructure API Freeze v1, issue #22 closed).
       - Storage engine foundation complete 2026-08-04 (issue #23); 11 tests green on the Linux build.
-      - Implementation in progress; aggregate serializers next.
+      - Aggregate serializers complete 2026-08-04 (issue #24); 29 tests green on the Linux build; never credentials, only references.
+      - Implementation in progress; Workspace and Conversation repository implementations next.
 
 next_tasks:
-  - Implement Infrastructure Sprint 1 Phase 3 (issue #24): the Infrastructure-owned DTOs and JSON serializers for the Workspace, Conversation (with message history), Provider, and configuration aggregates; never credentials, per INFRASTRUCTURE_SPRINT_1_ROADMAP.md and the frozen DES-010
-  - Implement the remaining OmniaInfrastructure package phases (#25-#31) against the frozen DES-010 contract and the frozen Domain API, per INFRASTRUCTURE_SPRINT_1_ROADMAP.md implementation order
+  - Implement Infrastructure Sprint 1 Phase 4 (issue #25): the Workspace and Conversation repository implementations over the storage engine and serializers, per INFRASTRUCTURE_SPRINT_1_ROADMAP.md and the frozen DES-010
+  - Implement the remaining OmniaInfrastructure package phases (#26-#31) against the frozen DES-010 contract and the frozen Domain API, per INFRASTRUCTURE_SPRINT_1_ROADMAP.md implementation order
   - Keep the package building and its tests green at every step
   - Implement remaining DES-001 Phase 3 primitives when required (shared value types, typed-error abstraction)
 
