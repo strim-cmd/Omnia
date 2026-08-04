@@ -33,6 +33,7 @@ completed:
   - Domain Sprint 1 – Implementation (DES-009 phases 1-8): value objects, capability contract and provider model, configuration model, credential storage protocol, aggregates, repository protocols, domain services and policies
   - OmniaDomain package complete (value objects, capability contract, configuration model, credential storage protocol, aggregates, four repository protocols, two domain services, two policies; 231 tests green)
   - Domain Sprint 1 milestone closed (2026-08-04); GitHub issues #7-#13 closed; PRs #14-#21 merged
+  - Infrastructure Sprint 1 planned (2026-08-04); roadmap INFRASTRUCTURE_SPRINT_1_ROADMAP.md; GitHub issues #22-#31 created under milestone #6 with dependencies, acceptance criteria, and implementation order
 
 milestones:
   Foundation API Freeze v1:
@@ -83,12 +84,28 @@ milestones:
       - OmniaDomain depends only on OmniaFoundation; dependency graph acyclic; no forbidden imports.
       - 231 tests passing, verified on the fully integrated branch (PRs #14–#21); 0 build or test warnings.
       - Milestone closed 2026-08-04; all Phase issues #7-#13 closed; all PRs #14-#21 merged into feature/repository-foundation.
+  Infrastructure Sprint 1 – Implementation:
+    Status: Planned
+    Scope:
+      - DES-010 Infrastructure API specification and freeze
+      - Storage engine foundation (file-based JSON document store)
+      - Aggregate serializers
+      - Workspace and Conversation repository implementations
+      - Provider repository implementation
+      - Configuration repository implementation
+      - Secure credential storage (Keychain backend seam + in-memory backend)
+      - Provider transport and OpenAI-compatible client
+      - Provider adapters
+      - Package verification
+    Outcome:
+      - Planned 2026-08-04; roadmap and issues #22-#31 created under milestone #6.
+      - Implementation not started; no implementation code written yet.
 
 next_tasks:
-  - Implement the OmniaInfrastructure package (Stage 1) against the frozen Domain API contract: repository implementations, secure credential storage (Keychain), provider adapters, serializers
-  - Plan the OmniaInfrastructure sprint (spec, freeze, implementation) against ARC-002, ARC-005, ARC-006, ARC-008, ARC-009
-  - Implement remaining DES-001 Phase 3 primitives when required (shared value types, typed-error abstraction)
+  - Execute Infrastructure Sprint 1 Phase 1: write, review, and freeze the OmniaInfrastructure API specification (DES-010) against ARC-002, ARC-004, ARC-005, ARC-006, ARC-008, ARC-009, ADR-0001/ADR-0002, and DES-009
+  - Implement the OmniaInfrastructure package (Stage 2) against the frozen contract and the frozen Domain API, per INFRASTRUCTURE_SPRINT_1_ROADMAP.md implementation order
   - Keep the package building and its tests green at every step
+  - Implement remaining DES-001 Phase 3 primitives when required (shared value types, typed-error abstraction)
 
 blocked: []
 
