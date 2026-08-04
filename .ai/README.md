@@ -83,3 +83,28 @@ Native Apple APIs are preferred over third-party libraries.
 Security-sensitive changes require explicit review.
 
 When unsure, ask instead of assuming.
+
+## Command Mode
+
+Short task-oriented commands are the preferred interface.
+
+Examples:
+
+- Complete Issue #22.
+- Review PR #18.
+- Continue Infrastructure Sprint.
+- Prepare Release v0.3.
+
+The AI agent MUST infer the required workflow from the repository and MUST NOT require the user to restate repository rules already defined in `.ai`.
+
+## Command Reference
+
+Commands are resolved against the GitHub artifact and the current project state, following the Task Execution rules in `.ai/AI_CONSTITUTION.md`. The AI agent selects the workflow and task prompts automatically.
+
+| Command pattern | Resolution |
+| --- | --- |
+| Complete Issue #N | Treat the GitHub Issue as authoritative, then follow `prompts/tasks/implement-pr.md` via `prompts/workflows/implementation.md`. |
+| Review PR #N | Follow `prompts/tasks/review-pr.md` via `prompts/workflows/review.md` with `checklists/code-review.md`. |
+| Continue <Sprint> | Determine the next task from `context/PROJECT_STATE.md` and the matching roadmap, then follow the relevant workflow. |
+| Prepare Release vX.Y.Z | Follow `prompts/tasks/prepare-release.md` via `prompts/workflows/release.md`. |
+| Create <Document/RFC/API/Issue/Milestone> | Follow the corresponding `prompts/tasks/` prompt. |

@@ -1,12 +1,12 @@
 ---
 title: AI Engineering Framework
 document_id: FRAMEWORK-001
-version: 2.2.0
+version: 2.3.0
 status: Ratified
 owner: Chief AI Architect
 project: Omnia
 created: 2026-08-03
-last_updated: 2026-08-03
+last_updated: 2026-08-04
 related_documents:
   - .ai/README.md
   - .ai/AI_CONSTITUTION.md
@@ -27,7 +27,7 @@ tags:
 
 ## Version
 
-2.2.0
+2.3.0
 
 ## Status
 
@@ -150,6 +150,7 @@ The framework is organized in five layers:
 
 ## Version History
 
+- 2.3.0 — Added command mode: task execution rules in the AI Constitution, a command reference in the README, and short task-oriented commands as the preferred interface.
 - 2.2.0 — Added GitHub project management: the GitHub workflow (`prompts/workflows/github.md`) and GitHub tasks (create-issue, update-issue, close-issue, create-milestone). GitHub is the authoritative project management system, managed through the GitHub CLI.
 - 2.1.0 — Finalized framework: introduced reusable engineering roles (Principal Architect, Principal Software Engineer, Reviewer, Release Manager); added this version manifest.
 - 2.0.0 — Reorganized prompts into reusable workflows, tasks, and templates; introduced checklists.

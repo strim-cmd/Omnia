@@ -1,12 +1,12 @@
 ---
 title: AI Constitution
 document_id: CONST-001
-version: 1.0.0
+version: 1.1.0
 status: Ratified
 owner: Chief AI Architect
 project: Omnia
 created: 2026-08-02
-last_updated: 2026-08-02
+last_updated: 2026-08-04
 related_documents:
   - .ai/README.md
   - Documentation/Product/PRODUCT_CHARTER.md
@@ -173,3 +173,19 @@ No rule in this document may depend on a specific AI model.
 - `Documentation/Product/VISION.md`
 - `.ai/standards/`
 - `.ai/prompts/`
+
+## Task Execution
+
+When a task references a GitHub Issue, Pull Request, Milestone, or active Sprint, the AI agent MUST:
+
+1. Treat the GitHub artifact as the authoritative task definition.
+2. Determine the current project state from `.ai/context/PROJECT_STATE.md`.
+3. Automatically select and follow the appropriate workflow from `.ai/prompts/workflows/`.
+4. Execute all required validation and review checklists.
+5. Update documentation if required.
+6. Commit using the project's Git conventions.
+7. Push changes.
+8. Update GitHub Issues, Pull Requests, Milestones, and Project state when permitted.
+9. Consider the task complete only when the Definition of Done is satisfied.
+
+The user is not required to repeat these instructions.

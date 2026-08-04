@@ -34,6 +34,7 @@ completed:
   - OmniaDomain package complete (value objects, capability contract, configuration model, credential storage protocol, aggregates, four repository protocols, two domain services, two policies; 231 tests green)
   - Domain Sprint 1 milestone closed (2026-08-04); GitHub issues #7-#13 closed; PRs #14-#21 merged
   - Infrastructure Sprint 1 planned (2026-08-04); roadmap INFRASTRUCTURE_SPRINT_1_ROADMAP.md; GitHub issues #22-#31 created under milestone #6 with dependencies, acceptance criteria, and implementation order
+  - AI framework command mode (2026-08-04): short task-oriented commands are the preferred interface; AI Constitution Task Execution rules (CONST-001 v1.1.0) and README command reference added; framework version 2.3.0
 
 milestones:
   Foundation API Freeze v1:
