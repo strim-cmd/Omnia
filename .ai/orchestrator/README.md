@@ -41,7 +41,7 @@ See: `.ai/specifications/WORKFLOW_ORCHESTRATOR_SPECIFICATION.md`
 
 ## Registry
 
-The Workflow Registry (`REGISTRY.md`) is the single source of truth for command dispatch. Every command pattern maps deterministically to a workflow, task, checklist, and set of decision gates. The agent reads the registry, matches the intent, and executes the defined path.
+The Workflow Registry (`REGISTRY.md`) is the single source of truth for command dispatch. Every command pattern maps deterministically to a workflow, task, pipeline (when populated), checklist, and set of decision gates. The agent reads the registry, matches the intent, and executes the defined path. When a row's `Pipeline` column is populated, the agent executes the referenced pipeline as the stage-level coordination of the resolved workflow.
 
 ## How It Works
 

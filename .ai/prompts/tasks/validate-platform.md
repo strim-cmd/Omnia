@@ -10,7 +10,7 @@ Follow the Platform Validation workflow: `.ai/prompts/workflows/platform-validat
 
 - Read the Validation Suite specification (`.ai/specifications/PLATFORM_VALIDATION_SPECIFICATION.md`).
 - Apply the platform-validation checklist (`.ai/checklists/platform-validation.md`).
-- Check every validation category: reference resolution, registry integrity, version and identifier consistency, document structure, absence of placeholders, style artifacts, and absence of contradictions.
+- Check every validation category: reference resolution, registry integrity (including every populated `Pipeline` field resolving to an existing pipeline file), version and identifier consistency, document structure, absence of placeholders, style artifacts, and absence of contradictions.
 - Report every failing check with the document path and the exact location of the failure.
 
 ## Definition of Done

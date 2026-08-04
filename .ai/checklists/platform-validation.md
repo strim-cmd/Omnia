@@ -13,6 +13,7 @@ Evaluate the Engineering Platform (`.ai`) against the checks below. Approve only
 
 - [ ] Every command pattern in `.ai/orchestrator/REGISTRY.md` resolves: its workflow, task, and checklist files exist.
 - [ ] The registry contains no entry pointing to a non-existent workflow, task, or checklist.
+- [ ] Every populated `Pipeline` field in the registry resolves to an existing pipeline file in `.ai/pipelines/`; a `—` value requires no pipeline.
 
 ## Version and Identifier Consistency
 

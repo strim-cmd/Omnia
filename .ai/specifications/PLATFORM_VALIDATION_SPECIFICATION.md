@@ -1,7 +1,7 @@
 ---
 title: Engineering Platform Validation Suite Specification
 document_id: VAL-000
-version: 1.0.0
+version: 1.1.0
 status: Ratified
 owner: Chief AI Architect
 project: Omnia
@@ -53,7 +53,7 @@ This specification does not cover validation of the Omnia product code (the Swif
 The suite validates the Engineering Platform across the following categories:
 
 1. **Reference resolution.** Every file reference in `.ai` documents (inline paths and front matter `related_documents`) resolves to an existing file in the repository.
-2. **Registry integrity.** Every entry in the Workflow Registry (`.ai/orchestrator/REGISTRY.md`) resolves: the workflow, task, and checklist referenced by each command pattern exist.
+2. **Registry integrity.** Every entry in the Workflow Registry (`.ai/orchestrator/REGISTRY.md`) resolves: the workflow, task, and checklist referenced by each command pattern exist. Every populated `Pipeline` field resolves to an existing pipeline file in `.ai/pipelines/`; a `—` value requires no pipeline.
 3. **Version and identifier consistency.** Every document with a `document_id` in the `specifications/`, `orchestrator/`, and `standards/` directories uses a unique identifier, and version references between documents agree with the documents' own front matter.
 4. **Document structure.** Every formal document in the `specifications/`, `orchestrator/`, and `standards/` directories carries YAML front matter with title, version, and status. Formal documents follow the Documentation standard (`.ai/standards/DOCUMENTATION.md`), whose structure requirements apply when applicable.
 5. **Absence of placeholders.** No document contains unresolved template markers, lorem ipsum, or placeholder text intended to be replaced before commit. Checklist and review documents that name these markers to define the check are not affected.
