@@ -153,15 +153,13 @@ ADR/
 
 Current milestone:
 
-> 🔒 Foundation API Freeze v1 — approved (DES-001..DES-008)
+> ✅ Infrastructure Sprint 1 — complete (DES-010 ratified; issues #22-#31 closed)
 
 Current sprint:
 
-> 🚧 Foundation Sprint 2 — Implementation
+> 🚧 Infrastructure Sprint 2 — planned (milestone #7)
 
-No production code has been written yet.
-
-Implementation proceeds against the frozen Foundation API contracts.
+The OmniaFoundation, OmniaDomain, and OmniaInfrastructure packages are implemented against their frozen contracts (DES-001..DES-010), with the three package test suites green (503 tests).
 
 ---
 
@@ -185,6 +183,7 @@ See:
 
 - [Infrastructure Sprint 1 (DES-010 planning + implementation)](Documentation/Product/Roadmap/INFRASTRUCTURE_SPRINT_1_ROADMAP.md)
 - [Domain Sprint 1 (DES-009 implementation)](Documentation/Product/Roadmap/DOMAIN_SPRINT_1_ROADMAP.md)
+- [Infrastructure Sprint 1 Retrospective](Documentation/Development/Retrospectives/INFRASTRUCTURE_SPRINT_1_RETROSPECTIVE.md)
 
 Documentation/Product/Roadmap/
 
