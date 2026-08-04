@@ -23,7 +23,7 @@ related_documents:
   - .ai/orchestrator/REGISTRY.md
   - .ai/AI_CONSTITUTION.md
   - .ai/context/PROJECT_STATE.md
-  - Documentation/RFC/NONEXISTENT_RFC.md
+  - Documentation/RFC/RFC-001_VALIDATION_SUITE_AUTOMATION.md
 
 supersedes: []
 
