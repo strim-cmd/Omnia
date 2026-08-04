@@ -1,7 +1,7 @@
 ---
 title: Engineering Platform Validation Suite Specification
 document_id: VAL-000
-version: 1.1.0
+version: 1.2.0
 status: Ratified
 owner: Chief AI Architect
 project: Omnia
@@ -14,6 +14,7 @@ related_documents:
   - .ai/specifications/COMMAND_INTERFACE_SPECIFICATION.md
   - .ai/specifications/WORKFLOW_ORCHESTRATOR_SPECIFICATION.md
   - .ai/checklists/platform-validation.md
+  - .ai/scripts/validate-platform.sh
   - .ai/standards/DOCUMENTATION.md
 supersedes: []
 tags:
@@ -29,7 +30,7 @@ tags:
 
 ## Executive Summary
 
-The Engineering Platform Validation Suite is a repository-defined set of checks that validates the Engineering Platform itself — the `.ai` framework. It verifies that platform documents resolve their references, that the Workflow Registry maps only to existing workflows, tasks, and checklists, that versions and document IDs are consistent, that documents conform to the documentation standard, and that no placeholders or contradiction artifacts remain. The suite is invoked as a supported command through the Workflow Registry and is gated by the standard decision gates.
+The Engineering Platform Validation Suite is a repository-defined set of checks that validates the Engineering Platform itself — the `.ai` framework. It verifies that platform documents resolve their references, that the Workflow Registry maps only to existing workflows, tasks, and checklists, that versions and document IDs are consistent, that documents conform to the documentation standard, and that no placeholders or contradiction artifacts remain. The suite is executed primarily through a repository-defined validation script (`validate-platform.sh`) and is invoked as a supported command through the Workflow Registry and gated by the standard decision gates.
 
 ## Purpose
 
@@ -41,6 +42,7 @@ This specification covers:
 
 - The validation categories the suite checks.
 - The checks within each category and their pass criteria.
+- The primary execution mechanism (`validate-platform.sh`) and the manual checklist as the authoritative fallback.
 - How the suite is invoked through the command interface.
 - How the suite integrates with the review decision gates.
 
@@ -70,7 +72,10 @@ The suite validates the Engineering Platform across the following categories:
 
 1. The suite is invoked through the command `Validate Engineering Platform`.
 2. The command resolves through the Workflow Registry (`.ai/orchestrator/REGISTRY.md`) to the platform-validation workflow (`.ai/prompts/workflows/platform-validation.md`), the validate-platform task (`.ai/prompts/tasks/validate-platform.md`), and the platform-validation checklist (`.ai/checklists/platform-validation.md`).
-3. The suite validates the entire `.ai` directory, not a single document.
+3. The primary execution mechanism is the validation script (`.ai/scripts/validate-platform.sh`): a repository-defined, deterministic encoding of the validation categories. The agent runs the script and interprets its output.
+4. The manual checklist remains the authoritative specification of the checks and the fallback execution mechanism. When the script cannot run, the agent applies the checklist manually and reports that the fallback was used.
+5. The script results and the manual checklist results must agree; if they disagree, the discrepancy is investigated before the outcome is reported.
+6. The suite validates the entire `.ai` directory, not a single document.
 
 ### Decision Gates
 
@@ -91,5 +96,6 @@ The suite validates the Engineering Platform across the following categories:
 - `.ai/orchestrator/REGISTRY.md` — the command-to-workflow dispatch table
 - `.ai/specifications/COMMAND_INTERFACE_SPECIFICATION.md` (CMD-000) — the single supported user interaction surface
 - `.ai/specifications/WORKFLOW_ORCHESTRATOR_SPECIFICATION.md` (ORCH-000) — the execution model and decision gates
-- `.ai/checklists/platform-validation.md` — the executable checklist of the suite
+- `.ai/checklists/platform-validation.md` — the executable checklist of the suite and the authoritative fallback
+- `.ai/scripts/validate-platform.sh` — the primary execution mechanism: the deterministic encoding of the validation categories
 - `.ai/standards/DOCUMENTATION.md` — the documentation standard the suite enforces

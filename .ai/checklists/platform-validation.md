@@ -4,6 +4,8 @@ Evaluate the Engineering Platform (`.ai`) against the checks below. Approve only
 
 > Command Mode — Intent-Driven Operation (`.ai/AI_CONSTITUTION.md`): automatically invoked from user intent through the `Validate Engineering Platform` command; the user never specifies process.
 
+> Execution: the checks below are encoded in the validation script (`.ai/scripts/validate-platform.sh`), which is the primary execution mechanism. This checklist remains the authoritative specification of the checks and the fallback when the script cannot run.
+
 ## Reference Resolution
 
 - [ ] Every file reference in `.ai` documents (inline paths and front matter `related_documents`) resolves to an existing file.
