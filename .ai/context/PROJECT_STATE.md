@@ -41,6 +41,7 @@ completed:
   - Infrastructure Sprint 1 Phase 2 complete (2026-08-04): file-based JSON document store foundation (JSONDocumentStore) — save, load, delete, and list by identity; JSON serialization plumbing; storage-error translation to RepositoryError.storageUnavailable; 11 deterministic unit tests green on the Linux build (issue #23)
   - Infrastructure Sprint 1 Phase 3 complete (2026-08-04): Infrastructure-owned DTOs and JSON serializers for the Workspace, Conversation (with full message history), Provider (connection and lifecycle state), and configuration aggregates — WorkspaceSerializer, ConversationSerializer, ProviderSerializer, ConfigurationSerializer; never credentials, only CredentialReference pointers; deterministic stored form (sorted keys/arrays) that round-trips exactly; 29 serializer unit tests green on the Linux build (issue #24)
   - Infrastructure Sprint 1 Phase 4 complete (2026-08-04): Workspace and Conversation repository implementations over the storage engine and serializers — FileWorkspaceRepository and FileConversationRepository, each owning its document directory, storing whole aggregates by identity (full message history and streaming state for Conversation), save-replaces-by-identity, idempotent delete, no business rules (ARC-005), storage failures translated to RepositoryError.storageUnavailable; 16 deterministic unit tests green on the Linux build (issue #25)
+  - Infrastructure Sprint 1 Phase 5 complete (2026-08-04): Provider repository implementation — FileProviderRepository over the storage engine and Provider serializer, storing the declared connection and lifecycle state by identity, never credentials (ARC-004, ARC-005), save-replaces-by-identity, idempotent delete, stable listing order, storage failures translated to RepositoryError.storageUnavailable; 12 deterministic unit tests green on the Linux build (issue #26)
 
 milestones:
   Foundation API Freeze v1:
@@ -106,7 +107,7 @@ milestones:
       - Storage engine foundation (file-based JSON document store) (complete)
       - Aggregate serializers (complete)
       - Workspace and Conversation repository implementations (complete)
-      - Provider repository implementation
+      - Provider repository implementation (complete)
       - Configuration repository implementation
       - Secure credential storage (Keychain backend seam + in-memory backend)
       - Provider transport and OpenAI-compatible client
@@ -118,10 +119,11 @@ milestones:
       - Storage engine foundation complete 2026-08-04 (issue #23); 11 tests green on the Linux build.
       - Aggregate serializers complete 2026-08-04 (issue #24); 29 tests green on the Linux build; never credentials, only references.
       - Workspace and Conversation repository implementations complete 2026-08-04 (issue #25); 16 tests green on the Linux build.
-      - Implementation in progress; Provider repository implementation next.
+      - Provider repository implementation complete 2026-08-04 (issue #26); 12 tests green on the Linux build.
+      - Implementation in progress; Configuration repository implementation next.
 
 next_tasks:
-  - Implement Infrastructure Sprint 1 Phase 5 (issue #26): the Provider repository implementation over the storage engine and serializer, per INFRASTRUCTURE_SPRINT_1_ROADMAP.md and the frozen DES-010
+  - Implement Infrastructure Sprint 1 Phase 6 (issue #27): the Configuration repository implementation over the storage engine and serializer, per INFRASTRUCTURE_SPRINT_1_ROADMAP.md and the frozen DES-010
   - Implement the remaining OmniaInfrastructure package phases (#26-#31) against the frozen DES-010 contract and the frozen Domain API, per INFRASTRUCTURE_SPRINT_1_ROADMAP.md implementation order
   - Keep the package building and its tests green at every step
   - Implement remaining DES-001 Phase 3 primitives when required (shared value types, typed-error abstraction)
