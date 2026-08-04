@@ -157,9 +157,9 @@ Current milestone:
 
 Current sprint:
 
-> 🚧 Infrastructure Sprint 2 — planned (milestone #7)
+> 🚧 Domain Sprint 2 — planned (milestone #5)
 
-The OmniaFoundation, OmniaDomain, and OmniaInfrastructure packages are implemented against their frozen contracts (DES-001..DES-010), with the three package test suites green (503 tests).
+The OmniaFoundation, OmniaDomain, and OmniaInfrastructure packages are implemented against their frozen contracts (DES-001..DES-010), with the three package test suites green (503 tests). Domain Sprint 2 extends the Domain capability contract (DES-009 v0.3.0) so the concrete provider capabilities can be implemented in Infrastructure Sprint 2 (DES-010 v1.1.0).
 
 ---
 
@@ -183,6 +183,8 @@ See:
 
 - [Infrastructure Sprint 1 (DES-010 planning + implementation)](Documentation/Product/Roadmap/INFRASTRUCTURE_SPRINT_1_ROADMAP.md)
 - [Domain Sprint 1 (DES-009 implementation)](Documentation/Product/Roadmap/DOMAIN_SPRINT_1_ROADMAP.md)
+- [Domain Sprint 2 (DES-009 capability-contract extension)](Documentation/Product/Roadmap/DOMAIN_SPRINT_2_ROADMAP.md)
+- [Infrastructure Sprint 2 (DES-010 concrete provider capabilities)](Documentation/Product/Roadmap/INFRASTRUCTURE_SPRINT_2_ROADMAP.md)
 - [Infrastructure Sprint 1 Retrospective](Documentation/Development/Retrospectives/INFRASTRUCTURE_SPRINT_1_RETROSPECTIVE.md)
 
 Documentation/Product/Roadmap/
