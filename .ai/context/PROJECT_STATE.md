@@ -137,7 +137,7 @@ milestones:
 next_tasks:
   - Keep the package building and its tests green at every step
   - Implement remaining DES-001 Phase 3 primitives when required (shared value types, typed-error abstraction)
-  - Plan the next sprint against the product roadmap (Application Foundation) and create its GitHub issues and milestone
+  - Kick off Infrastructure Sprint 2 (milestone #7): create its GitHub issues against the roadmap and implement the next Infrastructure phases
 
 blocked: []
 
