@@ -18,17 +18,42 @@ public protocol CapabilityContract: Sendable {}
 /// Text Generation: producing text from a prompt (ARC-004).
 ///
 /// Realized by this contract (DES-009 §3.1).
-public protocol TextGenerationContract: CapabilityContract {}
+public protocol TextGenerationContract: CapabilityContract {
+    /// Produces the generated text from `request`.
+    ///
+    /// Typed against the capability value objects and referencing no provider
+    /// (ARC-004). Every failure is expressed in the capability errors of
+    /// DES-009 §3.11.2; nothing fails silently (ARC-001).
+    func generateText(from request: TextGenerationRequest) async throws -> TextGenerationResponse
+}
 
 /// Conversation: multi-turn interaction with context (ARC-004).
 ///
 /// Realized by this contract (DES-009 §3.1).
-public protocol ConversationContract: CapabilityContract {}
+public protocol ConversationContract: CapabilityContract {
+    /// Sends `request` and returns the assistant's reply, to be appended to the
+    /// history.
+    ///
+    /// Typed against the capability value objects and referencing no provider
+    /// (ARC-004). Every failure is expressed in the capability errors of
+    /// DES-009 §3.11.2; nothing fails silently (ARC-001).
+    func sendMessage(_ request: ConversationRequest) async throws -> ConversationResponse
+}
 
 /// Streaming: incremental delivery of generated content (ARC-004).
 ///
 /// Realized by this contract (DES-009 §3.1).
-public protocol StreamingContract: CapabilityContract {}
+public protocol StreamingContract: CapabilityContract {
+    /// Streams the reply to `request` as incremental updates.
+    ///
+    /// The stream delivers content deltas and ends with the completion event
+    /// carrying the assembled assistant message or, on interruption, the
+    /// interruption event carrying the preserved partial content (ARC-001,
+    /// DES-009 §3.3). Typed against the capability value objects and referencing
+    /// no provider (ARC-004). Every failure is expressed in the capability
+    /// errors of DES-009 §3.11.2; nothing fails silently (ARC-001).
+    func stream(_ request: StreamingRequest) async throws -> AsyncThrowingStream<StreamingUpdate, Error>
+}
 
 extension Capability {
     /// The capabilities realized by this contract (DES-009 §3.1): text

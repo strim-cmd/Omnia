@@ -51,23 +51,17 @@ final class ProviderAdapterTests: XCTestCase {
         )
     }
 
-    // MARK: - Capability contract conformance
+    // MARK: - Capability contract deferral
 
-    func testAdapter_ConformsToTheRealizedCapabilityContracts() async throws {
+    func testAdapter_DoesNotClaimCapabilityConformanceUntilTheConcreteSurface() async throws {
         let (adapter, _) = try await makeAdapter(transport: FakeTransport())
 
-        let textGeneration: any TextGenerationContract = adapter
-        let conversation: any ConversationContract = adapter
-        let streaming: any StreamingContract = adapter
-
-        XCTAssertTrue(type(of: textGeneration) == OpenAICompatibleProviderAdapter.self)
-        XCTAssertTrue(type(of: conversation) == OpenAICompatibleProviderAdapter.self)
-        XCTAssertTrue(type(of: streaming) == OpenAICompatibleProviderAdapter.self)
+        XCTAssertNil(adapter as? any TextGenerationContract)
+        XCTAssertNil(adapter as? any ConversationContract)
+        XCTAssertNil(adapter as? any StreamingContract)
     }
 
-    // MARK: - Public initializer
-
-    func testPublicInitializer_ConformsToTheRealizedCapabilityContracts() {
+    func testPublicInitializer_DoesNotClaimCapabilityConformanceUntilTheConcreteSurface() {
         let storage = SecureCredentialStorage(backend: InMemoryCredentialStorageBackend())
         let adapter = OpenAICompatibleProviderAdapter(
             endpoint: endpoint,
@@ -75,13 +69,9 @@ final class ProviderAdapterTests: XCTestCase {
             credentialStorage: storage
         )
 
-        let textGeneration: any TextGenerationContract = adapter
-        let conversation: any ConversationContract = adapter
-        let streaming: any StreamingContract = adapter
-
-        XCTAssertTrue(type(of: textGeneration) == OpenAICompatibleProviderAdapter.self)
-        XCTAssertTrue(type(of: conversation) == OpenAICompatibleProviderAdapter.self)
-        XCTAssertTrue(type(of: streaming) == OpenAICompatibleProviderAdapter.self)
+        XCTAssertNil(adapter as? any TextGenerationContract)
+        XCTAssertNil(adapter as? any ConversationContract)
+        XCTAssertNil(adapter as? any StreamingContract)
     }
 
     func testPublicInitializer_ReportsUnavailableWithoutNetworkWhenNoCredentialIsStored() async {
