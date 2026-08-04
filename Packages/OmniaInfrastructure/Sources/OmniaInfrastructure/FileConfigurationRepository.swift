@@ -1,13 +1,13 @@
 import Foundation
 import OmniaDomain
 
-/// The stored representation of one configuration value (DES-010 §3.3).
+/// The stored representation of one configuration value (DES-010 §3.2).
 ///
 /// The payload is the value's JSON text. The value is type-erased at the
 /// storage boundary: the frozen Domain contract leaves `Value` unconstrained
 /// (`Equatable & Sendable`), so a repository witness cannot require `Codable`
 /// and the concrete type is instead carried by the JSON payload itself
-/// (DES-009 §3.5–§3.6).
+/// (DES-009 §3.5).
 internal struct ConfigurationStoredValue: Codable, Sendable {
     let payload: String
 }
