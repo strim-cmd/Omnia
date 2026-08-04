@@ -123,6 +123,73 @@ Recommended for immediate adoption (not implemented by this document):
 - Record review findings per phase (blocking and non-blocking) so future retrospectives have data instead of anecdote.
 - Cover the adapter shells' public initializers with deterministic tests using the credential-resolution failure path, which needs no network.
 
+## Engineering Platform Evolution
+
+Infrastructure Sprint 1 produced not only the OmniaInfrastructure package but also a significant evolution of the engineering platform itself. Several practices that began as experiments became validated parts of the engineering workflow.
+
+### Prompt Engineering → Intent-Driven Commands
+
+At the beginning of the sprint, work was driven by long, task-specific prompts describing implementation, review, verification, and repository updates.
+
+By the end of the sprint, those prompts had been reduced to intent-oriented commands such as:
+
+- `Complete Issue #29.`
+- `Review PR #35.`
+- `Merge PR #35.`
+- `Continue.`
+
+The implementation details moved from user prompts into the repository's engineering workflow and AI constitution, making execution more deterministic and repeatable.
+
+### Command Mode Validation
+
+The sprint demonstrated that Command Mode is a viable primary interaction model.
+
+Rather than instructing the AI how to perform a task, the user expresses intent while the repository defines the process.
+
+This significantly reduced prompt complexity and improved consistency across sprint phases.
+
+### Recovery as a First-Class Workflow
+
+Interrupted executions occurred multiple times because of Docker image downloads, provider/model behavior, and long-running verification steps.
+
+These incidents established workflow recovery as an explicit engineering requirement rather than an implementation detail.
+
+Future platform versions should restore repository state and continue execution instead of attempting to resume interrupted tool calls.
+
+### Human Decision Gate
+
+The sprint clarified that user interaction should occur only when an engineering decision is required.
+
+Routine implementation, verification, review, and merge operations should remain automated.
+
+Only non-blocking recommendations requiring human judgement should pause execution and request user confirmation.
+
+### User Experience
+
+The sprint highlighted the separation between engineering artifacts and user interaction.
+
+Engineering artifacts remain in English:
+
+- source code
+- documentation
+- commits
+- pull requests
+- architecture documents
+
+User-facing communication should use the user's preferred language.
+
+### Engineering Platform as a Product
+
+The engineering platform evolved from a collection of prompts into a structured system consisting of:
+
+- AI Constitution
+- Command Mode
+- Engineering Workflow
+- Context Management
+- Validation Rules
+
+Future improvements should continue treating the Engineering Platform as a first-class project with its own roadmap, milestones, reviews, and retrospectives.
+
 ## Engineering Platform v2 Backlog
 
 Deferred improvements, not implemented in this sprint:
