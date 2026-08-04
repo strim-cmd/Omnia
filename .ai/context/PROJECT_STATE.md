@@ -1,12 +1,12 @@
 version: 0.1.0-alpha
 
-phase: Domain
+phase: Infrastructure
 
 status: Active
 
-current_sprint: Domain Sprint 1
+current_sprint: Infrastructure Sprint 1
 
-current_milestone: Domain Sprint 1
+current_milestone: Infrastructure Sprint 1
 
 repository_foundation: Complete
 ai_foundation: Complete
@@ -32,6 +32,7 @@ completed:
   - OmniaFoundation package complete (Identifier, Environment, Lifecycle, Logging, Clock, Cancellation, SemanticVersion; 136 tests green)
   - Domain Sprint 1 – Implementation (DES-009 phases 1-8): value objects, capability contract and provider model, configuration model, credential storage protocol, aggregates, repository protocols, domain services and policies
   - OmniaDomain package complete (value objects, capability contract, configuration model, credential storage protocol, aggregates, four repository protocols, two domain services, two policies; 231 tests green)
+  - Domain Sprint 1 milestone closed (2026-08-04); GitHub issues #7-#13 closed; PRs #14-#21 merged
 
 milestones:
   Foundation API Freeze v1:
@@ -81,9 +82,11 @@ milestones:
       - OmniaDomain package implemented against the frozen contract.
       - OmniaDomain depends only on OmniaFoundation; dependency graph acyclic; no forbidden imports.
       - 231 tests passing, verified on the fully integrated branch (PRs #14–#21); 0 build or test warnings.
+      - Milestone closed 2026-08-04; all Phase issues #7-#13 closed; all PRs #14-#21 merged into feature/repository-foundation.
 
 next_tasks:
-  - Implement the OmniaInfrastructure package (Stage 2) against the frozen Domain API contract per Documentation/Product/Roadmap/DOMAIN_SPRINT_1_ROADMAP.md Non-Goals (deferred)
+  - Implement the OmniaInfrastructure package (Stage 1) against the frozen Domain API contract: repository implementations, secure credential storage (Keychain), provider adapters, serializers
+  - Plan the OmniaInfrastructure sprint (spec, freeze, implementation) against ARC-002, ARC-005, ARC-006, ARC-008, ARC-009
   - Implement remaining DES-001 Phase 3 primitives when required (shared value types, typed-error abstraction)
   - Keep the package building and its tests green at every step
 
@@ -91,4 +94,4 @@ blocked: []
 
 known_issues: []
 
-last_updated: 2026-08-03
+last_updated: 2026-08-04
