@@ -114,7 +114,7 @@ milestones:
       - Configuration repository implementation (complete)
       - Secure credential storage (Keychain backend seam + in-memory backend) (complete)
       - Provider transport and OpenAI-compatible client (complete)
-      - Provider adapters
+      - Provider adapters (complete)
       - Package verification
     Outcome:
       - Planned 2026-08-04; roadmap and issues #22-#31 created under milestone #6.
@@ -126,11 +126,12 @@ milestones:
       - Configuration repository implementation complete 2026-08-04 (issue #27); 14 tests green on the Linux build.
       - Secure credential storage implementation complete 2026-08-04 (issue #28); 9 tests green on the Linux build; secrets never enter logs or any representation.
       - Provider transport and OpenAI-compatible client complete 2026-08-04 (issue #29); 28 tests green on the Linux build (package suite 126 green); the `ProviderTransport` seam with no network in tests, the OpenAI-compatible HTTP client, internal chat-completions DTOs and JSON serialization, SSE streaming primitives, and failure translation into `ProviderTransportError` (raw errors never leak; credentials by reference, secrets confined to the authorization header).
-      - Implementation in progress; Provider adapters implementation next.
+      - Provider adapters complete 2026-08-04 (issue #30); 8 tests green on the Linux build (package suite 134 green); the `OpenAICompatibleProviderAdapter` shell conforms to the realized capability contracts (`TextGenerationContract`, `ConversationContract`, `StreamingContract`), wires the transport and the credential storage, owns no business logic or application state, and reports live availability through the transport seam in Omnia's own terms (ARC-004 Capability Discovery); concrete capability call methods deferred until the Domain contract is extended (DES-010 §3.6).
+      - Implementation in progress; Package verification implementation next.
 
 next_tasks:
-  - Implement Infrastructure Sprint 1 Phase 9 (issue #30): the provider adapters — adapter shells conforming to the Domain capability contracts (`TextGenerationContract`, `ConversationContract`, `StreamingContract`), wired to the provider transport and the credential storage, per INFRASTRUCTURE_SPRINT_1_ROADMAP.md and the frozen DES-010
-  - Implement the remaining OmniaInfrastructure package phases (#30-#31) against the frozen DES-010 contract and the frozen Domain API, per INFRASTRUCTURE_SPRINT_1_ROADMAP.md implementation order
+  - Implement Infrastructure Sprint 1 Phase 10 (issue #31): package verification — full unit-test pass, dependency verification that OmniaInfrastructure depends only on OmniaDomain and OmniaFoundation, layer verification that no UI framework or business rules enter the package, and confirmation that the internal dependency graph is acyclic (ARC-002, ARC-004, ARC-008, ARC-009), per INFRASTRUCTURE_SPRINT_1_ROADMAP.md and the frozen DES-010
+  - Implement the remaining OmniaInfrastructure package phases (#31) against the frozen DES-010 contract and the frozen Domain API, per INFRASTRUCTURE_SPRINT_1_ROADMAP.md implementation order
   - Keep the package building and its tests green at every step
   - Implement remaining DES-001 Phase 3 primitives when required (shared value types, typed-error abstraction)
 
