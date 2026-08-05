@@ -157,7 +157,7 @@ Current milestone:
 
 Current sprint:
 
-> ✅ Application Sprint 1 — complete (milestone #8). Next: Presentation Sprint 1 (milestone #9).
+> 📋 Presentation Sprint 1 — planned (milestone #9; roadmap `PRESENTATION_SPRINT_1_ROADMAP.md`, issues #105-#110). Application Sprint 1 (milestone #8) complete.
 
 The OmniaFoundation, OmniaDomain, OmniaInfrastructure, and OmniaApplication packages are implemented against their frozen contracts (DES-001..DES-011), with the four package test suites green (748 tests). Application Sprint 1 delivered the use cases and application services for conversation, provider, and configuration flows (DES-011, PRD-006) — the conversation service, the send-message use case, the provider connection service, and the configuration service — verified against the frozen Application API surface on the Linux build.
 
@@ -186,6 +186,7 @@ See:
 - [Domain Sprint 2 (DES-009 capability-contract extension)](Documentation/Product/Roadmap/DOMAIN_SPRINT_2_ROADMAP.md)
 - [Infrastructure Sprint 2 (DES-010 concrete provider capabilities)](Documentation/Product/Roadmap/INFRASTRUCTURE_SPRINT_2_ROADMAP.md)
 - [Application Sprint 1 (DES-011 use cases and application services)](Documentation/Product/Roadmap/APPLICATION_SPRINT_1_ROADMAP.md)
+- [Presentation Sprint 1 (DES-012 native user interface)](Documentation/Product/Roadmap/PRESENTATION_SPRINT_1_ROADMAP.md)
 - [Infrastructure Sprint 1 Retrospective](Documentation/Development/Retrospectives/INFRASTRUCTURE_SPRINT_1_RETROSPECTIVE.md)
 
 Documentation/Product/Roadmap/
