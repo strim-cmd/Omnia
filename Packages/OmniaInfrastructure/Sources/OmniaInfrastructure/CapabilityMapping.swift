@@ -104,6 +104,12 @@ internal enum CapabilityMapping {
         return .contentDelta(identity: identity, content: content)
     }
 
+    /// Assembles the completion event's assistant message from the content
+    /// accumulated across the streamed deltas (DES-010 §3.9.2, DES-009 §3.11.1).
+    static func streamCompletionMessage(from partialContent: String) -> Message {
+        Message(role: .assistant, content: partialContent)
+    }
+
     // MARK: Error translation
 
     /// Translates an internal transport failure into the Domain capability

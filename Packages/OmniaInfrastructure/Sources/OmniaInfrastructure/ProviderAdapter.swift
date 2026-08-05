@@ -13,15 +13,13 @@ import OmniaDomain
 /// Adapter Model), and the transport seam is wired now so the adapter is
 /// testable without a network (ARC-001, ARC-006). The Domain capability
 /// contract declares the concrete capability call methods (DES-009 §3.11.3);
-/// the adapter realizes them over the transport seam as the stages of
-/// Infrastructure Sprint 2 land: the text generation and conversation
-/// contracts are realized by this stage (DES-010 §3.9.1, PRD-005), and the
-/// streaming contract returns with the stage that follows. It never claims to
-/// deliver a capability it cannot deliver yet. Live availability is reported
-/// here, by the Infrastructure layer, never by the Domain (ARC-004 Capability
-/// Discovery, DES-009 §3.1). Provider-specific code is confined to this
-/// adapter; provider APIs never leave the package (ARC-004, ARC-009).
-public struct OpenAICompatibleProviderAdapter: TextGenerationContract, ConversationContract, Sendable {
+/// the adapter realizes them over the transport seam: the text generation,
+/// conversation, and streaming contracts (DES-010 §3.9.1, PRD-005). Live
+/// availability is reported here, by the Infrastructure layer, never by the
+/// Domain (ARC-004 Capability Discovery, DES-009 §3.1). Provider-specific code
+/// is confined to this adapter; provider APIs never leave the package
+/// (ARC-004, ARC-009).
+public struct OpenAICompatibleProviderAdapter: TextGenerationContract, ConversationContract, StreamingContract, Sendable {
     private let client: OpenAICompatibleClient
     private let endpoint: URL
     private let credential: CredentialReference
@@ -110,6 +108,77 @@ public struct OpenAICompatibleProviderAdapter: TextGenerationContract, Conversat
             throw CapabilityMapping.capabilityError(from: error)
         }
         return try CapabilityMapping.conversationResponse(from: response)
+    }
+
+    /// Streams the reply to `request` as incremental updates (DES-009 §3.11.3).
+    ///
+    /// Translates `request` through the adapter's mapping (DES-010 §3.9.2),
+    /// performs the streaming chat-completions request through the injected
+    /// client, and delivers the client's chunk stream as the Domain streaming
+    /// updates — composing the mapping and the client, and owning no business
+    /// logic (ARC-004 Adapter Model, DES-010 §3.9.1). Each chunk's content delta
+    /// becomes a `StreamingUpdate.contentDelta`; the end of the stream becomes
+    /// the `StreamingUpdate.completion` carrying the assembled assistant message
+    /// (DES-010 §3.9.4). A stream that stops because of cancellation — the
+    /// Foundation cancellation primitive of DES-008, observed through the
+    /// stream lifecycle — ends with the `StreamingUpdate.interruption` event
+    /// carrying the preserved partial content, so partial content is never
+    /// silently discarded (ARC-001). A streaming failure before a terminal event
+    /// is translated into `CapabilityError.streamingInterrupted(partialContent:)`
+    /// (DES-010 §3.9.3); a credential-resolution failure surfaces as the Domain
+    /// `CredentialStorageError`, never wrapped (DES-009 §3.7, §3.9).
+    public func stream(_ request: StreamingRequest) async throws -> AsyncThrowingStream<StreamingUpdate, Error> {
+        let wireRequest = CapabilityMapping.request(from: request)
+        let chunkStream: AsyncThrowingStream<ChatCompletionChunk, any Error>
+        do {
+            chunkStream = try await client.streamChatCompletions(
+                request: wireRequest,
+                endpoint: endpoint,
+                credential: credential
+            )
+        } catch let error as ProviderTransportError {
+            throw CapabilityMapping.capabilityError(from: error)
+        }
+        let identity = request.identity
+        return AsyncThrowingStream { continuation in
+            let task = Task {
+                var partialContent = ""
+                do {
+                    for try await chunk in chunkStream {
+                        guard let delta = CapabilityMapping.update(from: chunk, identity: identity) else {
+                            continue
+                        }
+                        guard case .contentDelta(_, let content) = delta else {
+                            continue
+                        }
+                        partialContent += content
+                        continuation.yield(delta)
+                        if Task.isCancelled {
+                            continuation.yield(.interruption(identity: identity, partialContent: partialContent))
+                            continuation.finish()
+                            return
+                        }
+                    }
+                    if Task.isCancelled {
+                        continuation.yield(.interruption(identity: identity, partialContent: partialContent))
+                    } else {
+                        let message = CapabilityMapping.streamCompletionMessage(from: partialContent)
+                        continuation.yield(.completion(identity: identity, message: message))
+                    }
+                } catch is CancellationError {
+                    continuation.yield(.interruption(identity: identity, partialContent: partialContent))
+                } catch {
+                    if Task.isCancelled {
+                        continuation.yield(.interruption(identity: identity, partialContent: partialContent))
+                    } else {
+                        continuation.finish(throwing: CapabilityError.streamingInterrupted(partialContent: partialContent))
+                        return
+                    }
+                }
+                continuation.finish()
+            }
+            continuation.onTermination = { _ in task.cancel() }
+        }
     }
 
     /// Reports whether the provider can currently be reached and used.

@@ -35,10 +35,86 @@ final class ProviderAdapterTests: XCTestCase {
         }
     }
 
+    private final class FakeStreamingTransport: ProviderTransport, @unchecked Sendable {
+        enum Terminal {
+            case finish
+            case throwError(any Error & Sendable)
+            case awaitCancellationThenThrow(any Error & Sendable)
+        }
+
+        private let lock = NSLock()
+        private var recordedRequests: [ProviderHTTPRequest] = []
+        private var producedTasks: [Task<Void, Never>] = []
+        private var cancellationObserved = false
+        private let chunks: [Data]
+        private let terminal: Terminal
+        private let cancellationContinuation: AsyncStream<Void>.Continuation
+        let cancellationStream: AsyncStream<Void>
+
+        init(chunks: [Data], terminal: Terminal) {
+            self.chunks = chunks
+            self.terminal = terminal
+            let signal = AsyncStream.makeStream(of: Void.self)
+            self.cancellationStream = signal.stream
+            self.cancellationContinuation = signal.continuation
+        }
+
+        var requests: [ProviderHTTPRequest] {
+            lock.withLock { recordedRequests }
+        }
+
+        var didObserveCancellation: Bool {
+            lock.withLock { cancellationObserved }
+        }
+
+        func send(_ request: ProviderHTTPRequest) async throws -> ProviderHTTPResponse {
+            lock.withLock {
+                recordedRequests.append(request)
+            }
+            return ProviderHTTPResponse(body: Data())
+        }
+
+        func stream(_ request: ProviderHTTPRequest) -> AsyncThrowingStream<Data, any Error> {
+            lock.withLock {
+                recordedRequests.append(request)
+            }
+            let signalContinuation = cancellationContinuation
+            return AsyncThrowingStream { continuation in
+                let task = Task {
+                    for chunk in chunks {
+                        continuation.yield(chunk)
+                    }
+                    switch terminal {
+                    case .finish:
+                        continuation.finish()
+                    case .throwError(let error):
+                        continuation.finish(throwing: error)
+                    case .awaitCancellationThenThrow(let error):
+                        while !Task.isCancelled {
+                            try? await Task.sleep(for: .milliseconds(5))
+                        }
+                        lock.withLock { cancellationObserved = true }
+                        signalContinuation.yield(())
+                        signalContinuation.finish()
+                        continuation.finish(throwing: error)
+                    }
+                }
+                lock.withLock {
+                    producedTasks.append(task)
+                }
+                continuation.onTermination = { _ in task.cancel() }
+            }
+        }
+
+        func cancelStream() {
+            lock.withLock { producedTasks }.forEach { $0.cancel() }
+        }
+    }
+
     private let endpoint = URL(string: "https://api.example.com/v1")!
 
     private func makeAdapter(
-        transport: FakeTransport,
+        transport: any ProviderTransport,
         secret: String = "sk-adapter-secret"
     ) async throws -> (OpenAICompatibleProviderAdapter, CredentialReference) {
         let storage = SecureCredentialStorage(backend: InMemoryCredentialStorageBackend())
@@ -55,10 +131,11 @@ final class ProviderAdapterTests: XCTestCase {
 
     func testAdapter_ClaimsOnlyTheCapabilitiesItDelivers() async throws {
         let (adapter, _) = try await makeAdapter(transport: FakeTransport())
+        let erased: any CapabilityContract = adapter
 
-        XCTAssertNotNil(adapter as? any TextGenerationContract)
-        XCTAssertNotNil(adapter as? any ConversationContract)
-        XCTAssertNil(adapter as? any StreamingContract)
+        XCTAssertNotNil(erased as? any TextGenerationContract)
+        XCTAssertNotNil(erased as? any ConversationContract)
+        XCTAssertNotNil(erased as? any StreamingContract)
     }
 
     func testPublicInitializer_ClaimsOnlyTheCapabilitiesItDelivers() {
@@ -68,10 +145,11 @@ final class ProviderAdapterTests: XCTestCase {
             credential: CredentialReference(),
             credentialStorage: storage
         )
+        let erased: any CapabilityContract = adapter
 
-        XCTAssertNotNil(adapter as? any TextGenerationContract)
-        XCTAssertNotNil(adapter as? any ConversationContract)
-        XCTAssertNil(adapter as? any StreamingContract)
+        XCTAssertNotNil(erased as? any TextGenerationContract)
+        XCTAssertNotNil(erased as? any ConversationContract)
+        XCTAssertNotNil(erased as? any StreamingContract)
     }
 
     func testPublicInitializer_ReportsUnavailableWithoutNetworkWhenNoCredentialIsStored() async {
@@ -444,6 +522,206 @@ final class ProviderAdapterTests: XCTestCase {
         XCTAssertFalse(String(decoding: sent.body ?? Data(), as: UTF8.self).contains("sk-conv-confined"))
     }
 
+    // MARK: - Streaming capability
+
+    private var streamingRequest: StreamingRequest {
+        StreamingRequest(
+            identity: CapabilityRequestIdentity(),
+            history: [
+                Message(role: .system, content: "You are concise."),
+                Message(role: .user, content: "Hello"),
+            ],
+            model: ModelReference(name: "gpt-4o")
+        )
+    }
+
+    func testStream_DeliversContentDeltasIncrementally() async throws {
+        let transport = FakeStreamingTransport(
+            chunks: [Self.streamChunkData(content: "Hello"), Self.streamChunkData(content: " world")],
+            terminal: .finish
+        )
+        let (adapter, _) = try await makeAdapter(transport: transport)
+        let request = streamingRequest
+
+        let stream = try await adapter.stream(request)
+        var events: [StreamingUpdate] = []
+        for try await update in stream {
+            events.append(update)
+        }
+
+        let deltas = events.compactMap { update -> String? in
+            guard case .contentDelta(let identity, let content) = update else {
+                return nil
+            }
+            XCTAssertEqual(identity, request.identity)
+            return content
+        }
+        XCTAssertEqual(deltas, ["Hello", " world"])
+    }
+
+    func testStream_EndsWithCompletionCarryingTheAssembledMessage() async throws {
+        let transport = FakeStreamingTransport(
+            chunks: [Self.streamChunkData(content: "Hello"), Self.streamChunkData(content: " world")],
+            terminal: .finish
+        )
+        let (adapter, _) = try await makeAdapter(transport: transport)
+        let request = streamingRequest
+
+        let stream = try await adapter.stream(request)
+        var events: [StreamingUpdate] = []
+        for try await update in stream {
+            events.append(update)
+        }
+
+        guard case .completion(let identity, let message) = try XCTUnwrap(events.last) else {
+            return XCTFail("Expected the stream to end with a completion event")
+        }
+        XCTAssertEqual(identity, request.identity)
+        XCTAssertEqual(message, Message(role: .assistant, content: "Hello world"))
+    }
+
+    func testStream_SendsAStreamingRequestWithHistoryAndConfinesTheSecret() async throws {
+        let transport = FakeStreamingTransport(chunks: [], terminal: .finish)
+        let (adapter, _) = try await makeAdapter(transport: transport, secret: "sk-stream-secret")
+
+        _ = try await adapter.stream(streamingRequest)
+
+        let sent = try XCTUnwrap(transport.requests.first)
+        XCTAssertEqual(sent.url, URL(string: "https://api.example.com/v1/chat/completions"))
+        XCTAssertEqual(sent.method, "POST")
+        XCTAssertEqual(sent.headers["Authorization"], "Bearer sk-stream-secret")
+
+        let body = try JSONDecoder().decode(ChatCompletionRequest.self, from: try XCTUnwrap(sent.body))
+        XCTAssertEqual(body.model, "gpt-4o")
+        XCTAssertTrue(body.stream)
+        XCTAssertEqual(
+            body.messages,
+            [
+                ChatMessage(role: "system", content: "You are concise."),
+                ChatMessage(role: "user", content: "Hello"),
+            ]
+        )
+        XCTAssertFalse(sent.url.absoluteString.contains("sk-stream-secret"))
+        XCTAssertFalse(String(decoding: sent.body ?? Data(), as: UTF8.self).contains("sk-stream-secret"))
+    }
+
+    func testStream_DeliversInterruptionPreservingPartialContent() async throws {
+        let transport = FakeStreamingTransport(
+            chunks: [Self.streamChunkData(content: "Hello"), Self.streamChunkData(content: " world")],
+            terminal: .awaitCancellationThenThrow(CancellationError())
+        )
+        let (adapter, _) = try await makeAdapter(transport: transport)
+        let request = streamingRequest
+        let stream = try await adapter.stream(request)
+
+        let bothDeltasDelivered = AsyncStream<Void>.makeStream()
+        let consumption = Task { () -> [StreamingUpdate] in
+            var events: [StreamingUpdate] = []
+            for try await update in stream {
+                events.append(update)
+                if events.count == 2 {
+                    bothDeltasDelivered.continuation.yield(())
+                    bothDeltasDelivered.continuation.finish()
+                }
+            }
+            return events
+        }
+
+        _ = await bothDeltasDelivered.stream.first { _ in true }
+        transport.cancelStream()
+        _ = await transport.cancellationStream.first { _ in true }
+
+        let events = try await consumption.value
+
+        XCTAssertTrue(transport.didObserveCancellation)
+        XCTAssertEqual(events.count, 3)
+        let lastEvent = try XCTUnwrap(events.last)
+        guard case .interruption(let identity, let partialContent) = lastEvent else {
+            return XCTFail("Expected the stream to end with an interruption event")
+        }
+        XCTAssertEqual(identity, request.identity)
+        XCTAssertEqual(partialContent, "Hello world")
+    }
+
+    func testStream_ThrowsStreamingInterruptedOnMidStreamFailure() async throws {
+        let transport = FakeStreamingTransport(
+            chunks: [Self.streamChunkData(content: "Hello")],
+            terminal: .throwError(ProviderTransportError.networkFailure)
+        )
+        let (adapter, _) = try await makeAdapter(transport: transport)
+        let stream = try await adapter.stream(streamingRequest)
+
+        var events: [StreamingUpdate] = []
+        do {
+            for try await update in stream {
+                events.append(update)
+            }
+            XCTFail("Expected CapabilityError.streamingInterrupted")
+        } catch CapabilityError.streamingInterrupted(let partialContent) {
+            XCTAssertEqual(partialContent, "Hello")
+        } catch {
+            XCTFail("Unexpected error: \(error)")
+        }
+
+        guard case .contentDelta(_, let content) = events[0] else {
+            return XCTFail("Expected a content delta before the failure")
+        }
+        XCTAssertEqual(content, "Hello")
+    }
+
+    func testStream_SurfacesTheCredentialStorageErrorWithoutWrappingIt() async throws {
+        let storage = SecureCredentialStorage(backend: InMemoryCredentialStorageBackend())
+        let client = OpenAICompatibleClient(transport: FakeTransport(), credentialStorage: storage)
+        let adapter = OpenAICompatibleProviderAdapter(
+            client: client,
+            endpoint: endpoint,
+            credential: CredentialReference()
+        )
+
+        do {
+            _ = try await adapter.stream(streamingRequest)
+            XCTFail("Expected CredentialStorageError.credentialNotFound")
+        } catch CredentialStorageError.credentialNotFound {
+            // expected
+        } catch {
+            XCTFail("Unexpected error: \(error)")
+        }
+    }
+
+    func testStream_PropagatesConsumerCancellationToTheTransport() async throws {
+        let transport = FakeStreamingTransport(
+            chunks: [Self.streamChunkData(content: "Hello"), Self.streamChunkData(content: " world")],
+            terminal: .awaitCancellationThenThrow(CancellationError())
+        )
+        let (adapter, _) = try await makeAdapter(transport: transport)
+        let stream = try await adapter.stream(streamingRequest)
+
+        let firstDeltaDelivered = AsyncStream<Void>.makeStream()
+        let consumption = Task { () -> [StreamingUpdate] in
+            var events: [StreamingUpdate] = []
+            for try await update in stream {
+                events.append(update)
+                if events.count == 1 {
+                    firstDeltaDelivered.continuation.yield(())
+                    firstDeltaDelivered.continuation.finish()
+                }
+            }
+            return events
+        }
+
+        _ = await firstDeltaDelivered.stream.first { _ in true }
+        consumption.cancel()
+        _ = await transport.cancellationStream.first { _ in true }
+        let events = try await consumption.value
+
+        XCTAssertTrue(transport.didObserveCancellation)
+        let firstEvent = try XCTUnwrap(events.first)
+        guard case .contentDelta(_, let content) = firstEvent else {
+            return XCTFail("Expected a content delta before cancellation")
+        }
+        XCTAssertEqual(content, "Hello")
+    }
+
     // MARK: - Credential confinement
 
     func testIsAvailable_ConfinesTheSecretToTheAuthorizationHeader() async throws {
@@ -476,6 +754,12 @@ final class ProviderAdapterTests: XCTestCase {
     private static func textResponseJSON(text: String) -> Data {
         Data("""
         {"id":"chatcmpl-1","model":"gpt-4o","choices":[{"index":0,"message":{"role":"assistant","content":"\(text)"},"finish_reason":"stop"}]}
+        """.utf8)
+    }
+
+    private static func streamChunkData(content: String) -> Data {
+        Data("""
+        data: {"id":"chatcmpl-5","model":"gpt-4o","choices":[{"index":0,"delta":{"content":"\(content)"},"finish_reason":null}]}\n\n
         """.utf8)
     }
 }
