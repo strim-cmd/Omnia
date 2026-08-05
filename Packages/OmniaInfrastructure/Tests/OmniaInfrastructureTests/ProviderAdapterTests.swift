@@ -57,7 +57,7 @@ final class ProviderAdapterTests: XCTestCase {
         let (adapter, _) = try await makeAdapter(transport: FakeTransport())
 
         XCTAssertNotNil(adapter as? any TextGenerationContract)
-        XCTAssertNil(adapter as? any ConversationContract)
+        XCTAssertNotNil(adapter as? any ConversationContract)
         XCTAssertNil(adapter as? any StreamingContract)
     }
 
@@ -70,7 +70,7 @@ final class ProviderAdapterTests: XCTestCase {
         )
 
         XCTAssertNotNil(adapter as? any TextGenerationContract)
-        XCTAssertNil(adapter as? any ConversationContract)
+        XCTAssertNotNil(adapter as? any ConversationContract)
         XCTAssertNil(adapter as? any StreamingContract)
     }
 
@@ -308,6 +308,140 @@ final class ProviderAdapterTests: XCTestCase {
         XCTAssertEqual(sent.headers["Authorization"], "Bearer sk-confined-secret")
         XCTAssertFalse(sent.url.absoluteString.contains("sk-confined-secret"))
         XCTAssertFalse(String(decoding: sent.body ?? Data(), as: UTF8.self).contains("sk-confined-secret"))
+    }
+
+    // MARK: - Conversation capability
+
+    private var conversationRequest: ConversationRequest {
+        ConversationRequest(
+            identity: CapabilityRequestIdentity(),
+            history: [
+                Message(role: .system, content: "You are concise."),
+                Message(role: .user, content: "Hello"),
+                Message(role: .assistant, content: "Hi!"),
+            ],
+            model: ModelReference(name: "gpt-4o")
+        )
+    }
+
+    func testSendMessage_ReturnsTheAssistantMessage() async throws {
+        let transport = FakeTransport(sendResult: .success(Self.textResponseJSON(text: "How can I help?")))
+        let (adapter, _) = try await makeAdapter(transport: transport)
+
+        let response = try await adapter.sendMessage(conversationRequest)
+
+        XCTAssertEqual(response.message, Message(role: .assistant, content: "How can I help?"))
+    }
+
+    func testSendMessage_SendsANonStreamingChatCompletionsRequestWithTheHistory() async throws {
+        let transport = FakeTransport(sendResult: .success(Self.textResponseJSON(text: "Hi!")))
+        let (adapter, _) = try await makeAdapter(transport: transport, secret: "sk-conv-secret")
+
+        _ = try await adapter.sendMessage(conversationRequest)
+
+        let sent = try XCTUnwrap(transport.requests.first)
+        XCTAssertEqual(sent.url, URL(string: "https://api.example.com/v1/chat/completions"))
+        XCTAssertEqual(sent.method, "POST")
+        XCTAssertEqual(sent.headers["Authorization"], "Bearer sk-conv-secret")
+
+        let body = try JSONDecoder().decode(ChatCompletionRequest.self, from: try XCTUnwrap(sent.body))
+        XCTAssertEqual(body.model, "gpt-4o")
+        XCTAssertFalse(body.stream)
+        XCTAssertEqual(
+            body.messages,
+            [
+                ChatMessage(role: "system", content: "You are concise."),
+                ChatMessage(role: "user", content: "Hello"),
+                ChatMessage(role: "assistant", content: "Hi!"),
+            ]
+        )
+    }
+
+    func testSendMessage_SurfacesInvalidResponseWhenThePayloadCannotBeDecoded() async throws {
+        let transport = FakeTransport(sendResult: .success(Data("not-json".utf8)))
+        let (adapter, _) = try await makeAdapter(transport: transport)
+
+        do {
+            _ = try await adapter.sendMessage(conversationRequest)
+            XCTFail("Expected CapabilityError.invalidResponse")
+        } catch CapabilityError.invalidResponse {
+            // expected
+        } catch {
+            XCTFail("Unexpected error: \(error)")
+        }
+    }
+
+    func testSendMessage_SurfacesInvalidResponseWhenTheResponseHasNoChoice() async throws {
+        let transport = FakeTransport(sendResult: .success(Data(#"{"id":"chatcmpl-1","model":"gpt-4o","choices":[]}"#.utf8)))
+        let (adapter, _) = try await makeAdapter(transport: transport)
+
+        do {
+            _ = try await adapter.sendMessage(conversationRequest)
+            XCTFail("Expected CapabilityError.invalidResponse")
+        } catch CapabilityError.invalidResponse {
+            // expected
+        } catch {
+            XCTFail("Unexpected error: \(error)")
+        }
+    }
+
+    func testSendMessage_SurfacesProviderUnavailableOnHttpStatus() async throws {
+        let transport = FakeTransport(sendResult: .failure(.httpStatus(503)))
+        let (adapter, _) = try await makeAdapter(transport: transport)
+
+        do {
+            _ = try await adapter.sendMessage(conversationRequest)
+            XCTFail("Expected CapabilityError.providerUnavailable")
+        } catch CapabilityError.providerUnavailable {
+            // expected
+        } catch {
+            XCTFail("Unexpected error: \(error)")
+        }
+    }
+
+    func testSendMessage_SurfacesProviderUnavailableOnNetworkFailure() async throws {
+        let transport = FakeTransport(sendResult: .failure(.networkFailure))
+        let (adapter, _) = try await makeAdapter(transport: transport)
+
+        do {
+            _ = try await adapter.sendMessage(conversationRequest)
+            XCTFail("Expected CapabilityError.providerUnavailable")
+        } catch CapabilityError.providerUnavailable {
+            // expected
+        } catch {
+            XCTFail("Unexpected error: \(error)")
+        }
+    }
+
+    func testSendMessage_SurfacesTheCredentialStorageErrorWithoutWrappingIt() async throws {
+        let storage = SecureCredentialStorage(backend: InMemoryCredentialStorageBackend())
+        let client = OpenAICompatibleClient(transport: FakeTransport(), credentialStorage: storage)
+        let adapter = OpenAICompatibleProviderAdapter(
+            client: client,
+            endpoint: endpoint,
+            credential: CredentialReference()
+        )
+
+        do {
+            _ = try await adapter.sendMessage(conversationRequest)
+            XCTFail("Expected CredentialStorageError.credentialNotFound")
+        } catch CredentialStorageError.credentialNotFound {
+            // expected
+        } catch {
+            XCTFail("Unexpected error: \(error)")
+        }
+    }
+
+    func testSendMessage_ConfinesTheSecretToTheAuthorizationHeader() async throws {
+        let transport = FakeTransport(sendResult: .success(Self.textResponseJSON(text: "Hi!")))
+        let (adapter, _) = try await makeAdapter(transport: transport, secret: "sk-conv-confined")
+
+        _ = try await adapter.sendMessage(conversationRequest)
+
+        let sent = try XCTUnwrap(transport.requests.first)
+        XCTAssertEqual(sent.headers["Authorization"], "Bearer sk-conv-confined")
+        XCTAssertFalse(sent.url.absoluteString.contains("sk-conv-confined"))
+        XCTAssertFalse(String(decoding: sent.body ?? Data(), as: UTF8.self).contains("sk-conv-confined"))
     }
 
     // MARK: - Credential confinement
