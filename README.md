@@ -153,13 +153,13 @@ ADR/
 
 Current milestone:
 
-> ✅ Infrastructure Sprint 1 — complete (DES-010 ratified; issues #22-#31 closed)
+> 🚧 Application Sprint 1 — planned (PRD-006; issues #90-#96 under milestone #8)
 
 Current sprint:
 
-> 🚧 Domain Sprint 2 — planned (milestone #5)
+> 🚧 Application Sprint 1 — planned (milestone #8)
 
-The OmniaFoundation, OmniaDomain, and OmniaInfrastructure packages are implemented against their frozen contracts (DES-001..DES-010), with the three package test suites green (503 tests). Domain Sprint 2 extends the Domain capability contract (DES-009 v0.3.0) so the concrete provider capabilities can be implemented in Infrastructure Sprint 2 (DES-010 v1.1.0).
+The OmniaFoundation, OmniaDomain, and OmniaInfrastructure packages are implemented against their frozen contracts (DES-001..DES-010), with the three package test suites green (637 tests). Application Sprint 1 sequences the use cases and application services for conversation, provider, and configuration flows (DES-011, PRD-006) — first among them the send-message use case over the verified provider capabilities — per the roadmap discipline of PRD-005.
 
 ---
 
@@ -185,6 +185,7 @@ See:
 - [Domain Sprint 1 (DES-009 implementation)](Documentation/Product/Roadmap/DOMAIN_SPRINT_1_ROADMAP.md)
 - [Domain Sprint 2 (DES-009 capability-contract extension)](Documentation/Product/Roadmap/DOMAIN_SPRINT_2_ROADMAP.md)
 - [Infrastructure Sprint 2 (DES-010 concrete provider capabilities)](Documentation/Product/Roadmap/INFRASTRUCTURE_SPRINT_2_ROADMAP.md)
+- [Application Sprint 1 (DES-011 use cases and application services)](Documentation/Product/Roadmap/APPLICATION_SPRINT_1_ROADMAP.md)
 - [Infrastructure Sprint 1 Retrospective](Documentation/Development/Retrospectives/INFRASTRUCTURE_SPRINT_1_RETROSPECTIVE.md)
 
 Documentation/Product/Roadmap/

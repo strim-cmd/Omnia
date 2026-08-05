@@ -1,12 +1,12 @@
 version: 0.1.0-alpha
 
-phase: Infrastructure
+phase: Application
 
 status: Active
 
-current_sprint: Infrastructure Sprint 2
+current_sprint: Application Sprint 1
 
-current_milestone: Infrastructure Sprint 2
+current_milestone: Application Sprint 1
 
 repository_foundation: Complete
 ai_foundation: Complete
@@ -19,6 +19,7 @@ domain_capability_contract_extension: Frozen (v1)
 infrastructure_api: Frozen (v1)
 infrastructure_capability_surface: Frozen (v1)
 omnia_foundation: Complete
+application_api: Frozen (v1)
 
 completed:
   - Repository Foundation
@@ -78,6 +79,8 @@ completed:
   - Infrastructure Sprint 2 Stage 2d complete (2026-08-05): the streaming capability — OpenAICompatibleProviderAdapter conforms to StreamingContract and realizes stream(_:) per the frozen surface (DES-010 §3.9.1): it translates the Domain streaming request through the adapter's mapping, performs the streamed chat-completions request through the OpenAI-compatible client, surfaces the SSE deltas as StreamingUpdate.contentDelta accumulating content, and terminates with the completion event carrying the assembled assistant Message (ARC-001, partial content never discarded); interruption is cooperative through the stream lifecycle (DES-008) — transport cancellation surfaces as CancellationError mapped by the adapter to StreamingUpdate.interruption preserving the partial content (cancelled ≠ failed), consumer cancellation cascades to the stream through the stream's onTermination, and a mid-stream failure surfaces as CapabilityError.streamingInterrupted(partialContent:), never raw transport or decoding detail (ARC-004, DES-010 §3.9.3); the adapter owns no business logic and no application state, composing the mapping and the client only (ARC-004 Adapter Model); verified on the Linux build — OmniaInfrastructure 174 tests and OmniaDomain 318 tests, 0 failures and 0 warnings (issue #75)
   - Infrastructure Sprint 2 Stage 3 complete (2026-08-05): verification of the extended OmniaInfrastructure package per PRD-005 (issue #76) — the DES-010 v1.1.0 test matrix exercised black-box against the public capability surface: the three concrete capabilities delivered through the public adapter methods (generateText returns the produced text, sendMessage returns the assistant Message, stream delivers deltas incrementally and ends with the completion carrying the assembled message), streaming interruption preserving partial content end-to-end, streaming failure throwing CapabilityError.streamingInterrupted(partialContent:), the error-translation matrix (invalidRequest→invalidRequest, invalidResponse→invalidResponse, httpStatus/networkFailure→providerUnavailable, credential failures surface as CredentialStorageError never wrapped), and credential hygiene (the secret never leaves the authorization header across all three capabilities); full test pass on the Linux build — OmniaInfrastructure 183 tests and OmniaDomain 318 tests, 0 failures and 0 warnings; dependency verification that OmniaInfrastructure depends only on OmniaDomain and OmniaFoundation with an acyclic internal dependency graph and no forbidden or cross-package imports (ARC-009, DES-010 §4); layer verification that no UI framework, business rules, or presentation state enter the package and that no provider API leaks above the adapters (ARC-002, ARC-004); public-surface verification that the revision is additive and backward compatible over Infrastructure API Freeze v1 (DES-010 §6.3) — the initializer and isAvailable are unchanged and the sprint added the three capability methods only (issue #76)
   - Infrastructure Sprint 2 milestone closed (2026-08-05); GitHub issues #71-#76 closed; all phase PRs merged into feature/repository-foundation; the concrete provider capabilities (text generation, conversation, streaming) on the OpenAI-compatible adapter are implemented and verified against the extended Domain contract (DES-009 v0.3.0)
+  - Application Sprint 1 planned (2026-08-05): roadmap APPLICATION_SPRINT_1_ROADMAP.md (PRD-006) — the use cases and application services for conversation, provider, and configuration flows (milestone #8); the Application API contract to be written and frozen (DES-011 v1.0.0, Application API Freeze), then the application value objects and errors, the conversation service, the send-message use case (the streaming orchestration flow over the verified provider capabilities), the provider connection service, and the configuration service, sequenced contract-first against the frozen Domain contracts (DES-009 v0.3.0) and the verified Infrastructure capabilities (DES-010 v1.1.0); OmniaApplication consumes only OmniaDomain and OmniaFoundation with concrete implementations injected by the Composition Root (ARC-006); GitHub issues #90-#96 created under milestone #8 with dependencies, acceptance criteria, and implementation order; Infrastructure Sprint 2 (milestone #7) closed
+  - Application Sprint 1 Stage 1 complete (2026-08-05): the OmniaApplication public API contract written and ratified — DES-011 APPLICATION_API.md v1.0.0, Application API Freeze v1 (issue #90); the conversation surface (create, load/select, list by workspace membership, delete, message history, send-message flow), the provider connection surface (configure, list, remove; credential stored by reference, never held), and the configuration surface (typed settings with per-level resolution providerSettings → workspaceOverride → globalDefault → capabilityPreference); scope correction recorded: conversation renaming is a Workspace-module responsibility (ARC-007) and the frozen Conversation aggregate carries no name (DES-009 §3.3), so renaming is excluded from the conversation surface and deferred with workspace services, and global conversation enumeration is excluded (listing runs through workspace membership); the Application consumes only the Domain contracts with concrete Infrastructure implementations injected by the Composition Root (ARC-006, ARC-009); reviewed against ARC-001/002/004/006/007/009, ADR-0001/0002, DES-009 v0.3.0, and DES-010 v1.1.0
 
 milestones:
   Foundation API Freeze v1:
@@ -219,11 +222,27 @@ milestones:
       - Stage 3 complete 2026-08-05: package verification — the DES-010 v1.1.0 matrix exercised black-box green (the three capabilities delivered through the public surface, interruption preserving partial content, streaming failures, the error-translation matrix, credential hygiene), dependency graph limited to OmniaDomain and OmniaFoundation and acyclic, no forbidden or cross-package imports, no provider API leaks above the adapters, public surface additive and backward compatible over Infrastructure API Freeze v1; OmniaInfrastructure 183 tests and OmniaDomain 318 tests green on the Linux build (issue #76).
       - Milestone closed 2026-08-05; all Phase issues #71-#76 closed; all phase PRs merged into feature/repository-foundation.
       - Extends the adapter surface with the concrete provider capabilities against the extended Domain contract (DES-009 v0.3.0).
+  Application Sprint 1 – Implementation:
+    Status: Planned
+    Scope:
+      - DES-011 Application API specification and freeze (Application API Freeze v1)
+      - Application value objects and errors
+      - Conversation service (create, load/select, list by workspace membership, delete, history)
+      - Send message use case (streaming orchestration over the capability contracts)
+      - Provider connection service (configure, list, remove; credentials by reference)
+      - Configuration service (typed settings, per-level resolution)
+      - Package verification
+    Outcome:
+      - Planned 2026-08-05; roadmap APPLICATION_SPRINT_1_ROADMAP.md (PRD-006); issues #90-#96 under milestone #8.
+      - Stage 1 complete 2026-08-05: DES-011 APPLICATION_API.md v1.0.0 ratified, Application API Freeze v1 (issue #90); scope correction recorded (conversation renaming deferred to workspace services, listing via workspace membership).
+      - Sequenced after Infrastructure Sprint 2 (PRD-005); orchestrates the frozen Domain contracts (DES-009 v0.3.0) and the verified Infrastructure capabilities (DES-010 v1.1.0).
+      - OmniaApplication depends only on OmniaDomain and OmniaFoundation; concrete implementations are injected by the Composition Root, never referenced (ARC-006).
+      - Not started; no application code implemented.
 
 next_tasks:
   - Keep the package building and its tests green at every step
   - Implement remaining DES-001 Phase 3 primitives when required (shared value types, typed-error abstraction)
-  - Infrastructure Sprint 2 complete (2026-08-05): milestone #7 closed — the capability surface is frozen (DES-010 v1.1.0), and the capability mapping and the text generation, conversation, and streaming capabilities are implemented and verified (issues #71-#76); next is Application Sprint 1 (milestone #8): plan the roadmap and kick off the Application layer, sequencing the send-message use case over the verified provider capabilities per PRD-005's roadmap discipline
+  - Application Sprint 1 Stage 1 complete (2026-08-05): DES-011 APPLICATION_API.md v1.0.0 ratified — Application API Freeze v1 (issue #90); the conversation, provider connection, and configuration application surfaces are frozen, with conversation renaming deferred to workspace services and listing via workspace membership (scope correction recorded); next is Stage 2a: the application value objects and error taxonomy (issue #91)
   - Engineering Platform v2 (milestone #14, planning only per RFC-002): schedule v2 roadmap items as individual GitHub issues — Track A realization integration (wire PIPELINE-001 into the registry dispatch DONE via EP-006; wire PIPELINE-002 into an architecture review command DONE via EP-008), Track B automation (RFC-001 validate-platform script DONE via EP-007; automated package verification), Track C verification (black-box package-surface suite, CI pipeline, docs-drift check), Track D governance and tooling (recurring retrospective template, review sign-off for security-sensitive changes, project-board CLI helper, start-sprint checklist)
 
 blocked: []
