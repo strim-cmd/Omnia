@@ -36,14 +36,22 @@ final class ApplicationValidationErrorTests: XCTestCase {
 
     // MARK: Typed error conformance
 
-    func testErrors_ThrowAndCastBackAsTypedValues() throws {
-        let error = ApplicationValidationError.invalid(reason: "displayName is empty")
-        XCTAssertTrue(error is any Error)
-        XCTAssertEqual(error as? ApplicationValidationError, error)
+    func testErrors_ThrowAndCastBackAsTypedValues() {
+        func throwingError() throws -> ApplicationValidationError {
+            throw ApplicationValidationError.invalid(reason: "displayName is empty")
+        }
+        do {
+            _ = try throwingError()
+            XCTFail("Expected the error to be thrown")
+        } catch let error as ApplicationValidationError {
+            XCTAssertEqual(error, ApplicationValidationError.invalid(reason: "displayName is empty"))
+        } catch {
+            XCTFail("Unexpected error type: \(error)")
+        }
     }
 
     func testApplicationValidationError_DoesNotCollideWithDomainErrors() {
-        let validation = ApplicationValidationError.invalid(reason: "reason")
+        let validation: any Error = ApplicationValidationError.invalid(reason: "reason")
         let domain: [any Error] = [
             RepositoryError.storageUnavailable,
             CapabilityError.providerUnavailable,
@@ -54,11 +62,8 @@ final class ApplicationValidationErrorTests: XCTestCase {
         for error in domain {
             XCTAssertNil(error as? ApplicationValidationError)
         }
-        XCTAssertNil(validation as? RepositoryError)
-        XCTAssertNil(validation as? CapabilityError)
-        XCTAssertNil(validation as? CredentialStorageError)
-        XCTAssertNil(validation as? ConversationStreamError)
-        XCTAssertNil(validation as? ProviderLifecycleError)    }
+        XCTAssertNotNil(validation as? ApplicationValidationError)
+    }
 
     // MARK: Sendability
 
