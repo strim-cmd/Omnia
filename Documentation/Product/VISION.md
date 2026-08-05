@@ -49,16 +49,54 @@ The user does.
 
 # Product Principles
 
-The Product Principles are the single source of truth for how product decisions are made. They are defined in `Documentation/Product/PRODUCT_PRINCIPLES.md`, and every feature and product decision must be consistent with them:
+## User Ownership
 
-- User Ownership
-- Privacy First
-- Native Experience
-- Simplicity Wins
-- Provider Independence
-- Performance Matters
-- Documentation First
-- Long-Term Thinking
+The user owns:
+
+- API keys
+- conversations
+- providers
+- prompts
+- models
+
+Omnia owns none of them.
+
+---
+
+## Privacy by Default
+
+Privacy is not an optional feature.
+
+Privacy is the default behavior.
+
+---
+
+## Native Experience
+
+The application should feel like it was designed by Apple.
+
+Every screen.
+
+Every animation.
+
+Every interaction.
+
+---
+
+## Long-Term Maintainability
+
+Every architectural decision should optimize for the next five years.
+
+Not the next release.
+
+---
+
+## Simplicity
+
+Every feature should justify its existence.
+
+If it adds complexity without significant value,
+it should not exist.
 
 ---
 

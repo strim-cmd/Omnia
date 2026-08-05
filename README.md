@@ -151,15 +151,13 @@ ADR/
 
 ## Project Status
 
-Current milestone:
+Current phase:
 
-> ✅ Application Sprint 1 — complete (DES-011 v1.0.0 ratified; issues #90-#96 closed)
+> 🚧 Sprint 0 — Repository Foundation
 
-Current sprint:
+No production code has been written yet.
 
-> 📋 Presentation Sprint 1 — in progress (milestone #9; roadmap `PRESENTATION_SPRINT_1_ROADMAP.md`, issues #105-#110; Stage 1 complete — DES-012 v1.0.0 ratified, Presentation API Freeze v1). Application Sprint 1 (milestone #8) complete.
-
-The OmniaFoundation, OmniaDomain, OmniaInfrastructure, and OmniaApplication packages are implemented against their frozen contracts (DES-001..DES-011), with the four package test suites green (748 tests). Application Sprint 1 delivered the use cases and application services for conversation, provider, and configuration flows (DES-011, PRD-006) — the conversation service, the send-message use case, the provider connection service, and the configuration service — verified against the frozen Application API surface on the Linux build. Presentation Sprint 1 Stage 1 is complete: the OmniaPresentation public API contract (DES-012 v1.0.0) is ratified as Presentation API Freeze v1 — the navigation structure and the conversation and settings presentation surfaces over the frozen DES-011 services, with the Markdown rendering and code highlighting mechanism resolved per the roadmap Clarification (native Apple APIs only).
+The current focus is building a long-term engineering foundation.
 
 ---
 
@@ -180,14 +178,6 @@ before opening a Pull Request.
 ## Roadmap
 
 See:
-
-- [Infrastructure Sprint 1 (DES-010 planning + implementation)](Documentation/Product/Roadmap/INFRASTRUCTURE_SPRINT_1_ROADMAP.md)
-- [Domain Sprint 1 (DES-009 implementation)](Documentation/Product/Roadmap/DOMAIN_SPRINT_1_ROADMAP.md)
-- [Domain Sprint 2 (DES-009 capability-contract extension)](Documentation/Product/Roadmap/DOMAIN_SPRINT_2_ROADMAP.md)
-- [Infrastructure Sprint 2 (DES-010 concrete provider capabilities)](Documentation/Product/Roadmap/INFRASTRUCTURE_SPRINT_2_ROADMAP.md)
-- [Application Sprint 1 (DES-011 use cases and application services)](Documentation/Product/Roadmap/APPLICATION_SPRINT_1_ROADMAP.md)
-- [Presentation Sprint 1 (DES-012 native user interface)](Documentation/Product/Roadmap/PRESENTATION_SPRINT_1_ROADMAP.md)
-- [Infrastructure Sprint 1 Retrospective](Documentation/Development/Retrospectives/INFRASTRUCTURE_SPRINT_1_RETROSPECTIVE.md)
 
 Documentation/Product/Roadmap/
 
