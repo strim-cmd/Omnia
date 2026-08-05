@@ -153,13 +153,13 @@ ADR/
 
 Current milestone:
 
-> 🚧 Application Sprint 1 — planned (PRD-006; issues #90-#96 under milestone #8)
+> ✅ Application Sprint 1 — complete (DES-011 v1.0.0 ratified; issues #90-#96 closed)
 
 Current sprint:
 
-> 🚧 Application Sprint 1 — planned (milestone #8)
+> ✅ Application Sprint 1 — complete (milestone #8). Next: Presentation Sprint 1 (milestone #9).
 
-The OmniaFoundation, OmniaDomain, and OmniaInfrastructure packages are implemented against their frozen contracts (DES-001..DES-010), with the three package test suites green (637 tests). Application Sprint 1 sequences the use cases and application services for conversation, provider, and configuration flows (DES-011, PRD-006) — first among them the send-message use case over the verified provider capabilities — per the roadmap discipline of PRD-005.
+The OmniaFoundation, OmniaDomain, OmniaInfrastructure, and OmniaApplication packages are implemented against their frozen contracts (DES-001..DES-011), with the four package test suites green (748 tests). Application Sprint 1 delivered the use cases and application services for conversation, provider, and configuration flows (DES-011, PRD-006) — the conversation service, the send-message use case, the provider connection service, and the configuration service — verified against the frozen Application API surface on the Linux build.
 
 ---
 
