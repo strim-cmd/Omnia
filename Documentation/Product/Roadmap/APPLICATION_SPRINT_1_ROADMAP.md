@@ -77,7 +77,7 @@ The sprint is complete when the contract is frozen, the conversation, send-messa
 
 ### Stage 1 — Application API Specification and Freeze
 
-1. Write `Documentation/Design/APPLICATION_API.md` (DES-011) at v1.0.0, following the DES-009/DES-010 document structure, specifying the Application layer's public surface: the conversation surface (create, list, select, rename, delete conversations, message history, and the send-message flow), the provider connection surface (configure, list, remove connections; credentials by reference), the configuration surface (typed settings with per-level resolution), the application value objects and error taxonomy, and the input-validation rules.
+1. Write `Documentation/Design/APPLICATION_API.md` (DES-011) at v1.0.0, following the DES-009/DES-010 document structure, specifying the Application layer's public surface: the conversation surface (create, load/select, list by workspace membership, delete conversations, message history, and the send-message flow), the provider connection surface (configure, list, remove connections; credentials by reference), the configuration surface (typed settings with per-level resolution), the application value objects and error taxonomy, and the input-validation rules.
 2. Review the document with the Documentation workflow (`.ai/prompts/workflows/documentation.md`) and the documentation review checklist (`.ai/checklists/documentation-review.md`), and verify it against `ARC-002`, `ARC-004`, `ARC-006`, `ARC-007`, `ARC-009`, `ADR-0001`/`ADR-0002`, the frozen `DES-009` v0.3.0, and the frozen `DES-010` v1.1.0.
 3. Record the freeze. From that point, DES-011 v1.0.0 is part of the frozen contract; a further change requires another specification revision, exactly as the prior API freezes do (`PROJECT_STATE.md`).
 
@@ -99,7 +99,7 @@ The requirements derive from the layer responsibilities of `ARC-009`, the depend
 
 The contract defines the public surface of OmniaApplication for the three flows in scope (milestone #8):
 
-- **Conversation** — the conversation application service: create, list, select, rename, and delete conversations, and read message history, orchestrating the Domain `ConversationRepository` (`DES-009` §3.3).
+- **Conversation** — the conversation application service: create, load (select), list by workspace membership, and delete conversations, and read message history, orchestrating the Domain `ConversationRepository` and the workspace membership (`DES-009` §3.3, §3.5).
 - **Send message** — the send-message use case: orchestrate the request and streaming-response flow over the streaming capability contract, the `ProviderSelectionService`, and the `ConversationRepository` (ARC-001 send-message, `ARC-007`).
 - **Provider connection** — the provider connection application service: configure a provider connection (endpoint, model, capabilities), store the credential by reference through the `CredentialStorageProtocol`, and list and remove configured providers through the `ProviderRepository` (`DES-009` §3.1, §3.7).
 - **Configuration** — the configuration application service: read and write typed settings through the `ConfigurationRepository` with per-level resolution (`DES-009` §3.5, §3.6).
@@ -143,7 +143,7 @@ The order is bottom-up by dependency. Each step leaves the package building and 
 
 1. **Application API specification and freeze** — `DES-011` v1.0.0 written, reviewed, and frozen (Application API Freeze).
 2. **Application value objects and errors** — the use-case request, response, and streaming-view types and the application error taxonomy per the frozen contract.
-3. **Conversation service** — create, list, select, rename, delete, and history-read use cases over the Domain `ConversationRepository`, with input validation.
+3. **Conversation service** — create, load (select), list by workspace membership, and delete use cases over the Domain `ConversationRepository` and the workspace membership, with input validation.
 4. **Send-message use case** — the streaming orchestration flow over the streaming capability contract, `ProviderSelectionService`, and `ConversationRepository`: deltas delivered, completion persisted, interruption preserving partial content.
 5. **Provider connection service** — configure, list, and remove provider connections over the `ProviderRepository` and `CredentialStorageProtocol`, credentials by reference.
 6. **Configuration service** — typed settings read/write over the `ConfigurationRepository` with per-level resolution.
@@ -154,7 +154,7 @@ The order is bottom-up by dependency. Each step leaves the package building and 
 The sprint is complete when all of the following hold:
 
 - The Application API specification is written, reviewed, and frozen (**Application API Freeze**, `DES-011` v1.0.0 Ratified).
-- The conversation service exists: create, list, select, rename, delete, and history-read over the frozen `ConversationRepository` (`DES-009` §3.3).
+- The conversation service exists: create, load (select), list by workspace membership, and delete over the frozen `ConversationRepository` (`DES-009` §3.3); message history returned with the aggregate.
 - The send-message use case exists and orchestrates the streaming flow: deltas delivered, the assembled assistant message appended and persisted on completion, partial content preserved on interruption — never discarded (`ARC-001`).
 - The provider connection service exists: configure, list, and remove connections; credentials stored by reference through the `CredentialStorageProtocol`, never the secret (`ARC-001`, `ARC-005`).
 - The configuration service exists: typed settings with per-level resolution over the `ConfigurationRepository` (`DES-009` §3.5, §3.6).
@@ -169,6 +169,7 @@ The sprint is complete when all of the following hold:
 The following are explicitly out of scope for Application Sprint 1:
 
 - **No workspace application service** — the milestone scopes conversation, provider, and configuration flows; workspace services are a future application sprint.
+- **No conversation renaming** — the frozen `Conversation` aggregate carries no name (`DES-009` §3.3) and renaming is a Workspace-module responsibility (`ARC-007`); it becomes expressible only through a Domain specification revision. Conversation listing runs through workspace membership because the frozen `ConversationRepository` declares no enumeration method (`DES-009` §3.5).
 - **No Composition Root** — the assembly of the object graph is owned by OmniaApp (`ARC-006`); this sprint exposes the application services for composition only.
 - **No Presentation or application shell** — no UI, no view models; Presentation Sprint 1 is milestone #9 (`ARC-009`).
 - **No Infrastructure work** — no network, no persistence, no provider adapters; the Infrastructure package is unchanged from Infrastructure Sprint 2 (`DES-010` v1.1.0).
