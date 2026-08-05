@@ -51,17 +51,17 @@ final class ProviderAdapterTests: XCTestCase {
         )
     }
 
-    // MARK: - Capability contract deferral
+    // MARK: - Capability conformance
 
-    func testAdapter_DoesNotClaimCapabilityConformanceUntilTheConcreteSurface() async throws {
+    func testAdapter_ClaimsOnlyTheCapabilitiesItDelivers() async throws {
         let (adapter, _) = try await makeAdapter(transport: FakeTransport())
 
-        XCTAssertNil(adapter as? any TextGenerationContract)
+        XCTAssertNotNil(adapter as? any TextGenerationContract)
         XCTAssertNil(adapter as? any ConversationContract)
         XCTAssertNil(adapter as? any StreamingContract)
     }
 
-    func testPublicInitializer_DoesNotClaimCapabilityConformanceUntilTheConcreteSurface() {
+    func testPublicInitializer_ClaimsOnlyTheCapabilitiesItDelivers() {
         let storage = SecureCredentialStorage(backend: InMemoryCredentialStorageBackend())
         let adapter = OpenAICompatibleProviderAdapter(
             endpoint: endpoint,
@@ -69,7 +69,7 @@ final class ProviderAdapterTests: XCTestCase {
             credentialStorage: storage
         )
 
-        XCTAssertNil(adapter as? any TextGenerationContract)
+        XCTAssertNotNil(adapter as? any TextGenerationContract)
         XCTAssertNil(adapter as? any ConversationContract)
         XCTAssertNil(adapter as? any StreamingContract)
     }
@@ -147,6 +147,169 @@ final class ProviderAdapterTests: XCTestCase {
         XCTAssertFalse(available)
     }
 
+    // MARK: - Text generation capability
+
+    func testGenerateText_ReturnsTheProducedText() async throws {
+        let transport = FakeTransport(sendResult: .success(Self.textResponseJSON(text: "Hello!")))
+        let (adapter, _) = try await makeAdapter(transport: transport)
+
+        let response = try await adapter.generateText(
+            from: TextGenerationRequest(
+                identity: CapabilityRequestIdentity(),
+                prompt: "Say hi",
+                model: ModelReference(name: "gpt-4o")
+            )
+        )
+
+        XCTAssertEqual(response.text, "Hello!")
+    }
+
+    func testGenerateText_SendsANonStreamingChatCompletionsRequestWithThePrompt() async throws {
+        let transport = FakeTransport(sendResult: .success(Self.textResponseJSON(text: "Hello!")))
+        let (adapter, _) = try await makeAdapter(transport: transport, secret: "sk-gen-secret")
+
+        _ = try await adapter.generateText(
+            from: TextGenerationRequest(
+                identity: CapabilityRequestIdentity(),
+                prompt: "Write a haiku",
+                model: ModelReference(name: "gpt-4o")
+            )
+        )
+
+        let sent = try XCTUnwrap(transport.requests.first)
+        XCTAssertEqual(sent.url, URL(string: "https://api.example.com/v1/chat/completions"))
+        XCTAssertEqual(sent.method, "POST")
+        XCTAssertEqual(sent.headers["Authorization"], "Bearer sk-gen-secret")
+
+        let body = try JSONDecoder().decode(ChatCompletionRequest.self, from: try XCTUnwrap(sent.body))
+        XCTAssertEqual(body.model, "gpt-4o")
+        XCTAssertFalse(body.stream)
+        XCTAssertEqual(body.messages, [ChatMessage(role: "user", content: "Write a haiku")])
+    }
+
+    func testGenerateText_SurfacesInvalidResponseWhenThePayloadCannotBeDecoded() async throws {
+        let transport = FakeTransport(sendResult: .success(Data("not-json".utf8)))
+        let (adapter, _) = try await makeAdapter(transport: transport)
+
+        do {
+            _ = try await adapter.generateText(
+                from: TextGenerationRequest(
+                    identity: CapabilityRequestIdentity(),
+                    prompt: "Hi",
+                    model: ModelReference(name: "gpt-4o")
+                )
+            )
+            XCTFail("Expected CapabilityError.invalidResponse")
+        } catch CapabilityError.invalidResponse {
+            // expected
+        } catch {
+            XCTFail("Unexpected error: \(error)")
+        }
+    }
+
+    func testGenerateText_SurfacesInvalidResponseWhenTheResponseHasNoChoice() async throws {
+        let transport = FakeTransport(sendResult: .success(Data(#"{"id":"chatcmpl-1","model":"gpt-4o","choices":[]}"#.utf8)))
+        let (adapter, _) = try await makeAdapter(transport: transport)
+
+        do {
+            _ = try await adapter.generateText(
+                from: TextGenerationRequest(
+                    identity: CapabilityRequestIdentity(),
+                    prompt: "Hi",
+                    model: ModelReference(name: "gpt-4o")
+                )
+            )
+            XCTFail("Expected CapabilityError.invalidResponse")
+        } catch CapabilityError.invalidResponse {
+            // expected
+        } catch {
+            XCTFail("Unexpected error: \(error)")
+        }
+    }
+
+    func testGenerateText_SurfacesProviderUnavailableOnHttpStatus() async throws {
+        let transport = FakeTransport(sendResult: .failure(.httpStatus(503)))
+        let (adapter, _) = try await makeAdapter(transport: transport)
+
+        do {
+            _ = try await adapter.generateText(
+                from: TextGenerationRequest(
+                    identity: CapabilityRequestIdentity(),
+                    prompt: "Hi",
+                    model: ModelReference(name: "gpt-4o")
+                )
+            )
+            XCTFail("Expected CapabilityError.providerUnavailable")
+        } catch CapabilityError.providerUnavailable {
+            // expected
+        } catch {
+            XCTFail("Unexpected error: \(error)")
+        }
+    }
+
+    func testGenerateText_SurfacesProviderUnavailableOnNetworkFailure() async throws {
+        let transport = FakeTransport(sendResult: .failure(.networkFailure))
+        let (adapter, _) = try await makeAdapter(transport: transport)
+
+        do {
+            _ = try await adapter.generateText(
+                from: TextGenerationRequest(
+                    identity: CapabilityRequestIdentity(),
+                    prompt: "Hi",
+                    model: ModelReference(name: "gpt-4o")
+                )
+            )
+            XCTFail("Expected CapabilityError.providerUnavailable")
+        } catch CapabilityError.providerUnavailable {
+            // expected
+        } catch {
+            XCTFail("Unexpected error: \(error)")
+        }
+    }
+
+    func testGenerateText_SurfacesTheCredentialStorageErrorWithoutWrappingIt() async throws {
+        let storage = SecureCredentialStorage(backend: InMemoryCredentialStorageBackend())
+        let client = OpenAICompatibleClient(transport: FakeTransport(), credentialStorage: storage)
+        let adapter = OpenAICompatibleProviderAdapter(
+            client: client,
+            endpoint: endpoint,
+            credential: CredentialReference()
+        )
+
+        do {
+            _ = try await adapter.generateText(
+                from: TextGenerationRequest(
+                    identity: CapabilityRequestIdentity(),
+                    prompt: "Hi",
+                    model: ModelReference(name: "gpt-4o")
+                )
+            )
+            XCTFail("Expected CredentialStorageError.credentialNotFound")
+        } catch CredentialStorageError.credentialNotFound {
+            // expected
+        } catch {
+            XCTFail("Unexpected error: \(error)")
+        }
+    }
+
+    func testGenerateText_ConfinesTheSecretToTheAuthorizationHeader() async throws {
+        let transport = FakeTransport(sendResult: .success(Self.textResponseJSON(text: "Hello!")))
+        let (adapter, _) = try await makeAdapter(transport: transport, secret: "sk-confined-secret")
+
+        _ = try await adapter.generateText(
+            from: TextGenerationRequest(
+                identity: CapabilityRequestIdentity(),
+                prompt: "Hi",
+                model: ModelReference(name: "gpt-4o")
+            )
+        )
+
+        let sent = try XCTUnwrap(transport.requests.first)
+        XCTAssertEqual(sent.headers["Authorization"], "Bearer sk-confined-secret")
+        XCTAssertFalse(sent.url.absoluteString.contains("sk-confined-secret"))
+        XCTAssertFalse(String(decoding: sent.body ?? Data(), as: UTF8.self).contains("sk-confined-secret"))
+    }
+
     // MARK: - Credential confinement
 
     func testIsAvailable_ConfinesTheSecretToTheAuthorizationHeader() async throws {
@@ -172,5 +335,13 @@ final class ProviderAdapterTests: XCTestCase {
         }.value
 
         XCTAssertTrue(available)
+    }
+
+    // MARK: - Fixtures
+
+    private static func textResponseJSON(text: String) -> Data {
+        Data("""
+        {"id":"chatcmpl-1","model":"gpt-4o","choices":[{"index":0,"message":{"role":"assistant","content":"\(text)"},"finish_reason":"stop"}]}
+        """.utf8)
     }
 }
