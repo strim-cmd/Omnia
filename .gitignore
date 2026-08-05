@@ -1,0 +1,9 @@
+# Swift Package Manager
+.build/
+
+# Xcode
+DerivedData/
+xcuserdata/
+
+# macOS
+.DS_Store
