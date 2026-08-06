@@ -18,6 +18,7 @@
 /* Begin PBXFileReference section */
 		000000000000000000000007 /* OmniaApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OmniaApp.swift; sourceTree = "<group>"; };
 		000000000000000000000008 /* OmniaiOSApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OmniaiOSApp.swift; sourceTree = "<group>"; };
+		00000000000000000000002F /* Omnia.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Omnia.entitlements; sourceTree = "<group>"; };
 		000000000000000000000009 /* Omnia.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Omnia.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		00000000000000000000000A /* OmniaiOS.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = OmniaiOS.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		00000000000000000000002B /* Shared.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Shared.xcconfig; sourceTree = "<group>"; };
@@ -61,6 +62,7 @@
 			isa = PBXGroup;
 			children = (
 				000000000000000000000007 /* OmniaApp.swift */,
+				00000000000000000000002F /* Omnia.entitlements */,
 			);
 			path = Omnia;
 			sourceTree = "<group>";
@@ -241,6 +243,7 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 00000000000000000000002C /* Debug.xcconfig */;
 			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = Omnia/Omnia.entitlements;
 				COMBINE_HIDPI_IMAGES = YES;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -256,6 +259,7 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 00000000000000000000002D /* Release.xcconfig */;
 			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = Omnia/Omnia.entitlements;
 				COMBINE_HIDPI_IMAGES = YES;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				LD_RUNPATH_SEARCH_PATHS = (
