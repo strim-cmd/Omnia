@@ -1,7 +1,7 @@
 ---
 title: OmniaApplication Public API Contract
 document_id: DES-011
-version: 1.0.0
+version: 1.1.0
 status: Ratified
 owner: Founder
 project: Omnia
@@ -10,9 +10,10 @@ authors:
 reviewers:
   - Chief Architect
 created: 2026-08-05
-last_updated: 2026-08-05
+last_updated: 2026-08-06
 related_documents:
   - Documentation/Product/Roadmap/APPLICATION_SPRINT_1_ROADMAP.md
+  - Documentation/Product/Roadmap/MVP_V01_ROADMAP.md
   - Documentation/Design/DOMAIN_API.md
   - Documentation/Design/INFRASTRUCTURE_API.md
   - Documentation/Design/FOUNDATION_API.md
@@ -54,6 +55,8 @@ The Application layer is where user intent becomes domain operations (ARC-001). 
 This document specifies the initial public API inventory, the package responsibility boundaries, the dependency rules, the design principles, the evolution rules, and the ordered sequence in which the contract is implemented. It is derived only from the Application Sprint 1 Roadmap (`APPLICATION_SPRINT_1_ROADMAP.md`, PRD-006), the milestone #8 scope — use cases and application services for conversation, provider, and configuration flows — the frozen Domain API contract (`DOMAIN_API.md`, DES-009 v0.3.0), the frozen Infrastructure API contract (`INFRASTRUCTURE_API.md`, DES-010 v1.1.0), the Product Charter (`PRODUCT_CHARTER.md`), the Product Principles (`PRODUCT_PRINCIPLES.md`), and the approved architecture (ARC-001, ARC-002, ARC-004, ARC-006, ARC-007, ARC-008, ARC-009, ADR-0001, ADR-0002). It introduces no concept that the roadmap and the architecture do not establish.
 
 This initial contract is frozen as **Application API Freeze v1**. From this revision, the public surface of §3 is part of the frozen contract; a change requires a specification revision, exactly as the prior API freezes do (`PROJECT_STATE.md`). It is the single source of truth for the implementation of the Application layer (PRD-006 Stage 1).
+
+This revision (v1.1.0) extends the contract with the minimal workspace application surface of §3.8 — `WorkspaceService` and `ConversationService.createConversation(in:)` — and the provider connection endpoint surface of §3.9 — `ProviderConnectionService.updateEndpoint(_:for:)` and `endpoint(for:)` — exactly as the MVP v0.1 Roadmap sequences it (`MVP_V01_ROADMAP.md`, PRD-008, The Integration Gap and Stage 1). The extension is additive and backward-compatible (§6.3); the existing public API of the frozen Application API Freeze v1 is unchanged. The new surfaces are frozen in §3.8 and §3.9 and are the single source of truth for the implementation of the revision (PRD-008, App Contract Freeze).
 
 The specification governs the package alone. It defines no behavior of the Foundation, Domain, Infrastructure, Presentation, or application-shell layers; those are specified by their own documents.
 
@@ -240,7 +243,7 @@ Normative statements:
 
 The following are evaluated and intentionally NOT part of the initial public API of OmniaApplication (ARC-009):
 
-- workspace application services — workspace create, list, select, rename, delete, and membership management — the milestone scopes conversation, provider, and configuration flows (milestone #8, PRD-006 §Non-Goals); workspace services are a future application sprint (ARC-007);
+- workspace application services beyond the minimal workspace surface of §3.8 — workspace select, rename, delete, and full membership management — the milestone scopes conversation, provider, and configuration flows (milestone #8, PRD-006 §Non-Goals); the minimal create, resolve, and attach surface of §3.8 exists only to make the MVP conversation flow functional (PRD-008), and the remaining workspace services are a future application sprint (ARC-007);
 - conversation renaming — the frozen `Conversation` aggregate carries no name (DES-009 §3.3), and renaming is a Workspace-module responsibility (ARC-007); it becomes expressible only through a Domain specification revision, out of scope here (PRD-006 §Non-Goals);
 - global conversation enumeration — the frozen `ConversationRepository` declares no all-conversations method (DES-009 §3.5); listing is realized through workspace membership (§3.2), and a global enumeration is a future Domain capability;
 - non-streaming send-message — the send-message use case is the streaming flow (§3.3); a non-streaming conversation or text-generation send is a future use case over the remaining realized capabilities (DES-009 §3.1);
@@ -250,6 +253,61 @@ The following are evaluated and intentionally NOT part of the initial public API
 - the Settings presentation surface — owned by OmniaPresentation.
 
 A category excluded here is introduced only through the evolution rules of Section 6, never by convenience (ARC-008).
+
+### 3.8 Workspace Application Surface
+
+- **Purpose**: create and resolve a workspace, and attach a conversation or provider to a workspace's membership — the minimal workspace edge of the MVP application (PRD-008, milestone #10). This is the v1.1.0 additive surface; it closes the integration gap recorded in the MVP v0.1 Roadmap — an application-created conversation is never attached to a workspace's membership, while the conversation list is driven by workspace membership (§3.2, PRD-008, The Integration Gap). It is the minimal slice of the workspace application services deferred by §3.7 needed to make the MVP conversation flow functional (PRD-008).
+- **Intended consumers**: the Composition Root (first-run bootstrap, DES-013 §3.4) and the conversation list create flow (DES-012 §3.3 v1.1.0).
+- **Stability expectations**: stable. Workspaces are user-owned data (ARC-005).
+- **Ownership**: Workspace module (Application surface, ARC-007).
+
+The category is realized by `WorkspaceService`, which orchestrates the frozen `WorkspaceRepository` and the `Workspace` aggregate (DES-009 §3.4, §3.5):
+
+| Method | Meaning |
+|---|---|
+| `createWorkspace(named:) async throws -> Workspace` | creates a workspace with a fresh identity and the given name, and persists it (DES-002). |
+| `workspace(with identity: WorkspaceIdentity) async throws -> Workspace?` | loads a workspace by identity, or `nil` when none is stored — the resolution operation the bootstrap and the membership operations build on. |
+| `addConversation(_ identity: ConversationIdentity, to workspace: WorkspaceIdentity) async throws -> Workspace` | attaches a conversation to a workspace's membership — loads the workspace, applies the aggregate's `adding(conversation:)`, persists the new value, and returns it (DES-009 §3.4). |
+| `addProvider(_ identity: ProviderIdentity, to workspace: WorkspaceIdentity) async throws -> Workspace` | attaches a provider to a workspace's membership — the same pattern over `adding(provider:)` (DES-009 §3.4). |
+
+The v1.1.0 revision also adds one method to the §3.2 `ConversationService` surface:
+
+| Method | Meaning |
+|---|---|
+| `createConversation(in workspace: WorkspaceIdentity) async throws -> Conversation` | creates an empty conversation with a fresh identity, persists it, and attaches it to the given workspace's membership as one application operation — the create-and-attach operation the conversation list create flow uses (DES-012 §3.3 v1.1.0). The v1.0.0 `createConversation()` remains unchanged. |
+
+Normative statements:
+
+- The services MUST orchestrate the frozen `WorkspaceRepository`, `ConversationRepository`, and the `Workspace` aggregate, and MUST NOT invent business rules — membership changes are the aggregate's value-typed `adding(conversation:)` and `adding(provider:)` methods (ARC-002, ARC-003, DES-009 §3.4).
+- A workspace MUST be created with a fresh `WorkspaceIdentity` from the Foundation `Identifier` primitive; raw values are never used (DES-002, DES-004).
+- An empty workspace name MUST be rejected with the typed application error of §3.6 before any domain operation (ARC-009).
+- Attaching a member to a workspace that is not stored MUST surface the typed application error of §3.6 — a missing workspace is never a silent failure (ARC-001).
+- `createConversation(in:)` MUST load the workspace before creating the conversation, so a missing workspace fails the whole operation before any conversation is created — create and attach are one atomic application operation (PRD-008).
+- Repository failures MUST surface as the Domain `RepositoryError`, never wrapped (§3.6, DES-009 §3.9).
+- The workspace selection — which workspace the application presents — is session state owned at the application edge, not by this surface (DES-013 §3.5, ARC-009 OmniaApp).
+
+### 3.9 Provider Connection Endpoint Surface
+
+- **Purpose**: record and resolve the OpenAI-compatible endpoint of a provider connection — the address the runtime provider adapter binding reads to construct the bound adapter (DES-013 §3.3). This is the v1.1.0 additive surface; it specifies how the endpoint — which the MVP v0.1 Roadmap requires the Composition Root to resolve at runtime — enters the system and is read back (PRD-008, Stage 1).
+- **Intended consumers**: the Presentation layer (provider connection form, DES-012 §3.4 v1.1.0) and the Composition Root (adapter binding, DES-013 §3.3).
+- **Stability expectations**: stable. The endpoint is connection configuration the user owns (ARC-005).
+- **Ownership**: Settings module (Application surface, ARC-007).
+
+The surface is realized by two additions to the §3.4 `ProviderConnectionService`:
+
+| Method | Meaning |
+|---|---|
+| `updateEndpoint(_ endpoint: String, for identity: ProviderIdentity) async throws` | records the provider connection's OpenAI-compatible endpoint as a typed configuration value at the provider-settings level, keyed by the provider's identity. |
+| `endpoint(for identity: ProviderIdentity) async throws -> String?` | returns the recorded endpoint, or `nil` when none is recorded. |
+
+Normative statements:
+
+- The endpoint MUST be recorded as a typed `String` configuration value at the provider-settings level under a documented key derived from the provider identity, exactly as the credential reference is (§3.4, DES-009 §3.6); raw or untyped values are never stored (DES-004).
+- The endpoint MUST be validated at the boundary — a non-empty, absolute, `http` or `https` URL string — and a malformed endpoint MUST be rejected with the typed application error of §3.6 before any storage (ARC-009).
+- The endpoint MUST NOT enter the `ProviderConnection` or `Provider` aggregate; the Domain provider model carries declared capabilities and metadata, never transport addresses (ARC-004, DES-009 §3.1).
+- The service MUST NOT itself build a transport or an adapter; the endpoint is resolved by the Composition Root when a request is built, in the layer that owns transport (DES-010 §3.9.3, DES-013 §3.3, ARC-004).
+- Configuration failures MUST surface as the Domain `RepositoryError`, never wrapped (§3.6, DES-009 §3.9).
+- The endpoint is not a credential; it may be presented by the settings surface, but the credential boundary of §3.4 remains absolute (ARC-001, ARC-005).
 
 ## 4. Dependency Rules
 
@@ -347,9 +405,24 @@ The full verification of the package against the completion criteria of the road
 
 No API beyond the categories of Section 3 enters the package in these phases. Each phase ends in a state that is a valid, documented, tested increment of the public contract. The implementation realizes exactly the frozen surface of §3; a deviation from that surface is a defect and is resolved by correcting the implementation, never by silently changing the surface (DES-004 §1).
 
+The v1.1.0 revision phases extend the realization:
+
+### Phase 7 — Workspace Application Surface
+
+Order: `WorkspaceService` of §3.8 — create, resolve, and attach over the frozen `WorkspaceRepository` and the `Workspace` aggregate's value-typed membership methods (DES-009 §3.4, §3.5), plus `ConversationService.createConversation(in:)` of §3.2 — the atomic create-and-attach the conversation list create flow needs (PRD-008, DES-012 §3.3 v1.1.0).
+
+### Phase 8 — Provider Connection Endpoint Surface
+
+Order: `ProviderConnectionService.updateEndpoint(_:for:)` and `endpoint(for:)` of §3.9 — the provider-settings configuration surface the Composition Root's runtime adapter binding resolves (DES-013 §3.3).
+
+### Phase 9 — Revision Verification
+
+The revision is verified against the same completion criteria as Phase 6: the new surfaces match §3.8 and §3.9 exactly; the v1.0.0 surface is unchanged; no forbidden dependency is imported; and the create-in-workspace flow is testable without a network (ARC-001, ARC-006).
+
 ## Related Documents
 
 - `Documentation/Product/Roadmap/APPLICATION_SPRINT_1_ROADMAP.md` — the roadmap that sequences this contract.
+- `Documentation/Product/Roadmap/MVP_V01_ROADMAP.md` — the MVP roadmap that sequences the v1.1.0 revision surfaces.
 - `Documentation/Design/DOMAIN_API.md` — the frozen Domain contract this package orchestrates.
 - `Documentation/Design/INFRASTRUCTURE_API.md` — the frozen Infrastructure contract whose implementations the Composition Root injects.
 - `Documentation/Design/FOUNDATION_API.md` — the parent contract of the package this package depends on.
