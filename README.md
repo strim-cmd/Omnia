@@ -157,7 +157,7 @@ Current milestone:
 
 Current sprint:
 
-> 🔜 Beta v0.5 — planned (milestone #11; no issues created yet)
+> 🔜 Release Engineering Sprint 1 — planned (milestone #15; roadmap [PRD-009](Documentation/Product/Roadmap/RELEASE_ENGINEERING_SPRINT_1_ROADMAP.md); issues #133-#140 created)
 
 The OmniaFoundation, OmniaDomain, OmniaInfrastructure, OmniaApplication, and OmniaPresentation packages are implemented against their frozen contracts (DES-001..DES-012), and MVP v0.1 integrated them into a runnable application: the OmniaApp package (the sixth package, ARC-009) delivers the Composition Root — the single Infrastructure reference point assembling the object graph — the storage layout (one directory per repository under the platform Application Support root, credentials never in directories, ARC-005), the runtime provider adapter binding, the first-run bootstrap (resolve-or-create the default workspace), and the macOS app shell, entry point, and lifecycle hosting `RootView` with the resolved workspace and configuration keys (DES-013 v1.0.0). The milestone closed the create-membership integration gap through the additive revisions DES-011 v1.1.0 (workspace application surface) and DES-012 v1.1.0 (conversation create flow). The full integrated branch is green on the Linux build environment — 931 tests across all six packages, 0 failures and 0 warnings (OmniaFoundation 136, OmniaDomain 318, OmniaInfrastructure 183, OmniaApplication 151, OmniaPresentation 121, OmniaApp 22), the root package builds, and the Engineering Platform Validation Suite passes 7/7. The end-to-end macOS launch confirming the milestone definition (configure, create, send, stream, persist, relaunch) is a pending platform-specific verification to be executed on a real Apple machine (DES-013 §3.6).
 
@@ -188,6 +188,7 @@ See:
 - [Application Sprint 1 (DES-011 use cases and application services)](Documentation/Product/Roadmap/APPLICATION_SPRINT_1_ROADMAP.md)
 - [Presentation Sprint 1 (DES-012 native user interface)](Documentation/Product/Roadmap/PRESENTATION_SPRINT_1_ROADMAP.md)
 - [MVP v0.1 (integration into a runnable application)](Documentation/Product/Roadmap/MVP_V01_ROADMAP.md)
+- [Release Engineering Sprint 1 (distribution, signing, and release pipeline)](Documentation/Product/Roadmap/RELEASE_ENGINEERING_SPRINT_1_ROADMAP.md)
 - [Infrastructure Sprint 1 Retrospective](Documentation/Development/Retrospectives/INFRASTRUCTURE_SPRINT_1_RETROSPECTIVE.md)
 
 Documentation/Product/Roadmap/
