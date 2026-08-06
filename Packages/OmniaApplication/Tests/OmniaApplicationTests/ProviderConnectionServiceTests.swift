@@ -30,6 +30,12 @@ private func referenceKey(
     ConfigurationKey<CredentialReference>("providerCredential.\(identity.canonicalString)")
 }
 
+private func endpointKey(
+    for identity: ProviderIdentity
+) -> ConfigurationKey<String> {
+    ConfigurationKey<String>("providerEndpoint.\(identity.canonicalString)")
+}
+
 private final class InMemoryProviderRepository: ProviderRepository, @unchecked Sendable {
     private let lock = NSLock()
     private var storage: [ProviderIdentity: Provider] = [:]
@@ -706,6 +712,128 @@ final class ProviderConnectionServiceTests: XCTestCase {
         let storedProvider = try await providerRepository.provider(with: identity)
         XCTAssertNil(storedProvider)
         XCTAssertEqual(credentialStorage.removeCallCount, 0)
+    }
+
+    // MARK: Endpoint
+
+    func testUpdateEndpoint_RecordsTheEndpointAtProviderSettingsLevel() async throws {
+        let (_, _, configurationRepository, service) = makeServiceWithInMemoryDoubles()
+        let identity = ProviderIdentity()
+        try await service.updateEndpoint("https://api.example.com/v1", for: identity)
+
+        let stored = try await configurationRepository.value(
+            for: endpointKey(for: identity),
+            at: .providerSettings
+        )
+        XCTAssertEqual(stored, "https://api.example.com/v1")
+    }
+
+    func testUpdateEndpoint_RecordsTheTrimmedEndpoint() async throws {
+        let (_, _, configurationRepository, service) = makeServiceWithInMemoryDoubles()
+        let identity = ProviderIdentity()
+        try await service.updateEndpoint("  https://api.example.com/v1  ", for: identity)
+
+        let stored = try await configurationRepository.value(
+            for: endpointKey(for: identity),
+            at: .providerSettings
+        )
+        XCTAssertEqual(stored, "https://api.example.com/v1")
+    }
+
+    func testEndpoint_ReturnsTheRecordedEndpoint() async throws {
+        let (_, _, _, service) = makeServiceWithInMemoryDoubles()
+        let identity = ProviderIdentity()
+        try await service.updateEndpoint("https://api.example.com/v1", for: identity)
+
+        let endpoint = try await service.endpoint(for: identity)
+        XCTAssertEqual(endpoint, "https://api.example.com/v1")
+    }
+
+    func testEndpoint_ReturnsNilWhenNoneIsRecorded() async throws {
+        let (_, _, _, service) = makeServiceWithInMemoryDoubles()
+        let endpoint = try await service.endpoint(for: ProviderIdentity())
+        XCTAssertNil(endpoint)
+    }
+
+    func testUpdateEndpoint_UpperAndMixedCaseSchemeIsAccepted() async throws {
+        let (_, _, _, service) = makeServiceWithInMemoryDoubles()
+        let identity = ProviderIdentity()
+        try await service.updateEndpoint("HTTPS://api.example.com/v1", for: identity)
+
+        let endpoint = try await service.endpoint(for: identity)
+        XCTAssertEqual(endpoint, "HTTPS://api.example.com/v1")
+    }
+
+    func testUpdateEndpoint_EmptyEndpointIsRejectedBeforeAnyWrite() async {
+        let (_, _, configurationRepository, service) = makeServiceWithInMemoryDoubles()
+        await assertThrowsValidationError(reason: "The endpoint is empty.") {
+            try await service.updateEndpoint("", for: ProviderIdentity())
+        }
+        XCTAssertEqual(configurationRepository.storeCallCount, 0)
+    }
+
+    func testUpdateEndpoint_WhitespaceOnlyEndpointIsRejected() async {
+        let (_, _, _, service) = makeServiceWithInMemoryDoubles()
+        await assertThrowsValidationError(reason: "The endpoint is empty.") {
+            try await service.updateEndpoint("   ", for: ProviderIdentity())
+        }
+    }
+
+    func testUpdateEndpoint_NonHTTPSchemeIsRejected() async {
+        let (_, _, _, service) = makeServiceWithInMemoryDoubles()
+        await assertThrowsValidationError(reason: "The endpoint must be an absolute http or https URL.") {
+            try await service.updateEndpoint("ftp://files.example.com", for: ProviderIdentity())
+        }
+    }
+
+    func testUpdateEndpoint_RelativeEndpointIsRejected() async {
+        let (_, _, _, service) = makeServiceWithInMemoryDoubles()
+        await assertThrowsValidationError(reason: "The endpoint must be an absolute http or https URL.") {
+            try await service.updateEndpoint("api.example.com/v1", for: ProviderIdentity())
+        }
+    }
+
+    func testUpdateEndpoint_MissingAuthorityIsRejected() async {
+        let (_, _, _, service) = makeServiceWithInMemoryDoubles()
+        await assertThrowsValidationError(reason: "The endpoint must be an absolute http or https URL.") {
+            try await service.updateEndpoint("https://", for: ProviderIdentity())
+        }
+    }
+
+    func testUpdateEndpoint_RecordFailureSurfacesAsRepositoryError() async {
+        let service = makeService(
+            providerRepository: InMemoryProviderRepository(),
+            credentialStorage: InMemoryCredentialStorage(),
+            configurationRepository: FailingConfigurationRepository()
+        )
+        await assertSurfacesRepositoryError {
+            try await service.updateEndpoint("https://api.example.com/v1", for: ProviderIdentity())
+        }
+    }
+
+    func testEndpoint_ReadFailureSurfacesAsRepositoryError() async {
+        let service = makeService(
+            providerRepository: InMemoryProviderRepository(),
+            credentialStorage: InMemoryCredentialStorage(),
+            configurationRepository: FailingConfigurationRepository()
+        )
+        await assertSurfacesRepositoryError {
+            _ = try await service.endpoint(for: ProviderIdentity())
+        }
+    }
+
+    func testRemove_RemovesTheRecordedEndpoint() async throws {
+        let (_, _, configurationRepository, service) = makeServiceWithInMemoryDoubles()
+        let identity = ProviderIdentity()
+        try await service.updateEndpoint("https://api.example.com/v1", for: identity)
+        let key = endpointKey(for: identity)
+        let recorded = try await configurationRepository.value(for: key, at: .providerSettings)
+        XCTAssertNotNil(recorded)
+
+        try await service.remove(identity)
+
+        let stored = try await configurationRepository.value(for: key, at: .providerSettings)
+        XCTAssertNil(stored)
     }
 
     // MARK: Sendability
