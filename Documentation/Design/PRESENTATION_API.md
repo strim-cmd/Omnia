@@ -1,7 +1,7 @@
 ---
 title: OmniaPresentation Public API Contract
 document_id: DES-012
-version: 1.0.0
+version: 1.1.0
 status: Ratified
 owner: Founder
 project: Omnia
@@ -10,9 +10,10 @@ authors:
 reviewers:
   - Chief Architect
 created: 2026-08-05
-last_updated: 2026-08-05
+last_updated: 2026-08-06
 related_documents:
   - Documentation/Product/Roadmap/PRESENTATION_SPRINT_1_ROADMAP.md
+  - Documentation/Product/Roadmap/MVP_V01_ROADMAP.md
   - Documentation/Design/APPLICATION_API.md
   - Documentation/Design/DOMAIN_API.md
   - Documentation/Design/INFRASTRUCTURE_API.md
@@ -53,9 +54,11 @@ OmniaPresentation is the Presentation layer package of Omnia: the user interface
 
 The Presentation layer renders state and owns presentation-only concerns: layout, animation, accessibility, and localization (`ARC-002`). It receives the application services it renders and owns its own presentation objects (`ARC-006`); the style is SwiftUI, the Observation framework, and Navigation, with no business logic (`ADR-0001`). Its purpose is not to orchestrate flows — the Application does that — but to present the ready-to-render state the services produce and to hand user intent back as use-case invocations (`ARC-001`, `ARC-007`).
 
-This document specifies the initial public API inventory, the package responsibility boundaries, the dependency rules, the design principles, the evolution rules, and the ordered sequence in which the contract is implemented. It is derived only from the Presentation Sprint 1 Roadmap (`PRESENTATION_SPRINT_1_ROADMAP.md`, PRD-007), the milestone #9 scope — the navigation structure and the conversation and settings presentation surfaces, rendering the verified application services and the streaming send-message flow — the frozen Application API contract (`APPLICATION_API.md`, DES-011 v1.0.0), the frozen Domain API contract (`DOMAIN_API.md`, DES-009 v0.3.0), the Product Charter (`PRODUCT_CHARTER.md`), the Product Principles (`PRODUCT_PRINCIPLES.md`), the UI standard (`.ai/standards/UI.md`), and the approved architecture (ARC-001, ARC-002, ARC-004, ARC-005, ARC-006, ARC-007, ARC-008, ARC-009, ADR-0001, ADR-0002). It introduces no concept that the roadmap and the architecture do not establish.
+This document specifies the initial public API inventory, the package responsibility boundaries, the dependency rules, the design principles, the evolution rules, and the ordered sequence in which the contract is implemented. It is derived only from the Presentation Sprint 1 Roadmap (`PRESENTATION_SPRINT_1_ROADMAP.md`, PRD-007), the MVP v0.1 Roadmap (`MVP_V01_ROADMAP.md`, PRD-008) for the v1.1.0 revision surfaces, the milestone #9 scope — the navigation structure and the conversation and settings presentation surfaces, rendering the verified application services and the streaming send-message flow — the frozen Application API contract (`APPLICATION_API.md`, DES-011 v1.1.0), the frozen Domain API contract (`DOMAIN_API.md`, DES-009 v0.3.0), the Product Charter (`PRODUCT_CHARTER.md`), the Product Principles (`PRODUCT_PRINCIPLES.md`), the UI standard (`.ai/standards/UI.md`), and the approved architecture (ARC-001, ARC-002, ARC-004, ARC-005, ARC-006, ARC-007, ARC-008, ARC-009, ADR-0001, ADR-0002). It introduces no concept that the roadmap and the architecture do not establish.
 
 This initial contract is frozen as **Presentation API Freeze v1**. From this revision, the public surface of §3 is part of the frozen contract; a change requires a specification revision, exactly as the prior API freezes do (`PROJECT_STATE.md`). It is the single source of truth for the implementation of the Presentation layer (PRD-007 Stage 1), including the resolved Markdown rendering and code highlighting mechanism (§3.3).
+
+This revision (v1.1.0) extends the contract with the conversation list create-in-workspace flow of §3.3 and the provider connection form's endpoint collection of §3.4 — exactly as the MVP v0.1 Roadmap sequences it (`MVP_V01_ROADMAP.md`, PRD-008, The Integration Gap and Stage 1). The extension is additive and backward-compatible (§6.3); the existing public API of the frozen Presentation API Freeze v1 is unchanged. The new surfaces are frozen in §3.3 and §3.4 and are the single source of truth for the implementation of the revision (PRD-008, App Contract Freeze).
 
 The specification governs the package alone. It defines no behavior of the Foundation, Domain, Application, Infrastructure, or application-shell layers; those are specified by their own documents.
 
@@ -157,7 +160,8 @@ The category comprises:
 
 | Element | Meaning |
 |---|---|
-| Conversation list | presents `ConversationListState`: the conversations of the list over `ConversationService` — create (a fresh conversation via `createConversation`, `DES-011` §3.2), select (a conversation by identity via `conversation(with:)`), and delete (via `delete(_:)`, user ownership, `ARC-005`). |
+| Conversation list | presents `ConversationListState`: the conversations of the list over `ConversationService` — create (the create-in-workspace flow, below, `DES-011` §3.8), select (a conversation by identity via `conversation(with:)`), and delete (via `delete(_:)`, user ownership, `ARC-005`). |
+| Create-in-workspace flow (v1.1.0) | translates the user's create action on the list into a create-in-workspace invocation — `ConversationListSurface.create(in: the presented workspace)` over `ConversationService.createConversation(in:)` (`DES-011` §3.8) — so every new conversation belongs to the workspace the list presents and appears in the membership-driven list (`DES-011` §3.2, PRD-008). The v1.0.0 `create()` surface method remains part of the surface but is not what the list renders (`DES-011` §3.2, §3.8). |
 | Conversation screen | presents `ConversationScreenState`: the history of the active conversation, the user input draft, and the streaming flow over `SendMessageUseCase` — the Domain `StreamingUpdate` events rendered incrementally without blocking the interface, the assembled assistant message on completion, and the preserved partial content on interruption, never discarded (`DES-011` §3.3, `ARC-001`). |
 | Send-message intent | translates the user's send action and the selection preferences into the frozen `SendMessageRequest` (`DES-011` §3.1, §3.3) and invokes the streaming use case. |
 
@@ -165,6 +169,7 @@ Normative statements:
 
 - The surface MUST consume only the frozen `DES-011` conversation surface — `ConversationService` and `SendMessageUseCase` — and MUST NOT invent business rules or new use cases (`ARC-002`, `DES-011` §3.2, §3.3).
 - The list surface MUST render the conversations over `ConversationService`; selecting a conversation presents it by identity, and deleting a conversation is the user's removal of their own content (`ARC-005`).
+- The list surface MUST receive the workspace identity it presents from the application edge — the workspace selection is session state owned there, not by this surface (`DES-011` §3.8, `ARC-009` OmniaApp) — and MUST create each new conversation in that workspace and list its membership (`createConversation(in:)` and `conversations(in:)`, `DES-011` §3.2, §3.8); the list and the create action MUST never diverge on the workspace (PRD-008).
 - The screen surface MUST render the Domain `StreamingUpdate` events incrementally as they arrive and MUST NOT block the interface during streaming (`ARC-001`, `DES-011` §3.3); the completed message is rendered from the completion event's assembled assistant message, and interruption renders the preserved partial content as incomplete — never discarded (`ARC-001`, `DES-009` §3.11.4).
 - The send-message intent MUST compose the frozen `SendMessageRequest` from the user input, the selected conversation, and the optional selection preferences, and MUST NOT perform the flow itself (`DES-011` §3.1).
 - The failures the services surface — `ApplicationValidationError`, and the Domain `RepositoryError`, `CapabilityError`, and `CredentialStorageError` — MUST be presented as they are, never wrapped or redefined (`DES-011` §3.6, `DES-009` §3.9); no failure is silent (`ARC-001`).
@@ -202,6 +207,7 @@ The category comprises:
 | Provider connections | presents `SettingsState`: the configured connections over `ProviderConnectionService` — configure (compose the frozen `ConfigureProviderRequest`, `DES-011` §3.1, §3.4), list (`allProviders`, deterministic order), and remove (`remove(_:)`, user ownership, `ARC-005`) — with the credential boundary honored: the secret is never rendered, stored, or logged; only the configured state is presented (`ARC-001`, `ARC-005`). |
 | Configuration | presents the typed configuration values over `ConfigurationService` — store, read, resolve, and remove typed values at the documented levels (`DES-011` §3.5). |
 | Connection-form intent | translates the user's declaration of a new provider connection into the frozen `ConfigureProviderRequest` — display name, capabilities, limits, version, and the credential entered by the user — and hands it to `ProviderConnectionService` (`DES-011` §3.1, §3.4). |
+| Endpoint collection (v1.1.0) | collects the provider's OpenAI-compatible endpoint with the connection declaration and records it through `ProviderConnectionService.updateEndpoint(_:for:)` (`DES-011` §3.9) — the address the runtime provider adapter binding resolves (`DES-013` §3.3, PRD-008). The endpoint is never a credential and is presented by this surface, but the credential boundary of the connection-form intent remains absolute (`ARC-001`, `ARC-005`). |
 
 Normative statements:
 
@@ -209,6 +215,7 @@ Normative statements:
 - The credential boundary is absolute: the entered secret passes into the frozen `ConfigureProviderRequest`, whose storage by reference is the service's concern (`DES-011` §3.4, `ARC-005`); the secret MUST NEVER be rendered, stored, persisted, or logged by the package (`ARC-001`, `ARC-005`).
 - The surface MUST present the generic connection state — identity, display name, capabilities, and lifecycle state — and MUST NEVER change the interface per provider or expose provider-specific detail (`PRODUCT_PRINCIPLES` — Provider Independence, `ARC-004`). Live availability is discovered and reported by the Infrastructure layer, never by this surface (`ARC-004` Capability Discovery).
 - The configuration values MUST be typed through the frozen configuration vocabulary — `ConfigurationKey` and `ConfigurationLevel` (`DES-009` §3.6, `DES-011` §3.5); raw or untyped values are never presented.
+- The endpoint MUST be recorded through the frozen `ProviderConnectionService` endpoint surface (`DES-011` §3.9) and MUST NOT enter the connection declaration or any Domain aggregate; the transport address is connection configuration, never provider model (`DES-011` §3.9, `ARC-004`). A malformed endpoint is rejected by the service's boundary validation and presented as the typed `ApplicationValidationError` (`DES-011` §3.6).
 - The failures the services surface — `ApplicationValidationError`, and the Domain `RepositoryError` and `CredentialStorageError` — MUST be presented as they are, never wrapped or redefined (`DES-011` §3.6, `DES-009` §3.9); no failure is silent (`ARC-001`).
 
 ### 3.5 Navigation Presentation Surface
@@ -245,9 +252,9 @@ The seam is the public initializer of every surface:
 
 | Surface | Delivered collaborators |
 |---|---|
-| Conversation list | `ConversationService` (`DES-011` §3.2). |
+| Conversation list | `ConversationService` (`DES-011` §3.2) — including the v1.1.0 create-in-workspace operation and the workspace-membership list it renders; the workspace identity the list presents is session state supplied by the application edge alongside the service (`DES-011` §3.8). |
 | Conversation screen | `SendMessageUseCase` (`DES-011` §3.3). |
-| Settings | `ProviderConnectionService` and `ConfigurationService` (`DES-011` §3.4, §3.5). |
+| Settings | `ProviderConnectionService` and `ConfigurationService` (`DES-011` §3.4, §3.5) — including the v1.1.0 endpoint surface of `ProviderConnectionService` (`DES-011` §3.9). |
 | Navigation | the conversation and settings surfaces; it hosts them, it does not construct their services. |
 
 Normative statements:
@@ -281,7 +288,7 @@ Normative statements:
 
 The following are evaluated and intentionally NOT part of the initial public API of OmniaPresentation (`ARC-009`):
 
-- the workspace presentation surface — workspace application services are a future application sprint (`DES-011` §3.7); workspace screens arrive only when the workspace services do (`ARC-007`);
+- the workspace presentation surface — workspace application services beyond the minimal surface the list's create-in-workspace flow and the bootstrap need are a future application sprint (`DES-011` §3.7, §3.8); full workspace screens arrive only when the remaining workspace services do (`ARC-007`);
 - the Composition Root, the application shell, the entry point, and the application lifecycle — owned by OmniaApp (`ARC-006`, `ARC-009`);
 - business logic and business rules — they belong to the Domain and Application layers (ADR-0001);
 - provider-specific UI — the interface never changes per provider (`PRODUCT_PRINCIPLES` — Provider Independence);
@@ -373,11 +380,11 @@ Order: the presentation value types of §3.1 — `ConversationListItem`, `Messag
 
 ### Phase 2 — Conversation Presentation Surface
 
-Order: the conversation list and the conversation screen of §3.3 — create, select, and delete over `ConversationService`, and the streaming send-message flow over `SendMessageUseCase` with the Domain `StreamingUpdate` events rendered incrementally, the assembled assistant message on completion, and the preserved partial content on interruption (`DES-011` §3.2, §3.3); the `MarkdownContent` segmentation is realized and tested; the Apple-platform view layer renders Markdown per §3.3.1.
+Order: the conversation list and the conversation screen of §3.3 — create (the v1.1.0 create-in-workspace flow, `createConversation(in:)`), select, and delete over `ConversationService`, and the streaming send-message flow over `SendMessageUseCase` with the Domain `StreamingUpdate` events rendered incrementally, the assembled assistant message on completion, and the preserved partial content on interruption (`DES-011` §3.2, §3.3, §3.8); the `MarkdownContent` segmentation is realized and tested; the Apple-platform view layer renders Markdown per §3.3.1.
 
 ### Phase 3 — Settings Presentation Surface
 
-Order: the settings surface of §3.4 — provider connections (configure, list, remove over `ProviderConnectionService`, credential boundary honored, never rendered) and configuration over `ConfigurationService` (`DES-011` §3.4, §3.5).
+Order: the settings surface of §3.4 — provider connections (configure, list, remove over `ProviderConnectionService`, credential boundary honored, never rendered, and the v1.1.0 endpoint collection through `updateEndpoint(_:for:)`, `DES-011` §3.9) and configuration over `ConfigurationService` (`DES-011` §3.4, §3.5).
 
 ### Phase 4 — Navigation Structure and Presentation Flow
 
@@ -389,9 +396,24 @@ The full verification of the package against the completion criteria of the road
 
 No API beyond the categories of Section 3 enters the package in these phases. Each phase ends in a state that is a valid, documented, tested increment of the public contract. The implementation realizes exactly the frozen surface of §3; a deviation from that surface is a defect and is resolved by correcting the implementation, never by silently changing the surface (`DES-004` §1).
 
+The v1.1.0 revision phases extend the realization:
+
+### Phase 6 — Create-in-Workspace Flow
+
+Order: the conversation list's create-in-workspace flow of §3.3 — the list creates each new conversation in the workspace the application edge supplies (`ConversationService.createConversation(in:)`, `DES-011` §3.8) and renders the membership-driven list; the workspace identity is received, never selected by the surface (`DES-011` §3.8, `ARC-009` OmniaApp).
+
+### Phase 7 — Endpoint Collection
+
+Order: the provider connection form's endpoint collection of §3.4 — the form records the endpoint through `ProviderConnectionService.updateEndpoint(_:for:)` (`DES-011` §3.9), presenting boundary validation failures as the typed `ApplicationValidationError`.
+
+### Phase 8 — Revision Verification
+
+The revision is verified against the same completion criteria as Phase 5: the new flows match §3.3 and §3.4 exactly; the v1.0.0 surface is unchanged; the platform-independent flow logic is testable on the Linux build environment; and no forbidden dependency is imported (`ARC-002`, `ARC-006`, `ARC-009`).
+
 ## Related Documents
 
 - `Documentation/Product/Roadmap/PRESENTATION_SPRINT_1_ROADMAP.md` — the roadmap that sequences this contract.
+- `Documentation/Product/Roadmap/MVP_V01_ROADMAP.md` — the MVP roadmap that sequences the v1.1.0 revision flows.
 - `Documentation/Design/APPLICATION_API.md` — the frozen Application contract this package renders.
 - `Documentation/Design/DOMAIN_API.md` — the frozen Domain contract whose vocabulary this package presents.
 - `Documentation/Design/INFRASTRUCTURE_API.md` — the frozen Infrastructure contract whose implementations the Composition Root injects.
