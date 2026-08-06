@@ -188,14 +188,13 @@ jobs:
             -exportOptionsPlist .github/export/ios-adhoc.plist \
             DEVELOPMENT_TEAM="$APPLE_TEAM_ID" -allowProvisioningUpdates
 
-      - name: Export iOS IPA (unsigned)
-        if: ${{ env.HAS_IOS_DIST != 'true' }}
+      - name: Export iOS IPA (unsigned for third-party signing)
         run: |
           mkdir -p "$RUNNER_TEMP/dist/ios/unsigned"
           xcodebuild -exportArchive \
             -archivePath "$RUNNER_TEMP/archive/Omnia-iOS.xcarchive" \
             -exportPath "$RUNNER_TEMP/dist/ios/unsigned" \
-            -exportOptionsPlist .github/export/ios-adhoc.plist \
+            -exportOptionsPlist .github/export/ios-unsigned.plist \
             CODE_SIGNING_ALLOWED=NO
 
       - name: Package macOS app (zip + DMG)
