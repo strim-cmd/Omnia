@@ -1,12 +1,12 @@
 version: 0.1.0-alpha
 
-phase: Presentation
+phase: MVP v0.1
 
 status: Active
 
-current_sprint: Presentation Sprint 1
+current_sprint: MVP v0.1
 
-current_milestone: Presentation Sprint 1
+current_milestone: MVP v0.1
 
 repository_foundation: Complete
 ai_foundation: Complete
@@ -21,6 +21,7 @@ infrastructure_capability_surface: Frozen (v1)
 omnia_foundation: Complete
 application_api: Frozen (v1)
 presentation_api: Frozen (v1)
+omnia_app: Planned
 
 completed:
   - Repository Foundation
@@ -279,6 +280,21 @@ milestones:
       - OmniaPresentation depends only on OmniaApplication and OmniaFoundation; the presentation logic surface is platform-independent and verified on the Linux build, with the SwiftUI view layer isolated behind platform availability.
       - Stage 3 complete 2026-08-06: package verification (issue #110) — full unit-test pass across all five packages (Presentation 115, Application 111, Domain 318, Infrastructure 183, Foundation 136, 0 failures and 0 warnings); dependency graph limited to OmniaApplication and OmniaFoundation and acyclic; no business logic, networking, persistence, provider code, or Infrastructure/provider-adapter concept in the package; public surface matches the frozen DES-012 v1.0.0 §3 exactly with the excluded workspace presentation surface absent (DES-011 §3.7); presentation logic surface Linux-testable with the SwiftUI view layer isolated behind platform availability; streaming deltas rendered incrementally without blocking and partial content preserved on interruption (ARC-001).
       - Presentation Sprint 1 complete 2026-08-06: Stages 1-3 delivered (issues #105-#110); milestone #9 closed; the next sprint is MVP v0.1 (milestone #10).
+  MVP v0.1 – Implementation:
+    Status: Planned
+    Scope:
+      - App Contract specification and freeze: DES-013 APP_API.md v1.0.0 (Composition Root, storage layout, runtime provider adapter binding, app shell, entry point, lifecycle, first-run bootstrap) plus the additive revisions DES-011 v1.1.0 (workspace application surface) and DES-012 v1.1.0 (conversation create flow) — App Contract Freeze v1
+      - Workspace application service (WorkspaceService; ConversationService.createConversation(in:) closing the create-membership integration gap)
+      - Conversation create flow (ConversationListSurface.create(in:))
+      - OmniaApp package: Composition Root and storage layout
+      - App shell, entry point, and lifecycle (macOS executable)
+      - Milestone verification
+    Outcome:
+      - Planned 2026-08-06; roadmap MVP_V01_ROADMAP.md (PRD-008); issues #120-#125 under milestone #10.
+      - MVP v0.1 is the integration sprint: the frozen layers are assembled into a runnable application — an OpenAI-compatible client with streaming responses; the only new package is OmniaApp (the sixth package the architecture anticipated, ARC-009), and the only contract work is additive (ARC-008).
+      - The integration gap recorded: ConversationService.createConversation() creates but never attaches to a workspace's membership, and the conversation list is driven by workspace membership (DES-011 §3.2); the additive DES-011 v1.1.0 surface closes it, and DES-012 v1.1.0 carries the matching list create flow.
+      - No iOS/iPadOS/macOS platform split: the executable is a single macOS app; workspace management screens, onboarding, and distribution are out of scope (PRD-008 Non-Goals).
+      - Next is issue #120 (App Contract specification and freeze); no code implemented by the plan.
 
 next_tasks:
   - Keep the package building and its tests green at every step
@@ -289,6 +305,7 @@ next_tasks:
   - Presentation Sprint 1 Stage 2c complete (2026-08-06): the settings presentation surface implemented (issue #108) — SettingsSurface (configure, list, idempotent remove over ProviderConnectionService with the credential by reference never rendered; store/read/resolve/remove typed configuration over ConfigurationService, load composing the resolved String-typed configuration values), with the SwiftUI view layer (SettingsView, ProviderConnectionFormView) isolated behind canImport(SwiftUI); 111 tests green on the Linux build; next is issue #109 (navigation structure and presentation flow)
   - Presentation Sprint 1 Stage 2d complete (2026-08-06): the navigation structure and presentation flow implemented (issue #109) — NavigationSurface (the seam hosting the conversation list, conversation screen, and settings surfaces, DES-012 §3.6) and the SwiftUI RootView shell (the platform-native NavigationStack per ADR-0001; the conversation list the root destination, selecting a conversation opening the conversation screen, and the list reaching the settings surface; routes through the frozen NavigationState model); 115 tests green on the Linux build; next is issue #110 (package verification)
   - Presentation Sprint 1 Stage 3 complete (2026-08-06): the OmniaPresentation package verified against the frozen DES-012 v1.0.0 and the layer discipline (issue #110) — full unit-test pass across all five packages (Presentation 115, Application 111, Domain 318, Infrastructure 183, Foundation 136, 0 failures and 0 warnings); OmniaPresentation depends only on OmniaApplication and OmniaFoundation with an acyclic internal dependency graph and no forbidden imports; no business logic, networking, persistence, provider code, or Infrastructure/provider-adapter concept in the package, with concrete implementations injected by the Composition Root, never referenced (ARC-002, ARC-004, ARC-006, ARC-009); the public surface matches the frozen DES-012 v1.0.0 §3 exactly with the excluded workspace presentation surface absent (DES-011 §3.7); the presentation logic surface is Linux-testable with the SwiftUI view layer isolated behind platform availability; streaming deltas rendered incrementally without blocking the caller and partial content preserved on interruption (ARC-001); Presentation Sprint 1 complete (issues #105-#110, milestone #9); next is MVP v0.1 (milestone #10)
+  - MVP v0.1 planned (2026-08-06): roadmap MVP_V01_ROADMAP.md (PRD-008) — the integration of the frozen layers into a runnable application (milestone #10): OmniaApp package with the Composition Root (ARC-006), the storage layout, the first-run bootstrap, and the app shell, entry point, and lifecycle (a single macOS executable); the additive revisions DES-011 v1.1.0 (WorkspaceService and ConversationService.createConversation(in:) closing the create-membership integration gap) and DES-012 v1.1.0 (ConversationListSurface.create(in:)); the App Contract Freeze (DES-013 v1.0.0 + the revisions) is Stage 1; GitHub issues #120-#125 created under milestone #10 with dependencies, acceptance criteria, and implementation order; no code implemented by the plan; next is issue #120 (App Contract specification and freeze)
   - Engineering Platform v2 (milestone #14, planning only per RFC-002): schedule v2 roadmap items as individual GitHub issues — Track A realization integration (wire PIPELINE-001 into the registry dispatch DONE via EP-006; wire PIPELINE-002 into an architecture review command DONE via EP-008), Track B automation (RFC-001 validate-platform script DONE via EP-007; automated package verification), Track C verification (black-box package-surface suite, CI pipeline, docs-drift check), Track D governance and tooling (recurring retrospective template, review sign-off for security-sensitive changes, project-board CLI helper, start-sprint checklist)
 
 blocked: []
