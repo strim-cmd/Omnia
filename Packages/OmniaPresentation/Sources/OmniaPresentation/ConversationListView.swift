@@ -1,0 +1,130 @@
+#if canImport(SwiftUI)
+
+import OmniaApplication
+import SwiftUI
+
+/// The SwiftUI rendering of the conversation list (DES-012 §3.3): the
+/// conversation rows — display title and preview — and the create, select, and
+/// delete intents, translated to callbacks for the application edge to deliver
+/// to `ConversationListSurface`. The view renders state and translates intent;
+/// it owns no business logic (ARC-002). Deleting a conversation is the user's
+/// removal of their own content (ARC-005).
+///
+/// The view is Apple-platform code, isolated behind platform availability; it
+/// is not exercised by the Linux test environment (§3.7) and is verified by
+/// review against `.ai/standards/UI.md`.
+@available(iOS 15.0, macOS 12.0, *)
+public struct ConversationListView: View {
+    /// The ready-to-render list state.
+    public let state: ConversationListState
+    /// Translates the create intent.
+    public let onCreate: () -> Void
+    /// Translates the select intent for the conversation with the given
+    /// identity.
+    public let onSelect: (ConversationIdentity) -> Void
+    /// Translates the delete intent for the conversation with the given
+    /// identity.
+    public let onDelete: (ConversationIdentity) -> Void
+
+    /// Creates a conversation list view over the given state and intent
+    /// callbacks.
+    public init(
+        state: ConversationListState,
+        onCreate: @escaping () -> Void,
+        onSelect: @escaping (ConversationIdentity) -> Void,
+        onDelete: @escaping (ConversationIdentity) -> Void
+    ) {
+        self.state = state
+        self.onCreate = onCreate
+        self.onSelect = onSelect
+        self.onDelete = onDelete
+    }
+
+    public var body: some View {
+        List {
+            ForEach(state.items, id: \.identity) { item in
+                row(item)
+            }
+        }
+        .overlay {
+            if state.isEmpty {
+                emptyState
+            }
+        }
+        .safeAreaInset(edge: .top) {
+            if let failure = state.failure {
+                failureBanner(failure)
+            }
+        }
+        .toolbar {
+            ToolbarItem(placement: .primaryAction) {
+                Button(action: onCreate) {
+                    Label("New Conversation", systemImage: "square.and.pencil")
+                }
+                .accessibilityLabel(Text("New Conversation"))
+            }
+        }
+    }
+
+    private func row(_ item: ConversationListItem) -> some View {
+        Button {
+            onSelect(item.identity)
+        } label: {
+            VStack(alignment: .leading, spacing: 4) {
+                if item.displayTitle.isEmpty {
+                    Text("Untitled Conversation")
+                        .font(.headline)
+                } else {
+                    Text(item.displayTitle)
+                        .font(.headline)
+                }
+                if let preview = item.displayPreview {
+                    Text(preview)
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(2)
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityElement(children: .combine)
+        .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+            Button(role: .destructive) {
+                onDelete(item.identity)
+            } label: {
+                Label("Delete", systemImage: "trash")
+            }
+        }
+    }
+
+    private var emptyState: some View {
+        VStack(spacing: 8) {
+            Image(systemName: "bubble.left.and.bubble.right")
+                .font(.largeTitle)
+                .foregroundStyle(.secondary)
+            Text("No Conversations")
+                .font(.headline)
+            Text("Start a new conversation to begin.")
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+        }
+        .padding()
+        .accessibilityElement(children: .combine)
+    }
+
+    private func failureBanner(_ failure: RepositoryError) -> some View {
+        Label("Something went wrong. Please try again.", systemImage: "exclamationmark.triangle")
+            .font(.subheadline)
+            .foregroundStyle(.white)
+            .padding(10)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(Color.red)
+            .clipShape(RoundedRectangle(cornerRadius: 8))
+            .padding(.horizontal)
+            .accessibilityLabel(Text("Error"))
+    }
+}
+
+#endif
