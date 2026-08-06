@@ -4,8 +4,12 @@ import PackageDescription
 
 let package = Package(
     name: "OmniaApp",
+    platforms: [
+        .macOS(.v13),
+    ],
     products: [
         .library(name: "OmniaApp", targets: ["OmniaApp"]),
+        .executable(name: "Omnia", targets: ["OmniaAppExecutable"]),
     ],
     dependencies: [
         .package(path: "../OmniaPresentation"),
@@ -23,6 +27,13 @@ let package = Package(
                 "OmniaInfrastructure",
                 "OmniaDomain",
                 "OmniaFoundation",
+            ]
+        ),
+        .executableTarget(
+            name: "OmniaAppExecutable",
+            dependencies: [
+                "OmniaApp",
+                "OmniaPresentation",
             ]
         ),
         .testTarget(

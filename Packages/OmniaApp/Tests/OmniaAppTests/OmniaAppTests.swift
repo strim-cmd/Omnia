@@ -499,3 +499,67 @@ final class ProviderAdapterBindingTests: XCTestCase {
         }
     }
 }
+
+// MARK: - AppLaunch
+
+final class AppLaunchTests: XCTestCase {
+    private var temporaryDirectories: [URL] = []
+
+    override func tearDown() {
+        for directory in temporaryDirectories {
+            try? FileManager.default.removeItem(at: directory)
+        }
+        temporaryDirectories = []
+        super.tearDown()
+    }
+
+    private func makeTemporaryRoot() throws -> URL {
+        let url = FileManager.default.temporaryDirectory
+            .appendingPathComponent("OmniaAppTests-\(UUID().uuidString)", isDirectory: true)
+        temporaryDirectories.append(url)
+        return url
+    }
+
+    func testLaunch_ComposesTheGraphAndResolvesTheDefaultWorkspace() async throws {
+        let launch = try await AppLaunch(storageRoot: try makeTemporaryRoot())
+        XCTAssertFalse(launch.workspace.canonicalString.isEmpty)
+        // The composed graph is complete: every surface the shell hosts is
+        // delivered through the navigation surface (DES-012 §3.6).
+        _ = launch.composition.navigationSurface.conversationList
+        _ = launch.composition.navigationSurface.conversationScreen
+        _ = launch.composition.navigationSurface.settings
+    }
+
+    func testLaunch_ResolvesThePersistedDefaultWorkspace() async throws {
+        let launch = try await AppLaunch(storageRoot: try makeTemporaryRoot())
+        let workspace = try await launch.composition.workspaceService.workspace(with: launch.workspace)
+        XCTAssertNotNil(workspace)
+        XCTAssertEqual(workspace?.name, AppEdgeConstants.defaultWorkspaceName)
+        let recorded = try await launch.composition.configurationService.value(
+            for: AppEdgeConstants.defaultWorkspaceIdentityKey,
+            at: .globalDefault
+        )
+        XCTAssertEqual(recorded, launch.workspace.canonicalString)
+    }
+
+    func testLaunch_IsIdempotentAcrossLaunches() async throws {
+        let root = try makeTemporaryRoot()
+        let first = try await AppLaunch(storageRoot: root)
+        let second = try await AppLaunch(storageRoot: root)
+        XCTAssertEqual(second.workspace, first.workspace)
+        let workspace = try await second.composition.workspaceService.workspace(with: second.workspace)
+        XCTAssertNotNil(workspace)
+    }
+
+    func testLaunch_ReregistersStoredProvidersAsReady() async throws {
+        let root = try makeTemporaryRoot()
+        let first = try await AppLaunch(storageRoot: root)
+        _ = try await first.composition.providerConnectionService.configure(makeConfigureRequest())
+        let second = try await AppLaunch(storageRoot: root)
+        let selection = await second.composition.selectionService.select(requiredCapability: .streaming)
+        guard case .selected(provider: _, model: let model) = selection else {
+            return XCTFail("Expected a selected provider after relaunch")
+        }
+        XCTAssertEqual(model, modelReference)
+    }
+}
