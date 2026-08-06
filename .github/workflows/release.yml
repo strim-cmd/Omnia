@@ -1,0 +1,237 @@
+name: Release Pipeline
+
+# The reproducible release pipeline (RE-5, PRD-009): turns the verified
+# workspace into distributable artifacts on a macOS runner — checkout, standard
+# test suite, xcodebuild build of both app targets, archive, code signing,
+# notarization (macOS), and packaging (zip/DMG for macOS; exported IPA for
+# iOS), uploading the artifacts.
+#
+# Signing and notarization steps gate on the presence of the CI secrets: a
+# credential-free run still builds and packages unsigned artifacts and reports
+# the signing steps as skipped, not failed. No secret ever enters the
+# repository — certificates, private keys, and Apple account credentials are
+# GitHub Actions secrets referenced by name only (SECURITY.md).
+#
+# The Xcode version is pinned for reproducibility; the same inputs produce the
+# same artifacts. App versioning is read from the single source of truth
+# (App/Config/Shared.xcconfig), so the packaged version never diverges from the
+# tagged release version (.ai/prompts/workflows/release.md).
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  # Pinned Xcode version for reproducible artifacts. Update together with the
+  # macOS runner image; the pin is verified by the "Pin Xcode version" step.
+  PINNED_XCODE_VERSION: '16.2'
+  PINNED_XCODE_PATH: '/Applications/Xcode_16.2.app/Contents/Developer'
+
+jobs:
+  release:
+    runs-on: macos-15
+    env:
+      # Presence of the distribution credentials. Referenced by name only; the
+      # values are never written to the repository (SECURITY.md).
+      HAS_MACOS_DIST: ${{ secrets.MACOS_CERT_BASE64 != '' && secrets.MACOS_CERT_PASSWORD != '' && secrets.APPLE_ID != '' && secrets.APPLE_TEAM_ID != '' && secrets.APPLE_NOTARIZATION_PASSWORD != '' }}
+      HAS_IOS_DIST: ${{ secrets.IOS_CERT_BASE64 != '' && secrets.IOS_CERT_PASSWORD != '' && secrets.APPLE_ID != '' && secrets.APPLE_TEAM_ID != '' }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Pin Xcode version
+        run: |
+          if [ -d "$PINNED_XCODE_PATH" ]; then
+            sudo xcode-select --switch "$PINNED_XCODE_PATH"
+            echo "Selected $PINNED_XCODE_VERSION at $PINNED_XCODE_PATH"
+          else
+            echo "::warning::pinned Xcode $PINNED_XCODE_VERSION not installed on this image; using the runner default — verify the pin on the release runner"
+          fi
+          echo "DEVELOPER_DIR=$(xcode-select -p)" >> "$GITHUB_ENV"
+
+      - name: Standard test suite (six packages, root)
+        run: |
+          set -euo pipefail
+          total=0
+          for p in OmniaFoundation OmniaDomain OmniaApplication OmniaInfrastructure OmniaPresentation OmniaApp; do
+            log="$RUNNER_TEMP/test-$p.log"
+            (cd "Packages/$p" && swift test > "$log" 2>&1)
+            n=$(grep -Eo 'Executed [0-9]+ tests' "$log" | tail -1 | grep -Eo '[0-9]+' | tail -1 || true)
+            echo "$p: ${n:-0} tests"
+            total=$((total + ${n:-0}))
+            if grep -qE 'error:|warning:|with [1-9][0-9]* failures' "$log"; then
+              cat "$log"
+              echo "::error::$p reported errors, warnings, or failing tests"
+              exit 1
+            fi
+          done
+          log="$RUNNER_TEMP/test-root.log"
+          swift test > "$log" 2>&1
+          if grep -qE 'error:|warning:|with [1-9][0-9]* failures' "$log"; then
+            cat "$log"
+            echo "::error::root package reported errors, warnings, or failing tests"
+            exit 1
+          fi
+          echo "TOTAL: $total tests"
+
+      - name: Read app version
+        run: |
+          cfg="App/Config/Shared.xcconfig"
+          MARKETING_VERSION=$(grep -E '^MARKETING_VERSION' "$cfg" | sed -E 's/^[^=]*=[[:space:]]*//')
+          BUILD_NUMBER=$(grep -E '^CURRENT_PROJECT_VERSION' "$cfg" | sed -E 's/^[^=]*=[[:space:]]*//')
+          echo "VERSION=$MARKETING_VERSION" >> "$GITHUB_ENV"
+          echo "BUILD_NUMBER=$BUILD_NUMBER" >> "$GITHUB_ENV"
+          echo "App version $MARKETING_VERSION (build $BUILD_NUMBER)"
+
+      - name: Build macOS app target (Release)
+        run: |
+          xcodebuild -workspace Omnia.xcworkspace -scheme Omnia -configuration Release \
+            -destination 'platform=macOS' \
+            CODE_SIGNING_ALLOWED=NO build
+
+      - name: Build iOS app target (Release)
+        run: |
+          xcodebuild -workspace Omnia.xcworkspace -scheme OmniaiOS -configuration Release \
+            -destination 'generic/platform=iOS' \
+            CODE_SIGNING_ALLOWED=NO build
+
+      - name: Archive macOS app (signed, distribution)
+        if: ${{ env.HAS_MACOS_DIST == 'true' }}
+        run: |
+          xcodebuild -workspace Omnia.xcworkspace -scheme Omnia -configuration Release \
+            -destination 'platform=macOS' \
+            -archivePath "$RUNNER_TEMP/archive/Omnia.xcarchive" archive \
+            CODE_SIGN_IDENTITY="Developer ID Application" CODE_SIGN_STYLE=Manual \
+            OTHER_CODE_SIGN_FLAGS="--options runtime"
+
+      - name: Archive macOS app (unsigned)
+        if: ${{ env.HAS_MACOS_DIST != 'true' }}
+        run: |
+          xcodebuild -workspace Omnia.xcworkspace -scheme Omnia -configuration Release \
+            -destination 'platform=macOS' \
+            -archivePath "$RUNNER_TEMP/archive/Omnia.xcarchive" archive \
+            CODE_SIGNING_ALLOWED=NO
+
+      - name: Archive iOS app (signed, distribution)
+        if: ${{ env.HAS_IOS_DIST == 'true' }}
+        env:
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          xcodebuild -workspace Omnia.xcworkspace -scheme OmniaiOS -configuration Release \
+            -destination 'generic/platform=iOS' \
+            -archivePath "$RUNNER_TEMP/archive/Omnia-iOS.xcarchive" archive \
+            CODE_SIGN_STYLE=Automatic DEVELOPMENT_TEAM="$APPLE_TEAM_ID" \
+            -allowProvisioningUpdates
+
+      - name: Archive iOS app (unsigned)
+        if: ${{ env.HAS_IOS_DIST != 'true' }}
+        run: |
+          xcodebuild -workspace Omnia.xcworkspace -scheme OmniaiOS -configuration Release \
+            -destination 'generic/platform=iOS' \
+            -archivePath "$RUNNER_TEMP/archive/Omnia-iOS.xcarchive" archive \
+            CODE_SIGNING_ALLOWED=NO
+
+      - name: Import distribution certificates
+        if: ${{ env.HAS_MACOS_DIST == 'true' || env.HAS_IOS_DIST == 'true' }}
+        env:
+          MACOS_CERT_BASE64: ${{ secrets.MACOS_CERT_BASE64 }}
+          MACOS_CERT_PASSWORD: ${{ secrets.MACOS_CERT_PASSWORD }}
+          IOS_CERT_BASE64: ${{ secrets.IOS_CERT_BASE64 }}
+          IOS_CERT_PASSWORD: ${{ secrets.IOS_CERT_PASSWORD }}
+        run: |
+          set -euo pipefail
+          KC="$RUNNER_TEMP/build.keychain"
+          security create-keychain -p "omniabuild" "$KC"
+          if [ "$HAS_MACOS_DIST" = "true" ]; then
+            echo "$MACOS_CERT_BASE64" | base64 --decode > "$RUNNER_TEMP/macos-dist.p12"
+            security import "$RUNNER_TEMP/macos-dist.p12" -k "$KC" -P "$MACOS_CERT_PASSWORD" -T /usr/bin/codesign -T /usr/bin/security
+          fi
+          if [ "$HAS_IOS_DIST" = "true" ]; then
+            echo "$IOS_CERT_BASE64" | base64 --decode > "$RUNNER_TEMP/ios-dist.p12"
+            security import "$RUNNER_TEMP/ios-dist.p12" -k "$KC" -P "$IOS_CERT_PASSWORD" -T /usr/bin/codesign -T /usr/bin/security
+          fi
+          security set-keychain-settings -lut 21600 "$KC"
+          security list-keychains -d user -s "$KC"
+          security default-keychain -s "$KC"
+          echo "BUILD_KEYCHAIN=$KC" >> "$GITHUB_ENV"
+
+      - name: Export iOS IPA (App Store, for TestFlight)
+        if: ${{ env.HAS_IOS_DIST == 'true' }}
+        env:
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/dist/ios/appstore"
+          xcodebuild -exportArchive \
+            -archivePath "$RUNNER_TEMP/archive/Omnia-iOS.xcarchive" \
+            -exportPath "$RUNNER_TEMP/dist/ios/appstore" \
+            -exportOptionsPlist .github/export/ios-appstore.plist \
+            DEVELOPMENT_TEAM="$APPLE_TEAM_ID" -allowProvisioningUpdates
+
+      - name: Export iOS IPA (ad-hoc, for sideloading)
+        if: ${{ env.HAS_IOS_DIST == 'true' }}
+        env:
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/dist/ios/adhoc"
+          xcodebuild -exportArchive \
+            -archivePath "$RUNNER_TEMP/archive/Omnia-iOS.xcarchive" \
+            -exportPath "$RUNNER_TEMP/dist/ios/adhoc" \
+            -exportOptionsPlist .github/export/ios-adhoc.plist \
+            DEVELOPMENT_TEAM="$APPLE_TEAM_ID" -allowProvisioningUpdates
+
+      - name: Export iOS IPA (unsigned)
+        if: ${{ env.HAS_IOS_DIST != 'true' }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/dist/ios/unsigned"
+          xcodebuild -exportArchive \
+            -archivePath "$RUNNER_TEMP/archive/Omnia-iOS.xcarchive" \
+            -exportPath "$RUNNER_TEMP/dist/ios/unsigned" \
+            -exportOptionsPlist .github/export/ios-adhoc.plist \
+            CODE_SIGNING_ALLOWED=NO
+
+      - name: Package macOS app (zip + DMG)
+        run: |
+          set -euo pipefail
+          APP="$RUNNER_TEMP/archive/Omnia.xcarchive/Products/Applications/Omnia.app"
+          if [ ! -d "$APP" ]; then
+            echo "::error::macOS archive missing Omnia.app"
+            exit 1
+          fi
+          mkdir -p "$RUNNER_TEMP/dist/macos"
+          ditto "$APP" "$RUNNER_TEMP/dist/macos/Omnia.app"
+          (cd "$RUNNER_TEMP/dist/macos" && ditto -c -k --keepParent Omnia.app "Omnia-$VERSION-macOS.zip")
+          hdiutil create -volname Omnia -srcfolder "$RUNNER_TEMP/dist/macos/Omnia.app" -ov -format UDZO "$RUNNER_TEMP/dist/macos/Omnia-$VERSION-macOS.dmg"
+          ls -la "$RUNNER_TEMP/dist/macos"
+
+      - name: Notarize and staple (macOS)
+        if: ${{ env.HAS_MACOS_DIST == 'true' }}
+        env:
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_NOTARIZATION_PASSWORD: ${{ secrets.APPLE_NOTARIZATION_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          set -euo pipefail
+          xcrun notarytool submit "$RUNNER_TEMP/dist/macos/Omnia-$VERSION-macOS.zip" \
+            --apple-id "$APPLE_ID" --password "$APPLE_NOTARIZATION_PASSWORD" --team-id "$APPLE_TEAM_ID" --wait
+          xcrun stapler staple "$RUNNER_TEMP/dist/macos/Omnia.app"
+          (cd "$RUNNER_TEMP/dist/macos" && ditto -c -k --keepParent Omnia.app "Omnia-$VERSION-macOS-notarized.zip")
+          hdiutil create -volname Omnia -srcfolder "$RUNNER_TEMP/dist/macos/Omnia.app" -ov -format UDZO "$RUNNER_TEMP/dist/macos/Omnia-$VERSION-macOS.dmg"
+
+      - name: Upload artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: omnia-${{ env.VERSION }}
+          if-no-files-found: error
+          path: |
+            ${{ runner.temp }}/dist/macos/*
+            ${{ runner.temp }}/dist/ios/**/*.ipa
