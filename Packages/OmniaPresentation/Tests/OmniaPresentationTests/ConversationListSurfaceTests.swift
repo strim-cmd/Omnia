@@ -40,6 +40,35 @@ private final class FailingConversationRepository: ConversationRepository, @unch
     }
 }
 
+private final class RecordingConversationRepository: ConversationRepository, @unchecked Sendable {
+    private let lock = NSLock()
+    private var storage: [ConversationIdentity: Conversation] = [:]
+    private var recordedSaves: [ConversationIdentity] = []
+
+    var savedIdentities: [ConversationIdentity] {
+        lock.withLock { recordedSaves }
+    }
+
+    func save(_ conversation: Conversation) async throws {
+        lock.withLock {
+            storage[conversation.identity] = conversation
+            recordedSaves.append(conversation.identity)
+        }
+    }
+
+    func conversation(with identity: ConversationIdentity) async throws -> Conversation? {
+        lock.withLock {
+            storage[identity]
+        }
+    }
+
+    func delete(_ identity: ConversationIdentity) async throws {
+        lock.withLock {
+            storage[identity] = nil
+        }
+    }
+}
+
 private final class InMemoryWorkspaceRepository: WorkspaceRepository, @unchecked Sendable {
     private let lock = NSLock()
     private var storage: [WorkspaceIdentity: Workspace] = [:]
@@ -182,6 +211,105 @@ final class ConversationListSurfaceTests: XCTestCase {
         XCTAssertEqual(created.history, [])
         let stored = try await repository.conversation(with: created.identity)
         XCTAssertEqual(stored?.identity, created.identity)
+    }
+
+    // MARK: Create in workspace (v1.1.0)
+
+    func testCreateInWorkspace_ReturnsAnEmptyConversation() async throws {
+        let workspaceRepository = InMemoryWorkspaceRepository()
+        let workspace = Workspace(identity: WorkspaceIdentity(), name: "Default")
+        try await workspaceRepository.save(workspace)
+        let surface = makeSurface(
+            conversationRepository: InMemoryConversationRepository(),
+            workspaceRepository: workspaceRepository
+        )
+
+        let created = try await surface.create(in: workspace.identity)
+
+        XCTAssertEqual(created.history, [])
+    }
+
+    func testCreateInWorkspace_PersistsTheCreatedConversation() async throws {
+        let repository = InMemoryConversationRepository()
+        let workspaceRepository = InMemoryWorkspaceRepository()
+        let workspace = Workspace(identity: WorkspaceIdentity(), name: "Default")
+        try await workspaceRepository.save(workspace)
+        let surface = makeSurface(
+            conversationRepository: repository,
+            workspaceRepository: workspaceRepository
+        )
+
+        let created = try await surface.create(in: workspace.identity)
+
+        let stored = try await repository.conversation(with: created.identity)
+        XCTAssertEqual(stored?.identity, created.identity)
+    }
+
+    func testCreateInWorkspace_AttachesToTheWorkspaceMembership() async throws {
+        let workspaceRepository = InMemoryWorkspaceRepository()
+        let workspace = Workspace(identity: WorkspaceIdentity(), name: "Default")
+        try await workspaceRepository.save(workspace)
+        let surface = makeSurface(
+            conversationRepository: InMemoryConversationRepository(),
+            workspaceRepository: workspaceRepository
+        )
+
+        let created = try await surface.create(in: workspace.identity)
+
+        let stored = try await workspaceRepository.workspace(with: workspace.identity)
+        XCTAssertEqual(stored?.conversationIdentities, [created.identity])
+    }
+
+    func testCreateInWorkspace_AppearsInTheRenderedList() async throws {
+        let conversationRepository = InMemoryConversationRepository()
+        let workspaceRepository = InMemoryWorkspaceRepository()
+        let workspace = Workspace(identity: WorkspaceIdentity(), name: "Default")
+        try await workspaceRepository.save(workspace)
+        let surface = makeSurface(
+            conversationRepository: conversationRepository,
+            workspaceRepository: workspaceRepository
+        )
+
+        let created = try await surface.create(in: workspace.identity)
+        let state = try await surface.load(in: workspace.identity)
+
+        XCTAssertEqual(state.items.map(\.identity), [created.identity])
+    }
+
+    func testCreateInWorkspace_UnknownWorkspaceFailsBeforeAnyConversationIsCreated() async {
+        let repository = RecordingConversationRepository()
+        let surface = makeSurface(
+            conversationRepository: repository,
+            workspaceRepository: InMemoryWorkspaceRepository()
+        )
+
+        do {
+            _ = try await surface.create(in: WorkspaceIdentity())
+            XCTFail("expected a validation failure")
+        } catch {
+            XCTAssertEqual(
+                error as? ApplicationValidationError,
+                .invalid(reason: "The workspace is not stored.")
+            )
+        }
+        XCTAssertTrue(repository.savedIdentities.isEmpty)
+    }
+
+    func testCreateInWorkspace_PropagatesRepositoryFailureAsIs() async throws {
+        let workspaceRepository = InMemoryWorkspaceRepository()
+        let workspace = Workspace(identity: WorkspaceIdentity(), name: "Default")
+        try await workspaceRepository.save(workspace)
+        let surface = makeSurface(
+            conversationRepository: FailingConversationRepository(),
+            workspaceRepository: workspaceRepository
+        )
+
+        do {
+            _ = try await surface.create(in: workspace.identity)
+            XCTFail("expected a repository failure")
+        } catch {
+            XCTAssertEqual(error as? RepositoryError, .storageUnavailable)
+        }
     }
 
     func testSelect_ReturnsTheStoredConversation() async throws {
