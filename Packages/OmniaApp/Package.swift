@@ -6,6 +6,7 @@ let package = Package(
     name: "OmniaApp",
     platforms: [
         .macOS(.v13),
+        .iOS(.v16),
     ],
     products: [
         .library(name: "OmniaApp", targets: ["OmniaApp"]),
