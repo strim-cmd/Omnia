@@ -4,6 +4,9 @@ import OmniaFoundation
 /// The conversation list presentation surface: create, select, and delete
 /// conversations over `ConversationService`, and present the conversation list
 /// as `ConversationListState` (DES-012 §3.3, Conversation module, ARC-007).
+/// The v1.1.0 `create(in:)` creates a conversation in the presented workspace
+/// over `ConversationService.createConversation(in:)` (DES-012 §3.3, DES-011
+/// §3.8).
 ///
 /// The surface is the seam through which the frozen `ConversationService` of
 /// DES-011 §3.2 is delivered to the conversation list (DES-012 §3.6, ARC-006).
@@ -55,6 +58,22 @@ public struct ConversationListSurface: Sendable {
     /// DES-011 §3.2).
     public func create() async throws -> Conversation {
         try await service.createConversation()
+    }
+
+    /// Creates a fresh empty conversation in `workspace`, persists it, and
+    /// attaches it to the workspace's membership — the create-in-workspace
+    /// flow (DES-012 §3.3 v1.1.0, DES-011 §3.8).
+    ///
+    /// This is what the list renders for the user's create action: the new
+    /// conversation belongs to the workspace the list presents and appears in
+    /// the membership-driven list it renders — the list and the create action
+    /// never diverge on the workspace (PRD-008). The workspace identity is
+    /// received from the application edge — session state owned there, never
+    /// selected by this surface (DES-011 §3.8, ARC-009). The v1.0.0 `create()`
+    /// remains part of the surface but is not what the list renders (DES-011
+    /// §3.2, §3.8).
+    public func create(in workspace: WorkspaceIdentity) async throws -> Conversation {
+        try await service.createConversation(in: workspace)
     }
 
     /// Selects the conversation with `identity`, or `nil` when none is stored
