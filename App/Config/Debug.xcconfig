@@ -1,0 +1,16 @@
+// Debug build configuration.
+// Shared by the project and both app targets through baseConfigurationReference.
+// Reuses the common settings in Shared.xcconfig.
+
+#include "Shared.xcconfig"
+
+GCC_PREPROCESSOR_DEFINITIONS = $(inherited) DEBUG=1
+SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG
+SWIFT_OPTIMIZATION_LEVEL = -Onone
+GCC_OPTIMIZATION_LEVEL = 0
+GCC_DYNAMIC_NO_PIC = NO
+DEBUG_INFORMATION_FORMAT = dwarf
+ENABLE_TESTABILITY = YES
+ONLY_ACTIVE_ARCH = YES
+COPY_PHASE_STRIP = NO
+MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE

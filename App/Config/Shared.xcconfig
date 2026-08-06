@@ -1,0 +1,29 @@
+// Omnia shared build configuration.
+// Applies to every configuration and target via Debug.xcconfig and Release.xcconfig.
+// Versioning follows the release workflow (.ai/prompts/workflows/release.md): SemVer,
+// CHANGELOG.md (Keep a Changelog), and version tags. MARKETING_VERSION and
+// CURRENT_PROJECT_VERSION here are the single source of truth for the app version, so
+// the app version and the tagged release version never diverge.
+
+// Compiler
+SWIFT_VERSION = 6.0
+GENERATE_INFOPLIST_FILE = YES
+
+// Versioning (release workflow: SemVer, CHANGELOG.md, tags)
+MARKETING_VERSION = 0.5.0
+CURRENT_PROJECT_VERSION = 1
+
+// Signing (ad-hoc, credential-free for local and CI builds; distribution signing
+// arrives with RE-6 as CI secrets, never committed)
+CODE_SIGN_IDENTITY = -
+CODE_SIGN_STYLE = Automatic
+
+// Recommended settings shared across configurations
+ALWAYS_SEARCH_USER_PATHS = NO
+CLANG_ANALYZER_NONNULL = YES
+CLANG_ENABLE_MODULES = YES
+CLANG_ENABLE_OBJC_ARC = YES
+ENABLE_STRICT_OBJC_MSGSEND = YES
+GCC_C_LANGUAGE_STANDARD = gnu11
+GCC_NO_COMMON_BLOCKS = YES
+MTL_FAST_MATH = YES
