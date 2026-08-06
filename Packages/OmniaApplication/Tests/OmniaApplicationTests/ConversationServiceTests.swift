@@ -55,6 +55,64 @@ private final class InMemoryWorkspaceRepository: WorkspaceRepository, @unchecked
     }
 }
 
+private final class RecordingConversationRepository: ConversationRepository, @unchecked Sendable {
+    private let lock = NSLock()
+    private var storage: [ConversationIdentity: Conversation] = [:]
+    private var recordedSaves: [ConversationIdentity] = []
+
+    var savedIdentities: [ConversationIdentity] {
+        lock.withLock { recordedSaves }
+    }
+
+    func save(_ conversation: Conversation) async throws {
+        lock.withLock {
+            storage[conversation.identity] = conversation
+            recordedSaves.append(conversation.identity)
+        }
+    }
+
+    func conversation(with identity: ConversationIdentity) async throws -> Conversation? {
+        lock.withLock {
+            storage[identity]
+        }
+    }
+
+    func delete(_ identity: ConversationIdentity) async throws {
+        lock.withLock {
+            storage[identity] = nil
+        }
+    }
+}
+
+private final class WorkspaceRepositorySaveFailsAfterSeed: WorkspaceRepository, @unchecked Sendable {
+    private let lock = NSLock()
+    private var storage: [WorkspaceIdentity: Workspace] = [:]
+
+    func seed(_ workspace: Workspace) {
+        lock.withLock {
+            storage[workspace.identity] = workspace
+        }
+    }
+
+    func save(_ workspace: Workspace) async throws {
+        throw RepositoryError.storageUnavailable
+    }
+
+    func workspace(with identity: WorkspaceIdentity) async throws -> Workspace? {
+        lock.withLock {
+            storage[identity]
+        }
+    }
+
+    func allWorkspaces() async throws -> [Workspace] {
+        lock.withLock {
+            Array(storage.values)
+        }
+    }
+
+    func delete(_ identity: WorkspaceIdentity) async throws {}
+}
+
 private final class FailingConversationRepository: ConversationRepository, @unchecked Sendable {
     func save(_ conversation: Conversation) async throws {
         throw RepositoryError.storageUnavailable
@@ -132,6 +190,123 @@ final class ConversationServiceTests: XCTestCase {
         let first = try await service.createConversation()
         let second = try await service.createConversation()
         XCTAssertNotEqual(first.identity, second.identity)
+    }
+
+    // MARK: Create in workspace (v1.1.0)
+
+    func testCreateConversationInWorkspace_ReturnsAnEmptyIdleConversation() async throws {
+        let workspaceRepository = InMemoryWorkspaceRepository()
+        let service = makeService(
+            conversationRepository: InMemoryConversationRepository(),
+            workspaceRepository: workspaceRepository
+        )
+        let workspace = Workspace(identity: WorkspaceIdentity(), name: "Research")
+        try await workspaceRepository.save(workspace)
+
+        let conversation = try await service.createConversation(in: workspace.identity)
+
+        XCTAssertTrue(conversation.history.isEmpty)
+        XCTAssertEqual(conversation.streamingState, .idle)
+        XCTAssertFalse(conversation.isStreaming)
+        XCTAssertNil(conversation.partialContent)
+    }
+
+    func testCreateConversationInWorkspace_PersistsTheCreatedConversation() async throws {
+        let conversationRepository = InMemoryConversationRepository()
+        let workspaceRepository = InMemoryWorkspaceRepository()
+        let service = makeService(
+            conversationRepository: conversationRepository,
+            workspaceRepository: workspaceRepository
+        )
+        let workspace = Workspace(identity: WorkspaceIdentity(), name: "Research")
+        try await workspaceRepository.save(workspace)
+
+        let created = try await service.createConversation(in: workspace.identity)
+
+        let loaded = try await conversationRepository.conversation(with: created.identity)
+        XCTAssertEqual(loaded, created)
+    }
+
+    func testCreateConversationInWorkspace_AttachesToTheWorkspaceMembership() async throws {
+        let workspaceRepository = InMemoryWorkspaceRepository()
+        let service = makeService(
+            conversationRepository: InMemoryConversationRepository(),
+            workspaceRepository: workspaceRepository
+        )
+        let workspace = Workspace(identity: WorkspaceIdentity(), name: "Research")
+        try await workspaceRepository.save(workspace)
+
+        let created = try await service.createConversation(in: workspace.identity)
+
+        let stored = try await workspaceRepository.workspace(with: workspace.identity)
+        XCTAssertEqual(stored?.conversationIdentities, [created.identity])
+    }
+
+    func testCreateConversationInWorkspace_AssignsAFreshIdentity() async throws {
+        let workspaceRepository = InMemoryWorkspaceRepository()
+        let service = makeService(
+            conversationRepository: InMemoryConversationRepository(),
+            workspaceRepository: workspaceRepository
+        )
+        let workspace = Workspace(identity: WorkspaceIdentity(), name: "Research")
+        try await workspaceRepository.save(workspace)
+
+        let first = try await service.createConversation(in: workspace.identity)
+        let second = try await service.createConversation(in: workspace.identity)
+
+        XCTAssertNotEqual(first.identity, second.identity)
+    }
+
+    func testCreateConversationInWorkspace_UnknownWorkspaceFailsBeforeAnyConversationIsCreated() async {
+        let conversationRepository = RecordingConversationRepository()
+        let service = makeService(
+            conversationRepository: conversationRepository,
+            workspaceRepository: InMemoryWorkspaceRepository()
+        )
+        await assertThrowsValidationError(reason: "The workspace is not stored.") {
+            _ = try await service.createConversation(in: WorkspaceIdentity())
+        }
+        XCTAssertTrue(conversationRepository.savedIdentities.isEmpty)
+    }
+
+    func testCreateConversationInWorkspace_ConversationSaveFailureSurfacesAsRepositoryError() async throws {
+        let workspaceRepository = InMemoryWorkspaceRepository()
+        let service = makeService(
+            conversationRepository: FailingConversationRepository(),
+            workspaceRepository: workspaceRepository
+        )
+        let workspace = Workspace(identity: WorkspaceIdentity(), name: "Research")
+        try await workspaceRepository.save(workspace)
+        await assertSurfacesStorageUnavailable {
+            _ = try await service.createConversation(in: workspace.identity)
+        }
+        let stored = try await workspaceRepository.workspace(with: workspace.identity)
+        XCTAssertTrue(stored?.conversationIdentities.isEmpty == true)
+    }
+
+    func testCreateConversationInWorkspace_WorkspaceSaveFailureSurfacesAsRepositoryError() async throws {
+        let workspaceRepository = WorkspaceRepositorySaveFailsAfterSeed()
+        let service = makeService(
+            conversationRepository: InMemoryConversationRepository(),
+            workspaceRepository: workspaceRepository
+        )
+        let workspace = Workspace(identity: WorkspaceIdentity(), name: "Research")
+        workspaceRepository.seed(workspace)
+        await assertSurfacesStorageUnavailable {
+            _ = try await service.createConversation(in: workspace.identity)
+        }
+        let stored = try await workspaceRepository.workspace(with: workspace.identity)
+        XCTAssertTrue(stored?.conversationIdentities.isEmpty == true)
+    }
+
+    func testCreateConversationInWorkspace_WorkspaceLoadFailureSurfacesAsRepositoryError() async {
+        let service = makeService(
+            conversationRepository: InMemoryConversationRepository(),
+            workspaceRepository: FailingWorkspaceRepository()
+        )
+        await assertSurfacesStorageUnavailable {
+            _ = try await service.createConversation(in: WorkspaceIdentity())
+        }
     }
 
     // MARK: Load (select)
@@ -282,6 +457,22 @@ final class ConversationServiceTests: XCTestCase {
     }
 
     // MARK: Repository failures surface as-is
+
+    private func assertThrowsValidationError(
+        reason: String,
+        _ operation: () async throws -> Void,
+        file: StaticString = #filePath,
+        line: UInt = #line
+    ) async {
+        do {
+            try await operation()
+            XCTFail("Expected ApplicationValidationError.invalid(reason: \"\(reason)\")", file: file, line: line)
+        } catch let error as ApplicationValidationError {
+            XCTAssertEqual(error, .invalid(reason: reason), file: file, line: line)
+        } catch {
+            XCTFail("Unexpected error: \(error)", file: file, line: line)
+        }
+    }
 
     private func assertSurfacesStorageUnavailable(
         _ operation: () async throws -> Void,

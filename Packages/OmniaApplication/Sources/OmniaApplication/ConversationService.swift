@@ -2,7 +2,9 @@ import OmniaDomain
 
 /// The conversation application service: create, load (select), list by
 /// workspace membership, and delete conversations, and read message history
-/// (DES-011 §3.2).
+/// (DES-011 §3.2). The v1.1.0 `createConversation(in:)` creates a conversation
+/// and attaches it to a workspace's membership in one application operation
+/// (DES-011 §3.8).
 ///
 /// The service orchestrates the frozen `ConversationRepository` and the
 /// workspace membership for listing (DES-009 §3.3, §3.5). It owns no business
@@ -37,6 +39,26 @@ public struct ConversationService: Sendable {
     public func createConversation() async throws -> Conversation {
         let conversation = Conversation(identity: ConversationIdentity())
         try await conversationRepository.save(conversation)
+        return conversation
+    }
+
+    /// Creates an empty conversation with a fresh identity, persists it, and
+    /// attaches it to `workspace`'s membership as one application operation
+    /// (DES-011 §3.8).
+    ///
+    /// The workspace is loaded before the conversation is created, so a missing
+    /// workspace fails the whole operation before any conversation is created —
+    /// create and attach are one atomic application operation (PRD-008). The
+    /// workspace's `adding(conversation:)` is applied and the new value is
+    /// persisted (DES-009 §3.4).
+    public func createConversation(in workspace: WorkspaceIdentity) async throws -> Conversation {
+        guard let workspace = try await workspaceRepository.workspace(with: workspace) else {
+            throw ApplicationValidationError.invalid(reason: "The workspace is not stored.")
+        }
+        let conversation = Conversation(identity: ConversationIdentity())
+        try await conversationRepository.save(conversation)
+        let updated = workspace.adding(conversation: conversation.identity)
+        try await workspaceRepository.save(updated)
         return conversation
     }
 
