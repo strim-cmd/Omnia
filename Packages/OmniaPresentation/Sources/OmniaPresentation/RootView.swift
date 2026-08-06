@@ -67,11 +67,13 @@ public struct RootView: View {
                 onDelete: deleteConversation
             )
             .navigationDestination(item: destination) { route in
-                switch route {
-                case .conversation(let identity):
-                    conversationScreen(for: identity)
-                case .settings:
-                    settingsScreen
+                Group {
+                    switch route {
+                    case .conversation(let identity):
+                        conversationScreen(for: identity)
+                    case .settings:
+                        settingsScreen
+                    }
                 }
             }
             .toolbar {
