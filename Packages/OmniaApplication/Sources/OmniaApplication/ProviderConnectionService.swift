@@ -1,8 +1,8 @@
 import OmniaDomain
 
-/// The provider connection application service: configure, list, and remove
-/// provider connections — the provider flows of the Settings module (DES-011
-/// §3.4).
+/// The provider connection application service: configure, list, remove, and
+/// record the OpenAI-compatible endpoint of provider connections — the
+/// provider flows of the Settings module (DES-011 §3.4, §3.9).
 ///
 /// The service orchestrates the frozen `ProviderRepository`, the
 /// `CredentialStorageProtocol`, and the `ConfigurationRepository` for the
@@ -87,9 +87,9 @@ public struct ProviderConnectionService: Sendable {
     ///
     /// The recorded credential reference is read from the provider-settings
     /// configuration, the stored credential is removed, the provider connection
-    /// is deleted, and the recorded reference is removed. Removing a provider
-    /// that is not stored is not an error; the operation is idempotent (DES-009
-    /// §3.5).
+    /// is deleted, and the recorded reference and endpoint are removed. Removing
+    /// a provider that is not stored is not an error; the operation is
+    /// idempotent (DES-009 §3.5).
     public func remove(_ identity: ProviderIdentity) async throws {
         let key = Self.credentialReferenceKey(for: identity)
         if let reference = try await configurationRepository.value(for: key, at: .providerSettings) {
@@ -97,16 +97,83 @@ public struct ProviderConnectionService: Sendable {
         }
         try await providerRepository.delete(identity)
         try await configurationRepository.remove(key, at: .providerSettings)
+        try await configurationRepository.remove(Self.endpointKey(for: identity), at: .providerSettings)
     }
 
     /// The provider-settings configuration key that records the credential
     /// reference of a provider connection, scoped by the provider identity so
     /// each connection's pointer stays separate from the others (DES-009 §3.6,
     /// ARC-005).
-    private static func credentialReferenceKey(
+    ///
+    /// The key is public because it is shared with the Composition Root's
+    /// runtime adapter binding, which reads the same documented key the
+    /// settings surface writes — the writer and the reader never diverge
+    /// (DES-011 §3.4, DES-013 §3.3, DES-004).
+    public static func credentialReferenceKey(
         for identity: ProviderIdentity
     ) -> ConfigurationKey<CredentialReference> {
         ConfigurationKey<CredentialReference>("providerCredential.\(identity.canonicalString)")
+    }
+
+    /// The provider-settings configuration key that records the OpenAI-compatible
+    /// endpoint of a provider connection, scoped by the provider identity — the
+    /// documented key the settings surface writes and the Composition Root's
+    /// runtime adapter binding reads, so the writer and the reader never diverge
+    /// (DES-011 §3.9, DES-013 §3.3, DES-004).
+    public static func endpointKey(
+        for identity: ProviderIdentity
+    ) -> ConfigurationKey<String> {
+        ConfigurationKey<String>("providerEndpoint.\(identity.canonicalString)")
+    }
+
+    /// Records the provider connection's OpenAI-compatible endpoint as a typed
+    /// configuration value at the provider-settings level, keyed by the provider
+    /// identity (DES-011 §3.9).
+    ///
+    /// The endpoint is validated at the boundary before any storage (ARC-009): a
+    /// non-empty, absolute, `http` or `https` URL string is required, and a
+    /// malformed endpoint is rejected with the typed application error of DES-011
+    /// §3.6. The endpoint is connection configuration the user owns (ARC-005); it
+    /// never enters the `ProviderConnection` or `Provider` aggregate (DES-009
+    /// §3.1), and the service never builds a transport or an adapter — the address
+    /// is resolved by the Composition Root when a request is built, in the layer
+    /// that owns transport (DES-010 §3.9.3, DES-013 §3.3, ARC-004).
+    public func updateEndpoint(
+        _ endpoint: String,
+        for identity: ProviderIdentity
+    ) async throws {
+        let trimmed = endpoint.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else {
+            throw ApplicationValidationError.invalid(reason: "The endpoint is empty.")
+        }
+        guard let separator = trimmed.firstRange(of: "://") else {
+            throw ApplicationValidationError.invalid(
+                reason: "The endpoint must be an absolute http or https URL."
+            )
+        }
+        let scheme = trimmed[..<separator.lowerBound].lowercased()
+        let authority = trimmed[separator.upperBound...]
+        guard !scheme.isEmpty, scheme == "http" || scheme == "https", !authority.isEmpty else {
+            throw ApplicationValidationError.invalid(
+                reason: "The endpoint must be an absolute http or https URL."
+            )
+        }
+        try await configurationRepository.store(
+            trimmed,
+            for: Self.endpointKey(for: identity),
+            at: .providerSettings
+        )
+    }
+
+    /// Returns the recorded OpenAI-compatible endpoint of the provider connection
+    /// with `identity`, or `nil` when none is recorded (DES-011 §3.9).
+    public func endpoint(
+        for identity: ProviderIdentity
+    ) async throws -> String? {
+        try await configurationRepository.value(
+            for: Self.endpointKey(for: identity),
+            at: .providerSettings
+        )
     }
 
     /// Validates `request` at the boundary (ARC-009, DES-011 §3.6).
