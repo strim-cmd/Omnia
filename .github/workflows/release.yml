@@ -64,11 +64,10 @@ jobs:
           total=0
           for p in OmniaFoundation OmniaDomain OmniaApplication OmniaInfrastructure OmniaPresentation OmniaApp; do
             log="$RUNNER_TEMP/test-$p.log"
-            set +e
-            (cd "Packages/$p" && swift test > "$log" 2>&1)
-            status=$?
-            set -e
-            if [ "$status" -ne 0 ]; then
+            if (cd "Packages/$p" && swift test > "$log" 2>&1); then
+              :
+            else
+              status=$?
               cat "$log" || true
               echo "::error::$p swift test failed with exit code $status"
               exit "$status"
@@ -83,11 +82,10 @@ jobs:
             fi
           done
           log="$RUNNER_TEMP/test-root.log"
-          set +e
-          swift test > "$log" 2>&1
-          status=$?
-          set -e
-          if [ "$status" -ne 0 ]; then
+          if swift test > "$log" 2>&1; then
+            :
+          else
+            status=$?
             cat "$log" || true
             echo "::error::root package swift test failed with exit code $status"
             exit "$status"
