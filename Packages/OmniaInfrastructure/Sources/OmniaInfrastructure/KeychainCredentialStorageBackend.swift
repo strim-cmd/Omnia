@@ -1,5 +1,6 @@
 #if canImport(Security)
 
+import Foundation
 import Security
 import OmniaDomain
 

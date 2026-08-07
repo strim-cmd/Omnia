@@ -88,7 +88,7 @@ internal struct URLSessionProviderTransport: ProviderTransport {
                         return
                     }
                     for try await chunk in bytes {
-                        continuation.yield(chunk)
+                        continuation.yield(Data([chunk]))
                     }
                     continuation.finish()
                 } catch {
