@@ -101,14 +101,11 @@ internal struct SSEDecoder {
         data.firstIndex { $0 == 0x0A || $0 == 0x0D }
     }
 
-    /// Returns the raw bytes of the line ending at `terminator`: the bytes up
-    /// to the terminator, with the `\r` of a `\r\n` pair stripped.
+    /// Returns the raw bytes of the line ending at `terminator`. The half-open
+    /// range excludes the terminator byte itself, so the `\r` of a `\r\n` pair
+    /// is stripped along with any `\n` terminator.
     private static func decodeLine(in data: Data, terminator: Data.Index) -> String {
-        var lineEnd = terminator
-        if data[terminator] == 0x0D && terminator > data.startIndex {
-            lineEnd = data.index(before: terminator)
-        }
-        return String(decoding: data[data.startIndex..<lineEnd], as: UTF8.self)
+        String(decoding: data[data.startIndex..<terminator], as: UTF8.self)
     }
 
     /// Returns the index just past `terminator` and any `\n` that follows a
