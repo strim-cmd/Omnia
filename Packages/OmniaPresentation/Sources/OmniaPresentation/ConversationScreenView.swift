@@ -64,6 +64,7 @@ public struct ConversationScreenView: View {
         }
     }
 
+    @ViewBuilder
     private func messageBubble(_ message: MessagePresentation) -> some View {
         switch message.role {
         case .user:

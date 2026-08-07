@@ -66,13 +66,24 @@ public struct RootView: View {
                 onSelect: openConversation,
                 onDelete: deleteConversation
             )
-            .navigationDestination(item: destination) { route in
+            .navigationDestination(
+                isPresented: Binding(
+                    get: { destination.wrappedValue != nil },
+                    set: { isPresented in
+                        if !isPresented {
+                            destination.wrappedValue = nil
+                        }
+                    }
+                )
+            ) {
                 Group {
-                    switch route {
+                    switch destination.wrappedValue {
                     case .conversation(let identity):
                         conversationScreen(for: identity)
                     case .settings:
                         settingsScreen
+                    case nil:
+                        EmptyView()
                     }
                 }
             }
