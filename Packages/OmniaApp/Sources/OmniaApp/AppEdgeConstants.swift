@@ -27,5 +27,5 @@ public enum AppEdgeConstants {
     /// The model the MVP offers through every configured OpenAI-compatible
     /// provider: the single entry of the `preferredModels` the Composition Root
     /// supplies to selection and to the runtime adapter binding (DES-013 §3.3).
-    public static let defaultModelName = "gpt-4o-mini"
+    public static let defaultModelName = "omnia-coding"
 }

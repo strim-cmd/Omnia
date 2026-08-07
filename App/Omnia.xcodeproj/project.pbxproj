@@ -275,6 +275,7 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 00000000000000000000002C /* Debug.xcconfig */;
 			buildSettings = {
+				INFOPLIST_FILE = Omnia/Info.plist;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -292,6 +293,7 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 00000000000000000000002D /* Release.xcconfig */;
 			buildSettings = {
+				INFOPLIST_FILE = Omnia/Info.plist;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
 				LD_RUNPATH_SEARCH_PATHS = (
