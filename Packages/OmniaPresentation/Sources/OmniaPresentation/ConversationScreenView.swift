@@ -69,15 +69,11 @@ public struct ConversationScreenView: View {
         case .user:
             HStack {
                 Spacer(minLength: 48)
-                bubbleContent(message) {
-                    Text("User message")
-                }
+                bubbleContent(message, accessibilityLabel: Text("User message"))
             }
         case .assistant, .system:
             HStack {
-                bubbleContent(message) {
-                    Text("Assistant message")
-                }
+                bubbleContent(message, accessibilityLabel: Text("Assistant message"))
                 Spacer(minLength: 48)
             }
         }

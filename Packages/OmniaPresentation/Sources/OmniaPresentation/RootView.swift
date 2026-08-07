@@ -89,8 +89,8 @@ public struct RootView: View {
             .task {
                 await loadSettings()
             }
-            .task(id: navigation.currentRoute) { route in
-                guard route == .conversationList else { return }
+            .task(id: navigation.currentRoute) {
+                guard navigation.currentRoute == .conversationList else { return }
                 streamingTask?.cancel()
                 streamingTask = nil
                 await loadConversationList()

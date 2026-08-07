@@ -1,6 +1,7 @@
 #if canImport(SwiftUI)
 
 import OmniaApplication
+import OmniaFoundation
 import SwiftUI
 
 /// The SwiftUI connection-form intent of the settings surface (DES-012 §3.4):
