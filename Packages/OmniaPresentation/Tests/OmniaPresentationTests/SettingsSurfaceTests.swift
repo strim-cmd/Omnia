@@ -470,7 +470,7 @@ final class SettingsSurfaceTests: XCTestCase {
         XCTAssertEqual(recorded, "https://api.example.com/v1")
     }
 
-    func testConfigureWithEndpoint_InvalidEndpointSurfacesAsApplicationValidationError() async {
+    func testConfigureWithEndpoint_InvalidEndpointSurfacesAsApplicationValidationError() async throws {
         let providerRepository = InMemoryProviderRepository()
         let surface = makeSurface(
             providerRepository: providerRepository,
