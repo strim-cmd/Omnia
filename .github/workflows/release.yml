@@ -64,12 +64,15 @@ jobs:
           total=0
           for p in OmniaFoundation OmniaDomain OmniaApplication OmniaInfrastructure OmniaPresentation OmniaApp; do
             log="$RUNNER_TEMP/test-$p.log"
-            (cd "Packages/$p" && swift test > "$log" 2>&1) || {
-              status=$?
-              cat "$log"
+            set +e
+            (cd "Packages/$p" && swift test > "$log" 2>&1)
+            status=$?
+            set -e
+            if [ "$status" -ne 0 ]; then
+              cat "$log" || true
               echo "::error::$p swift test failed with exit code $status"
               exit "$status"
-            }
+            fi
             n=$(grep -Eo 'Executed [0-9]+ tests' "$log" | tail -1 | grep -Eo '[0-9]+' | tail -1 || true)
             echo "$p: ${n:-0} tests"
             total=$((total + ${n:-0}))
@@ -80,12 +83,15 @@ jobs:
             fi
           done
           log="$RUNNER_TEMP/test-root.log"
-          swift test > "$log" 2>&1 || {
-            status=$?
-            cat "$log"
+          set +e
+          swift test > "$log" 2>&1
+          status=$?
+          set -e
+          if [ "$status" -ne 0 ]; then
+            cat "$log" || true
             echo "::error::root package swift test failed with exit code $status"
             exit "$status"
-          }
+          fi
           if grep -qE 'error:|warning:|with [1-9][0-9]* failures' "$log"; then
             cat "$log"
             echo "::error::root package reported errors, warnings, or failing tests"
