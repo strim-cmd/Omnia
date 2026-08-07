@@ -551,6 +551,92 @@ final class ProviderConnectionServiceTests: XCTestCase {
         XCTAssertEqual(credentialStorage.storeCallCount, 1)
     }
 
+    // MARK: Configure — endpoint collection
+
+    func testConfigureWithEndpoint_RecordsTheEndpointKeyedByConnectionIdentity() async throws {
+        let (_, _, _, service) = makeServiceWithInMemoryDoubles()
+        let connection = try await service.configure(
+            request(),
+            endpoint: "https://api.example.com/v1"
+        )
+
+        let endpoint = try await service.endpoint(for: connection.identity)
+        XCTAssertEqual(endpoint, "https://api.example.com/v1")
+    }
+
+    func testConfigureWithEndpoint_RecordsTheTrimmedEndpoint() async throws {
+        let (_, _, _, service) = makeServiceWithInMemoryDoubles()
+        let connection = try await service.configure(
+            request(),
+            endpoint: "  https://api.example.com/v1  "
+        )
+
+        let endpoint = try await service.endpoint(for: connection.identity)
+        XCTAssertEqual(endpoint, "https://api.example.com/v1")
+    }
+
+    func testConfigureWithEndpoint_UpperAndMixedCaseSchemeIsAccepted() async throws {
+        let (_, _, _, service) = makeServiceWithInMemoryDoubles()
+        let connection = try await service.configure(
+            request(),
+            endpoint: "HTTPS://api.example.com/v1"
+        )
+
+        let endpoint = try await service.endpoint(for: connection.identity)
+        XCTAssertEqual(endpoint, "HTTPS://api.example.com/v1")
+    }
+
+    func testConfigureWithEndpoint_EmptyEndpointIsRejectedBeforeAnyWrite() async {
+        let (providerRepository, credentialStorage, configurationRepository, service) =
+            makeServiceWithInMemoryDoubles()
+        await assertThrowsValidationError(reason: "The endpoint is empty.") {
+            _ = try await service.configure(request(), endpoint: "")
+        }
+        XCTAssertEqual(providerRepository.saveCallCount, 0)
+        XCTAssertEqual(credentialStorage.storeCallCount, 0)
+        XCTAssertEqual(configurationRepository.storeCallCount, 0)
+    }
+
+    func testConfigureWithEndpoint_WhitespaceOnlyEndpointIsRejectedBeforeAnyWrite() async {
+        let (providerRepository, credentialStorage, configurationRepository, service) =
+            makeServiceWithInMemoryDoubles()
+        await assertThrowsValidationError(reason: "The endpoint is empty.") {
+            _ = try await service.configure(request(), endpoint: "   ")
+        }
+        XCTAssertEqual(providerRepository.saveCallCount, 0)
+        XCTAssertEqual(credentialStorage.storeCallCount, 0)
+        XCTAssertEqual(configurationRepository.storeCallCount, 0)
+    }
+
+    func testConfigureWithEndpoint_NonHTTPSchemeIsRejectedBeforeAnyWrite() async {
+        let (providerRepository, credentialStorage, configurationRepository, service) =
+            makeServiceWithInMemoryDoubles()
+        await assertThrowsValidationError(reason: "The endpoint must be an absolute http or https URL.") {
+            _ = try await service.configure(request(), endpoint: "ftp://files.example.com")
+        }
+        XCTAssertEqual(providerRepository.saveCallCount, 0)
+        XCTAssertEqual(credentialStorage.storeCallCount, 0)
+        XCTAssertEqual(configurationRepository.storeCallCount, 0)
+    }
+
+    func testConfigureWithEndpoint_EndpointRecordFailureSurfacesAsRepositoryError() async {
+        let providerRepository = InMemoryProviderRepository()
+        let credentialStorage = InMemoryCredentialStorage()
+        let service = makeService(
+            providerRepository: providerRepository,
+            credentialStorage: credentialStorage,
+            configurationRepository: FailingConfigurationRepository()
+        )
+        await assertSurfacesRepositoryError {
+            _ = try await service.configure(
+                request(),
+                endpoint: "https://api.example.com/v1"
+            )
+        }
+        XCTAssertEqual(providerRepository.saveCallCount, 1)
+        XCTAssertEqual(credentialStorage.storeCallCount, 1)
+    }
+
     // MARK: List
 
     func testAllProviders_ReturnsStoredProvidersInIdentityOrder() async throws {

@@ -75,6 +75,27 @@ public struct ProviderConnectionService: Sendable {
         return connection
     }
 
+    /// Configures a new provider connection for `request` and records its
+    /// OpenAI-compatible endpoint — the endpoint collection of the connection
+    /// form (DES-011 §3.9, PRESENTATION API §3.4).
+    ///
+    /// The endpoint is validated at the boundary with the same rule as
+    /// `updateEndpoint(_:for:)` before any domain operation (ARC-009), so a
+    /// malformed endpoint is rejected before any write; the validated endpoint
+    /// is then recorded through `updateEndpoint(_:for:)`, keyed by the fresh
+    /// connection identity. The endpoint never enters the
+    /// `ConfigureProviderRequest` or any Domain aggregate (DES-011 §3.9,
+    /// ARC-004).
+    public func configure(
+        _ request: ConfigureProviderRequest,
+        endpoint: String
+    ) async throws -> ProviderConnection {
+        _ = try Self.validatedEndpoint(endpoint)
+        let connection = try await configure(request)
+        try await updateEndpoint(endpoint, for: connection.identity)
+        return connection
+    }
+
     /// Returns the configured providers in identity order (DES-011 §3.4).
     public func allProviders() async throws -> [Provider] {
         try await providerRepository.allProviders().sorted {
@@ -142,6 +163,20 @@ public struct ProviderConnectionService: Sendable {
         _ endpoint: String,
         for identity: ProviderIdentity
     ) async throws {
+        let trimmed = try Self.validatedEndpoint(endpoint)
+        try await configurationRepository.store(
+            trimmed,
+            for: Self.endpointKey(for: identity),
+            at: .providerSettings
+        )
+    }
+
+    /// Validates an endpoint at the boundary (ARC-009, DES-011 §3.9): the
+    /// trimmed string must be a non-empty absolute `http` or `https` URL,
+    /// returned for storage; a malformed endpoint is rejected with the typed
+    /// application error of DES-011 §3.6. The same rule guards
+    /// `updateEndpoint(_:for:)` and the endpoint-collecting `configure(_:endpoint:)`.
+    private static func validatedEndpoint(_ endpoint: String) throws -> String {
         let trimmed = endpoint.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else {
             throw ApplicationValidationError.invalid(reason: "The endpoint is empty.")
@@ -158,11 +193,7 @@ public struct ProviderConnectionService: Sendable {
                 reason: "The endpoint must be an absolute http or https URL."
             )
         }
-        try await configurationRepository.store(
-            trimmed,
-            for: Self.endpointKey(for: identity),
-            at: .providerSettings
-        )
+        return trimmed
     }
 
     /// Returns the recorded OpenAI-compatible endpoint of the provider connection

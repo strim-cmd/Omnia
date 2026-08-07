@@ -26,8 +26,9 @@ public struct SettingsView: View {
     public let onCompose: () -> Void
     /// Translates the cancel intent of the connection form.
     public let onCancel: () -> Void
-    /// Translates the configure intent with the composed request.
-    public let onConfigure: (ConfigureProviderRequest) -> Void
+    /// Translates the configure intent with the composed request and the
+    /// declared endpoint.
+    public let onConfigure: (ConfigureProviderRequest, String) -> Void
     /// Translates the remove intent for the connection with the given
     /// identity.
     public let onRemove: (ProviderIdentity) -> Void
@@ -40,7 +41,7 @@ public struct SettingsView: View {
         state: SettingsState,
         onCompose: @escaping () -> Void,
         onCancel: @escaping () -> Void,
-        onConfigure: @escaping (ConfigureProviderRequest) -> Void,
+        onConfigure: @escaping (ConfigureProviderRequest, String) -> Void,
         onRemove: @escaping (ProviderIdentity) -> Void,
         onResetConfiguration: @escaping (ConfigurationKey<String>) -> Void
     ) {

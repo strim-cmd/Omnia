@@ -449,6 +449,50 @@ final class SettingsSurfaceTests: XCTestCase {
         XCTAssertFalse(String(describing: surface).contains(secretValue))
     }
 
+    // MARK: Configure — endpoint collection
+
+    func testConfigureWithEndpoint_RecordsTheEndpointAtProviderSettingsLevel() async throws {
+        let surface = makeSurface(
+            providerRepository: InMemoryProviderRepository(),
+            credentialStorage: InMemoryCredentialStorage(),
+            configurationRepository: InMemoryConfigurationRepository()
+        )
+
+        let connection = try await surface.configure(
+            request(),
+            endpoint: "https://api.example.com/v1"
+        )
+
+        let recorded = try await surface.value(
+            for: ProviderConnectionService.endpointKey(for: connection.identity),
+            at: .providerSettings
+        )
+        XCTAssertEqual(recorded, "https://api.example.com/v1")
+    }
+
+    func testConfigureWithEndpoint_InvalidEndpointSurfacesAsApplicationValidationError() async {
+        let providerRepository = InMemoryProviderRepository()
+        let surface = makeSurface(
+            providerRepository: providerRepository,
+            credentialStorage: InMemoryCredentialStorage(),
+            configurationRepository: InMemoryConfigurationRepository()
+        )
+        do {
+            _ = try await surface.configure(request(), endpoint: "api.example.com/v1")
+            XCTFail("Expected ApplicationValidationError")
+        } catch let error as ApplicationValidationError {
+            XCTAssertEqual(
+                error,
+                .invalid(reason: "The endpoint must be an absolute http or https URL.")
+            )
+        } catch {
+            XCTFail("Unexpected error: \(error)")
+        }
+
+        let state = try await surface.load()
+        XCTAssertTrue(state.connections.isEmpty)
+    }
+
     // MARK: Remove
 
     func testRemove_RemovesProviderCredentialAndReference() async throws {

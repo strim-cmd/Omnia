@@ -328,14 +328,14 @@ public struct RootView: View {
         )
     }
 
-    /// Translates the configure intent: the composed request is handed to the
-    /// settings surface — the entered secret enters only the frozen
-    /// `ConfigureProviderRequest`, never any rendered state (ARC-001, ARC-005)
-    /// — and the settings state reloads.
-    private func configure(_ request: ConfigureProviderRequest) {
+    /// Translates the configure intent: the composed request and the declared
+    /// endpoint are handed to the settings surface — the entered secret enters
+    /// only the frozen `ConfigureProviderRequest`, never any rendered state
+    /// (ARC-001, ARC-005) — and the settings state reloads.
+    private func configure(_ request: ConfigureProviderRequest, endpoint: String) {
         Task { @MainActor in
             do {
-                _ = try await surface.settings.configure(request)
+                _ = try await surface.settings.configure(request, endpoint: endpoint)
                 await loadSettings()
             } catch {
                 settingsState = failingSettingsState(error)

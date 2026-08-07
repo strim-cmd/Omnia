@@ -102,6 +102,24 @@ public struct SettingsSurface: Sendable {
         try await connectionService.configure(request)
     }
 
+    /// Configures a new provider connection for `request` and records its
+    /// OpenAI-compatible endpoint — the endpoint collection of the connection
+    /// form (DES-011 §3.9, PRESENTATION API §3.4).
+    ///
+    /// The connection is configured and the endpoint is recorded through the
+    /// service's endpoint surface, keyed by the fresh connection identity; the
+    /// endpoint never enters the `ConfigureProviderRequest` or any rendered
+    /// state (ARC-001, ARC-004, ARC-005). The endpoint is validated at the
+    /// service boundary before any write; a malformed endpoint surfaces as the
+    /// typed `ApplicationValidationError`, never wrapped (DES-011 §3.6,
+    /// DES-009 §3.9).
+    public func configure(
+        _ request: ConfigureProviderRequest,
+        endpoint: String
+    ) async throws -> ProviderConnection {
+        try await connectionService.configure(request, endpoint: endpoint)
+    }
+
     /// Removes the provider connection with `identity` and its stored credential
     /// (user ownership, ARC-005, DES-011 §3.4).
     ///

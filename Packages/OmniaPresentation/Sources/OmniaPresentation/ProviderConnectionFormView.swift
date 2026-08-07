@@ -6,12 +6,12 @@ import SwiftUI
 
 /// The SwiftUI connection-form intent of the settings surface (DES-012 §3.4):
 /// the user's declaration of a new provider connection — display name,
-/// capabilities, limits, version, and the credential entered by the user —
-/// translated into the frozen `ConfigureProviderRequest` and handed to
-/// `SettingsSurface.configure`. The view renders the compose form and
-/// translates intent; it owns no business logic (ARC-002). The interface is
-/// generic and never changes per provider (`PRODUCT_PRINCIPLES` — Provider
-/// Independence).
+/// capabilities, limits, version, the endpoint, and the credential entered by
+/// the user — translated into the frozen `ConfigureProviderRequest` and the
+/// declared endpoint, and handed to `SettingsSurface.configure`. The view
+/// renders the compose form and translates intent; it owns no business logic
+/// (ARC-002). The interface is generic and never changes per provider
+/// (`PRODUCT_PRINCIPLES` — Provider Independence).
 ///
 /// The credential boundary is honored: the entered secret lives only in the
 /// secure text field and is passed into the frozen `ConfigureProviderRequest`,
@@ -19,13 +19,19 @@ import SwiftUI
 /// ARC-005); the field is cleared on submit, and the secret is never
 /// persisted, logged, or rendered by the view (ARC-001, ARC-005).
 ///
+/// The endpoint is collected with the connection declaration and recorded by
+/// the settings surface through the service's endpoint surface; it is
+/// connection configuration the user owns (ARC-005) and never enters the
+/// `ConfigureProviderRequest` or any Domain aggregate (DES-011 §3.9, ARC-004).
+///
 /// The view is Apple-platform code, isolated behind platform availability; it
 /// is not exercised by the Linux test environment (§3.7) and is verified by
 /// review against `.ai/standards/UI.md`.
 @available(iOS 15.0, macOS 12.0, *)
 public struct ProviderConnectionFormView: View {
-    /// Translates the submit intent with the composed request.
-    public let onConfigure: (ConfigureProviderRequest) -> Void
+    /// Translates the submit intent with the composed request and the declared
+    /// endpoint.
+    public let onConfigure: (ConfigureProviderRequest, String) -> Void
     /// Translates the cancel intent.
     public let onCancel: () -> Void
 
@@ -35,11 +41,12 @@ public struct ProviderConnectionFormView: View {
     @State private var versionMajor = "1"
     @State private var versionMinor = "0"
     @State private var versionPatch = "0"
+    @State private var endpoint = ""
     @State private var credentialSecret = ""
 
     /// Creates a provider connection form over the given intent callbacks.
     public init(
-        onConfigure: @escaping (ConfigureProviderRequest) -> Void,
+        onConfigure: @escaping (ConfigureProviderRequest, String) -> Void,
         onCancel: @escaping () -> Void
     ) {
         self.onConfigure = onConfigure
@@ -50,6 +57,7 @@ public struct ProviderConnectionFormView: View {
         Form {
             Section("Connection") {
                 TextField("Display Name", text: $displayName)
+                TextField("Endpoint", text: $endpoint)
                 SecureField("API Key", text: $credentialSecret)
             }
             Section("Capabilities") {
@@ -81,10 +89,10 @@ public struct ProviderConnectionFormView: View {
         }
     }
 
-    /// Submits the declaration as a frozen `ConfigureProviderRequest` (DES-012
-    /// §3.4): the display name trimmed, the declared capabilities, the stated
-    /// limits and version, and the entered credential. The credential field is
-    /// cleared on submit (ARC-005).
+    /// Submits the declaration as a frozen `ConfigureProviderRequest` and the
+    /// declared endpoint (DES-012 §3.4): the display name trimmed, the declared
+    /// capabilities, the stated limits and version, the endpoint, and the
+    /// entered credential. The credential field is cleared on submit (ARC-005).
     private func submit() {
         guard canSubmit else { return }
         onConfigure(
@@ -98,20 +106,26 @@ public struct ProviderConnectionFormView: View {
                     patch: Int(versionPatch) ?? 0
                 ),
                 credential: Credential(secret: credentialSecret)
-            )
+            ),
+            trimmedEndpoint
         )
         credentialSecret = ""
     }
 
     /// The submit is enabled when the declaration is complete — a display
-    /// name, at least one capability, and a credential — so an incomplete
-    /// declaration never reaches the service.
+    /// name, at least one capability, an endpoint, and a credential — so an
+    /// incomplete declaration never reaches the service.
     private var canSubmit: Bool {
-        !trimmedDisplayName.isEmpty && !selectedCapabilities.isEmpty && !credentialSecret.isEmpty
+        !trimmedDisplayName.isEmpty && !selectedCapabilities.isEmpty
+            && !trimmedEndpoint.isEmpty && !credentialSecret.isEmpty
     }
 
     private var trimmedDisplayName: String {
         displayName.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private var trimmedEndpoint: String {
+        endpoint.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
     private func binding(for capability: Capability) -> Binding<Bool> {
