@@ -17,7 +17,7 @@
                BlueprintIdentifier = "000000000000000000000010"
                BuildableName = "OmniaiOS.app"
                BlueprintName = "OmniaiOS"
-               ReferencedContainer = "container:App/Omnia.xcodeproj">
+               ReferencedContainer = "container:Omnia.xcodeproj">
             </BuildableReference>
          </BuildActionEntry>
       </BuildActionEntries>
@@ -47,7 +47,7 @@
             BlueprintIdentifier = "000000000000000000000010"
             BuildableName = "OmniaiOS.app"
             BlueprintName = "OmniaiOS"
-            ReferencedContainer = "container:App/Omnia.xcodeproj">
+            ReferencedContainer = "container:Omnia.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
    </LaunchAction>
@@ -64,7 +64,7 @@
             BlueprintIdentifier = "000000000000000000000010"
             BuildableName = "OmniaiOS.app"
             BlueprintName = "OmniaiOS"
-            ReferencedContainer = "container:App/Omnia.xcodeproj">
+            ReferencedContainer = "container:Omnia.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
    </ProfileAction>
