@@ -215,12 +215,15 @@ jobs:
 
       - name: Export iOS IPA (unsigned for third-party signing)
         run: |
+          set -euo pipefail
+          APP="$RUNNER_TEMP/archive/Omnia-iOS.xcarchive/Products/Applications/OmniaiOS.app"
+          if [ ! -d "$APP" ]; then
+            echo "::error::iOS archive missing OmniaiOS.app"
+            exit 1
+          fi
           mkdir -p "$RUNNER_TEMP/dist/ios/unsigned"
-          xcodebuild -exportArchive \
-            -archivePath "$RUNNER_TEMP/archive/Omnia-iOS.xcarchive" \
-            -exportPath "$RUNNER_TEMP/dist/ios/unsigned" \
-            -exportOptionsPlist .github/export/ios-unsigned.plist \
-            CODE_SIGNING_ALLOWED=NO
+          ditto "$APP" "$RUNNER_TEMP/dist/ios/unsigned/Payload/OmniaiOS.app"
+          (cd "$RUNNER_TEMP/dist/ios/unsigned" && ditto -c -k --keepParent Payload "Omnia-iOS-unsigned.ipa")
 
       - name: Package macOS app (zip + DMG)
         run: |
