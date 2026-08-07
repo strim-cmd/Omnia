@@ -1,10 +1,10 @@
-version: 0.1.0-alpha
+version: 0.5.0
 
-phase: Release Engineering Sprint 1 (planning)
+phase: Release Engineering Sprint 1
 
 status: Active
 
-current_sprint: Release Engineering Sprint 1 (planning)
+current_sprint: Release Engineering Sprint 1
 
 current_milestone: Release Engineering Sprint 1
 
@@ -110,6 +110,8 @@ completed:
   - Release Engineering Sprint 1 planned (2026-08-06): roadmap RELEASE_ENGINEERING_SPRINT_1_ROADMAP.md (PRD-009) — the distribution sprint of milestone #15 — the Xcode project/workspace integrating the six Swift Packages as local package references (ARC-009), the thin Apple host applications (macOS + minimal iOS) importing OmniaApp and running the verified AppLaunch/RootView shell (DES-013 §3.5), the build targets, schemes, and configurations reproducible with xcodebuild and versioned per the release workflow (SemVer), the reproducible build/archive/sign/package release pipeline on GitHub Actions, the code signing and notarization strategy (Developer ID + notarytool for macOS; App Store/TestFlight and ad-hoc for iOS), and the preparation for future iOS distribution (IPA, TestFlight, and/or sideloading); GitHub issues #133-#140 created under milestone #15 with dependencies, acceptance criteria, and implementation order; no code implemented by the plan
   - Bug-fix workflow ratified (2026-08-07): the reusable bug-handling process added to the Engineering Platform — `.ai/prompts/workflows/bug-fix.md` (report → create the BUG in GitHub via the bug template with type/layer/priority labels and milestone → triage → reproduce with a failing regression test → fix → verify → PR/review/merge → close), referenced from the issue-lifecycle workflow for bug issues and listed in the workflows index; engineering artifacts in English, user interaction in the user's preferred language
   - Bug fix: created conversations now join the presented workspace (2026-08-07): issue #150 (type:bug, layer:presentation, priority:high) — `RootView.createConversation()` called `ConversationListSurface.create()` (DES-011 §3.2, v1.0.0), which persists a conversation but never attaches it to a workspace's membership, while the list renders only the conversations a workspace owns via its membership (DES-011 §3.2), so a new chat never appeared in the list ("not saved"); the fix calls `ConversationListSurface.create(in: workspace)` (DES-012 §3.3, v1.1.0 / DES-011 §3.8) so every new conversation joins the presented workspace and appears in the membership-driven list immediately and across relaunches; verified by the release pipeline standard test suite (six packages, 0 failures and 0 warnings); PR #151 merged into develop, issue #150 closed; follows the bug-fix workflow end to end
+  - App icon added (2026-08-07): issue #152 — `App/Omnia/Assets.xcassets` and `App/OmniaiOS/Assets.xcassets` with `AppIcon.appiconset` populated from `Documentation/Design/OmniaAppIcon.png` (single-size 1024×1024 set for iOS, full-size 16→512@2x set for macOS), wired into both targets' Resources build phases with `ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon` in Debug and Release; the compiled `Assets.car` is present in both app bundles, the macOS and iOS Release builds succeed with no warnings from the asset catalog, and the standard test suite stays green (six packages, 0 failures and 0 warnings); PR #153 merged into develop, issue #152 closed
+  - Release v0.5.0 prepared (2026-08-07): first distributable Beta v0.5 candidate per PRD-009 — `MARKETING_VERSION = 0.5.0` (Shared.xcconfig, single source of truth), CHANGELOG.md updated per Keep a Changelog, release commit tagged `v0.5.0`, and the reproducible release pipeline triggered (build, archive, unsigned DMG/zip packaging for macOS, unsigned IPA export for iOS, standard test suite green)
 
 milestones:
   Foundation API Freeze v1:
@@ -351,4 +353,4 @@ blocked: []
 
 known_issues: []
 
-last_updated: 2026-08-06
+last_updated: 2026-08-07
