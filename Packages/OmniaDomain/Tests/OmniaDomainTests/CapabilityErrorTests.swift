@@ -96,14 +96,14 @@ final class CapabilityErrorTests: XCTestCase {
             .streamingInterrupted(partialContent: "partial"),
         ]
         for error in errors {
-            XCTAssertTrue(error is Error)
-            XCTAssertEqual(error as? CapabilityError, error)
+            let thrown: any Error = error
+            XCTAssertEqual(thrown as? CapabilityError, error)
         }
     }
 
     func testCapabilityError_DoesNotCollideWithCredentialStorageError() {
-        let capability = CapabilityError.providerUnavailable
-        let credential = CredentialStorageError.credentialNotFound
+        let capability: any Error = CapabilityError.providerUnavailable
+        let credential: any Error = CredentialStorageError.credentialNotFound
         XCTAssertNil(capability as? CredentialStorageError)
         XCTAssertNil(credential as? CapabilityError)
     }
