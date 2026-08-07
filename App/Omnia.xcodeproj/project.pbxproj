@@ -1,0 +1,391 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 54;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		000000000000000000000001 /* OmniaApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 000000000000000000000007 /* OmniaApp.swift */; };
+		000000000000000000000002 /* OmniaiOSApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 000000000000000000000008 /* OmniaiOSApp.swift */; };
+		000000000000000000000003 /* OmniaApp in Frameworks */ = {isa = PBXBuildFile; productRef = 000000000000000000000027 /* OmniaApp */; };
+		000000000000000000000004 /* OmniaPresentation in Frameworks */ = {isa = PBXBuildFile; productRef = 000000000000000000000028 /* OmniaPresentation */; };
+		000000000000000000000005 /* OmniaApp in Frameworks */ = {isa = PBXBuildFile; productRef = 000000000000000000000029 /* OmniaApp */; };
+		000000000000000000000006 /* OmniaPresentation in Frameworks */ = {isa = PBXBuildFile; productRef = 00000000000000000000002A /* OmniaPresentation */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		000000000000000000000007 /* OmniaApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OmniaApp.swift; sourceTree = "<group>"; };
+		000000000000000000000008 /* OmniaiOSApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OmniaiOSApp.swift; sourceTree = "<group>"; };
+		00000000000000000000002F /* Omnia.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Omnia.entitlements; sourceTree = "<group>"; };
+		000000000000000000000009 /* Omnia.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Omnia.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		00000000000000000000000A /* OmniaiOS.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = OmniaiOS.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		00000000000000000000002B /* Shared.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Shared.xcconfig; sourceTree = "<group>"; };
+		00000000000000000000002C /* Debug.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Debug.xcconfig; sourceTree = "<group>"; };
+		00000000000000000000002D /* Release.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Release.xcconfig; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		000000000000000000000014 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				000000000000000000000003 /* OmniaApp in Frameworks */,
+				000000000000000000000004 /* OmniaPresentation in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		000000000000000000000015 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				000000000000000000000005 /* OmniaApp in Frameworks */,
+				000000000000000000000006 /* OmniaPresentation in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		00000000000000000000000B = {
+			isa = PBXGroup;
+			children = (
+				00000000000000000000000C /* Omnia */,
+				00000000000000000000000D /* OmniaiOS */,
+				00000000000000000000000E /* Products */,
+				00000000000000000000002E /* Config */,
+			);
+			sourceTree = "<group>";
+		};
+		00000000000000000000000C /* Omnia */ = {
+			isa = PBXGroup;
+			children = (
+				000000000000000000000007 /* OmniaApp.swift */,
+				00000000000000000000002F /* Omnia.entitlements */,
+			);
+			path = Omnia;
+			sourceTree = "<group>";
+		};
+		00000000000000000000000D /* OmniaiOS */ = {
+			isa = PBXGroup;
+			children = (
+				000000000000000000000008 /* OmniaiOSApp.swift */,
+			);
+			path = OmniaiOS;
+			sourceTree = "<group>";
+		};
+		00000000000000000000000E /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				000000000000000000000009 /* Omnia.app */,
+				00000000000000000000000A /* OmniaiOS.app */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		00000000000000000000002E /* Config */ = {
+			isa = PBXGroup;
+			children = (
+				00000000000000000000002B /* Shared.xcconfig */,
+				00000000000000000000002C /* Debug.xcconfig */,
+				00000000000000000000002D /* Release.xcconfig */,
+			);
+			path = Config;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		00000000000000000000000F /* Omnia */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 00000000000000000000001F /* Build configuration list for PBXNativeTarget "Omnia" */;
+			buildPhases = (
+				000000000000000000000012 /* Sources */,
+				000000000000000000000014 /* Frameworks */,
+				000000000000000000000016 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = Omnia;
+			packageProductDependencies = (
+				000000000000000000000027 /* OmniaApp */,
+				000000000000000000000028 /* OmniaPresentation */,
+			);
+			productName = Omnia;
+			productReference = 000000000000000000000009 /* Omnia.app */;
+			productType = "com.apple.product-type.application";
+		};
+		000000000000000000000010 /* OmniaiOS */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 000000000000000000000020 /* Build configuration list for PBXNativeTarget "OmniaiOS" */;
+			buildPhases = (
+				000000000000000000000013 /* Sources */,
+				000000000000000000000015 /* Frameworks */,
+				000000000000000000000017 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = OmniaiOS;
+			packageProductDependencies = (
+				000000000000000000000029 /* OmniaApp */,
+				00000000000000000000002A /* OmniaPresentation */,
+			);
+			productName = OmniaiOS;
+			productReference = 00000000000000000000000A /* OmniaiOS.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		000000000000000000000011 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastSwiftUpdateCheck = 1600;
+				LastUpgradeCheck = 1600;
+				TargetAttributes = {
+					00000000000000000000000F = {
+						CreatedOnToolsVersion = 16.0;
+					};
+					000000000000000000000010 = {
+						CreatedOnToolsVersion = 16.0;
+					};
+				};
+			};
+			buildConfigurationList = 00000000000000000000001E /* Build configuration list for PBXProject "Omnia" */;
+			compatibilityVersion = "Xcode 13.0";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+			);
+			mainGroup = 00000000000000000000000B;
+			packageReferences = (
+				000000000000000000000021 /* XCLocalSwiftPackageReference "../Packages/OmniaFoundation" */,
+				000000000000000000000022 /* XCLocalSwiftPackageReference "../Packages/OmniaDomain" */,
+				000000000000000000000023 /* XCLocalSwiftPackageReference "../Packages/OmniaApplication" */,
+				000000000000000000000024 /* XCLocalSwiftPackageReference "../Packages/OmniaInfrastructure" */,
+				000000000000000000000025 /* XCLocalSwiftPackageReference "../Packages/OmniaPresentation" */,
+				000000000000000000000026 /* XCLocalSwiftPackageReference "../Packages/OmniaApp" */,
+			);
+			productRefGroup = 00000000000000000000000E /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				00000000000000000000000F /* Omnia */,
+				000000000000000000000010 /* OmniaiOS */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		000000000000000000000016 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		000000000000000000000017 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		000000000000000000000012 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				000000000000000000000001 /* OmniaApp.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		000000000000000000000013 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				000000000000000000000002 /* OmniaiOSApp.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		000000000000000000000018 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 00000000000000000000002C /* Debug.xcconfig */;
+			buildSettings = {
+				MACOSX_DEPLOYMENT_TARGET = 13.0;
+				SDKROOT = macosx;
+			};
+			name = Debug;
+		};
+		000000000000000000000019 /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 00000000000000000000002D /* Release.xcconfig */;
+			buildSettings = {
+				MACOSX_DEPLOYMENT_TARGET = 13.0;
+				SDKROOT = macosx;
+			};
+			name = Release;
+		};
+		00000000000000000000001A /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 00000000000000000000002C /* Debug.xcconfig */;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = Omnia/Omnia.entitlements;
+				COMBINE_HIDPI_IMAGES = YES;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.omnia.macos;
+				PRODUCT_NAME = Omnia;
+			};
+			name = Debug;
+		};
+		00000000000000000000001B /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 00000000000000000000002D /* Release.xcconfig */;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = Omnia/Omnia.entitlements;
+				COMBINE_HIDPI_IMAGES = YES;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.omnia.macos;
+				PRODUCT_NAME = Omnia;
+			};
+			name = Release;
+		};
+		00000000000000000000001C /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 00000000000000000000002C /* Debug.xcconfig */;
+			buildSettings = {
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.omnia.ios;
+				PRODUCT_NAME = OmniaiOS;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		00000000000000000000001D /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 00000000000000000000002D /* Release.xcconfig */;
+			buildSettings = {
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.omnia.ios;
+				PRODUCT_NAME = OmniaiOS;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		00000000000000000000001E /* Build configuration list for PBXProject "Omnia" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				000000000000000000000018 /* Debug */,
+				000000000000000000000019 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		00000000000000000000001F /* Build configuration list for PBXNativeTarget "Omnia" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				00000000000000000000001A /* Debug */,
+				00000000000000000000001B /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		000000000000000000000020 /* Build configuration list for PBXNativeTarget "OmniaiOS" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				00000000000000000000001C /* Debug */,
+				00000000000000000000001D /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+
+/* Begin XCLocalSwiftPackageReference section */
+		000000000000000000000021 /* XCLocalSwiftPackageReference "../Packages/OmniaFoundation" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = "../Packages/OmniaFoundation";
+		};
+		000000000000000000000022 /* XCLocalSwiftPackageReference "../Packages/OmniaDomain" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = "../Packages/OmniaDomain";
+		};
+		000000000000000000000023 /* XCLocalSwiftPackageReference "../Packages/OmniaApplication" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = "../Packages/OmniaApplication";
+		};
+		000000000000000000000024 /* XCLocalSwiftPackageReference "../Packages/OmniaInfrastructure" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = "../Packages/OmniaInfrastructure";
+		};
+		000000000000000000000025 /* XCLocalSwiftPackageReference "../Packages/OmniaPresentation" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = "../Packages/OmniaPresentation";
+		};
+		000000000000000000000026 /* XCLocalSwiftPackageReference "../Packages/OmniaApp" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = "../Packages/OmniaApp";
+		};
+/* End XCLocalSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		000000000000000000000027 /* OmniaApp */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 000000000000000000000026 /* XCLocalSwiftPackageReference "../Packages/OmniaApp" */;
+			productName = OmniaApp;
+		};
+		000000000000000000000028 /* OmniaPresentation */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 000000000000000000000025 /* XCLocalSwiftPackageReference "../Packages/OmniaPresentation" */;
+			productName = OmniaPresentation;
+		};
+		000000000000000000000029 /* OmniaApp */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 000000000000000000000026 /* XCLocalSwiftPackageReference "../Packages/OmniaApp" */;
+			productName = OmniaApp;
+		};
+		00000000000000000000002A /* OmniaPresentation */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 000000000000000000000025 /* XCLocalSwiftPackageReference "../Packages/OmniaPresentation" */;
+			productName = OmniaPresentation;
+		};
+/* End XCSwiftPackageProductDependency section */
+	};
+	rootObject = 000000000000000000000011 /* Project object */;
+}

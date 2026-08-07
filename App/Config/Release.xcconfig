@@ -1,0 +1,12 @@
+// Release build configuration.
+// Shared by the project and both app targets through baseConfigurationReference.
+// Reuses the common settings in Shared.xcconfig.
+
+#include "Shared.xcconfig"
+
+SWIFT_OPTIMIZATION_LEVEL = -O
+SWIFT_COMPILATION_MODE = wholemodule
+DEBUG_INFORMATION_FORMAT = dwarf-with-dsym
+ENABLE_NS_ASSERTIONS = NO
+COPY_PHASE_STRIP = NO
+MTL_ENABLE_DEBUG_INFO = NO
