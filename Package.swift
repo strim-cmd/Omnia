@@ -4,6 +4,10 @@ import PackageDescription
 
 let package = Package(
     name: "Omnia",
+    platforms: [
+        .macOS(.v13),
+        .iOS(.v16),
+    ],
     dependencies: [
         .package(path: "Packages/OmniaFoundation"),
         .package(path: "Packages/OmniaDomain"),
