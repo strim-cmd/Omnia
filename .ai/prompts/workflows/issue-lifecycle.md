@@ -17,7 +17,7 @@ The Workflow Orchestrator resolves `Complete Issue #N` against the registry befo
 
 ## Steps
 
-1. **Implement.** Follow the Implementation workflow (`implementation.md`) against the issue's acceptance criteria. Keep every engineering artifact — commit messages, pull request text, issue updates, and documentation — in English.
+1. **Implement.** Follow the Implementation workflow (`implementation.md`) against the issue's acceptance criteria. For a bug issue (template `.github/ISSUE_TEMPLATE/bug.md`), follow the Bug-Fix workflow (`bug-fix.md`) for the defect-specific rules — root-cause isolation, a regression test that proves the fix, and never including secrets or conversation content. Keep every engineering artifact — commit messages, pull request text, issue updates, and documentation — in English.
 2. **Open the pull request.** Create the branch, commit, push, and open the pull request with `gh pr create`, linking the issue with `Closes #N` in the pull request body.
 3. **Review.** Follow the Review workflow (`review.md`) against the Code Review checklist (`checklists/code-review.md`).
 4. **Resolve the review outcome.** Branch on the verdict:
