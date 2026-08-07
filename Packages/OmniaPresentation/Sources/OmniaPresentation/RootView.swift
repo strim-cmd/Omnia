@@ -207,12 +207,13 @@ public struct RootView: View {
     // MARK: Conversation list intents
 
     /// Translates the create intent: a fresh conversation is created through
-    /// the conversation list surface, its screen is presented, and the list
-    /// reloads when the shell returns to it (DES-012 §3.3, DES-011 §3.2).
+    /// the conversation list surface in the presented workspace — so it joins
+    /// the membership-driven list (DES-012 §3.3, DES-011 §3.8) — its screen is
+    /// presented, and the list reloads when the shell returns to it.
     private func createConversation() {
         Task { @MainActor in
             do {
-                let conversation = try await surface.conversationList.create()
+                let conversation = try await surface.conversationList.create(in: workspace)
                 presentedConversation = conversation
                 screenState = surface.conversationScreen.load(conversation)
                 guard case .conversationList = navigation.currentRoute else { return }
