@@ -35,6 +35,32 @@ final class SSEDecoderTests: XCTestCase {
         XCTAssertEqual(events, [SSEEvent(event: nil, data: "hello")])
     }
 
+    func testAppend_UTF8ContentSurvivesByteByByteDelivery() {
+        var decoder = decoder()
+        let expected = "Привет, мир! 😊"
+        var events: [SSEEvent] = []
+        for byte in Data("data: \(expected)\n\n".utf8) {
+            events.append(contentsOf: decoder.append(Data([byte])))
+        }
+
+        XCTAssertEqual(events, [SSEEvent(event: nil, data: expected)])
+    }
+
+    func testAppend_MultiByteUTF8CharacterSplitAcrossChunks() {
+        var decoder = decoder()
+        let expected = "Привет"
+        let payload = Data("data: \(expected)\n\n".utf8)
+        var events: [SSEEvent] = []
+        var index = 0
+        while index < payload.count {
+            let end = min(index + 3, payload.count)
+            events.append(contentsOf: decoder.append(payload.subdata(in: index..<end)))
+            index = end
+        }
+
+        XCTAssertEqual(events, [SSEEvent(event: nil, data: expected)])
+    }
+
     func testAppend_PartialEventIsHeldUntilTheBlankLine() {
         var decoder = decoder()
         XCTAssertTrue(decoder.append(Data("data: pending\n".utf8)).isEmpty)
@@ -84,6 +110,15 @@ final class SSEDecoderTests: XCTestCase {
         let events = decoder.finish()
 
         XCTAssertEqual(events, [SSEEvent(event: nil, data: "trailing")])
+    }
+
+    func testFinish_FlushesUTF8ContentWithoutATrailingNewline() {
+        var decoder = decoder()
+        let expected = "Привет, мир!"
+        XCTAssertTrue(decoder.append(Data("data: \(expected)".utf8)).isEmpty)
+        let events = decoder.finish()
+
+        XCTAssertEqual(events, [SSEEvent(event: nil, data: expected)])
     }
 
     func testFinish_ReturnsNothingWhenNothingWasBuffered() {

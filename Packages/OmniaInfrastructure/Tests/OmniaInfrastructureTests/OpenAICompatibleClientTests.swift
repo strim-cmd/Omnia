@@ -286,6 +286,35 @@ final class OpenAICompatibleClientTests: XCTestCase {
         XCTAssertEqual(chunks[0].choices[0].delta.content, "Split")
     }
 
+    func testStreamChatCompletions_UTF8ContentSurvivesPerByteDelivery() async throws {
+        let chunkJSON = """
+        {"id":"chatcmpl-8","model":"gpt-4o","choices":[{"index":0,"delta":{"content":"Привет, мир! 😊"},"finish_reason":null}]}
+        """
+        let payload = Data("data: \(chunkJSON)\n\n".utf8)
+        let transport = FakeTransport(
+            streamChunks: payload.map { Data([$0]) } + [Data("data: [DONE]\n\n".utf8)]
+        )
+        let (storage, reference) = try await makeStoredCredential()
+        let client = makeClient(transport: transport, storage: storage)
+
+        let stream = try await client.streamChatCompletions(
+            request: makeRequest(),
+            endpoint: endpoint,
+            credential: reference
+        )
+        var chunks: [ChatCompletionChunk] = []
+        do {
+            for try await chunk in stream {
+                chunks.append(chunk)
+            }
+        } catch {
+            XCTFail("Unexpected error: \(error)")
+        }
+
+        XCTAssertEqual(chunks.count, 1)
+        XCTAssertEqual(chunks[0].choices[0].delta.content, "Привет, мир! 😊")
+    }
+
     func testStreamChatCompletions_PropagatesTransportErrors() async throws {
         let chunkJSON = """
         {"id":"chatcmpl-7","model":"gpt-4o","choices":[{"index":0,"delta":{"content":"Hi"},"finish_reason":null}]}
