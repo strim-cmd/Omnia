@@ -4,6 +4,10 @@ import PackageDescription
 
 let package = Package(
     name: "OmniaFoundation",
+    platforms: [
+        .macOS(.v13),
+        .iOS(.v16),
+    ],
     products: [
         .library(name: "OmniaFoundation", targets: ["OmniaFoundation"]),
     ],
