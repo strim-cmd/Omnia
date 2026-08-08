@@ -41,16 +41,19 @@ public struct MarkdownView: View {
         case .text(let text):
             Text(attributed(text))
                 .fixedSize(horizontal: false, vertical: true)
+                .font(.body)
+                .lineSpacing(5)
                 .textSelection(.enabled)
         case .codeBlock(let code):
             ScrollView(.horizontal, showsIndicators: false) {
                 Text(code)
                     .font(.system(.body, design: .monospaced))
                     .textSelection(.enabled)
-                    .padding(12)
+                    .padding(16)
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(Color.secondary.opacity(0.12))
-                    .clipShape(RoundedRectangle(cornerRadius: 8))
+                    .background(Color(uiColor: .secondarySystemGroupedBackground))
+                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                    .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).stroke(Color.secondary.opacity(0.2), lineWidth: 1))
             }
         }
     }

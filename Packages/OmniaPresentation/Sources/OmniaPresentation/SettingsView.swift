@@ -119,66 +119,77 @@ public struct SettingsView: View {
 
     private var mainContent: some View {
         Form {
-            Section("Provider Connections") {
+            Section {
                 if state.connections.isEmpty {
                     emptyConnectionsState
+                        .listRowBackground(Color.clear)
                 } else {
                     ForEach(state.connections, id: \.identity) { item in
                         connectionRow(item)
                     }
                 }
+            } header: {
+                Text(Localized.providerConnections)
+                    .font(.subheadline.bold())
             }
-            Section("Configuration") {
+
+            Section {
                 if state.configuration.isEmpty {
-                    Text("No configuration values.")
+                    Text(Localized.noConfigurationValues)
                         .foregroundStyle(.secondary)
                 } else {
                     ForEach(state.configuration, id: \.key.name) { item in
                         configurationRow(item)
                     }
                 }
+            } header: {
+                Text(Localized.configuration)
+                    .font(.subheadline.bold())
             }
         }
-        .navigationTitle("Settings")
+        .navigationTitle(Localized.settings)
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
                 Button(action: onCompose) {
-                    Label("Add Connection", systemImage: "plus")
+                    Label(Localized.addConnection, systemImage: "plus")
                 }
-                .accessibilityLabel(Text("Add Connection"))
             }
         }
     }
 
     private func connectionRow(_ item: ProviderConnectionListItem) -> some View {
-        HStack {
-            VStack(alignment: .leading, spacing: 2) {
+        HStack(spacing: 16) {
+            VStack(alignment: .leading, spacing: 4) {
                 Text(item.displayName)
-                    .font(.body)
+                    .font(.system(.body, design: .rounded, weight: .medium))
                 Text(stateLabel(item.state))
-                    .font(.caption)
+                    .font(.system(.caption, design: .rounded))
                     .foregroundStyle(.secondary)
             }
             Spacer()
+            Image(systemName: "chevron.right")
+                .font(.system(.caption, design: .rounded, weight: .bold))
+                .foregroundStyle(.tertiary)
         }
+        .padding(.vertical, 8)
         .contentShape(Rectangle())
         .contextMenu {
             Button {
                 onEditProvider(item)
             } label: {
-                Label("Edit Endpoint", systemImage: "pencil")
+                Label(Localized.editEndpoint, systemImage: "pencil")
             }
             Button(role: .destructive) {
                 pendingRemoval = item.identity
             } label: {
-                Label("Remove", systemImage: "trash")
+                Label(Localized.remove, systemImage: "trash")
             }
         }
         .swipeActions(edge: .trailing, allowsFullSwipe: false) {
             Button(role: .destructive) {
                 pendingRemoval = item.identity
             } label: {
-                Label("Remove", systemImage: "trash")
+                Label(Localized.remove, systemImage: "trash")
             }
         }
     }

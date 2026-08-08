@@ -355,6 +355,7 @@ milestones:
       - No code implemented by the plan; next is issue #133 (Xcode workspace and package integration).
 
 next_tasks:
+  - UI Polish complete: consolidated styles in `ErrorBannerView` and `EmptyStateView`, standardized list row spacing, improved banner padding, and enabled hierarchical icon rendering for empty states (UI_POLISH_LOG.md).
   - Keep the package building and its tests green at every step
   - UX audit macOS launch verification (pending, environment-blocked platform-specific verification per DES-013 §3.6): on a real Apple machine, confirm the Phase 1 view behaviors — auto-scroll and Jump to Latest, Return-key and Command+Return send, the failure banners' copy and accessibility labels, the context-menu Delete/Remove, the retained configure form on failure, and the unexpected-stream-error terminal failure
   - UX audit macOS launch verification (pending, environment-blocked platform-specific verification per DES-013 §3.6): on a real Apple machine, confirm the Phase 1 view behaviors — auto-scroll and Jump to Latest, Return-key and Command+Return send, the failure banners' copy and accessibility labels, the context-menu Delete/Remove, the retained configure form on failure, and the unexpected-stream-error terminal failure

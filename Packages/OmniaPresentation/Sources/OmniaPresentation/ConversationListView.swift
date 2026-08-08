@@ -95,23 +95,23 @@ public struct ConversationListView: View {
         Button {
             onSelect(item.identity)
         } label: {
-            VStack(alignment: .leading, spacing: 4) {
-                if item.displayTitle.isEmpty {
-                    Text(Localized.untitledConversation)
-                        .font(.headline)
-                } else {
-                    Text(item.displayTitle)
-                        .font(.headline)
-                }
+            VStack(alignment: .leading, spacing: 6) {
+                Text(item.displayTitle.isEmpty ? Localized.untitledConversation : item.displayTitle)
+                    .font(.system(.body, design: .rounded, weight: .semibold))
+                    .foregroundStyle(.primary)
+                
                 if let preview = item.displayPreview {
                     Text(preview)
-                        .font(.subheadline)
+                        .font(.system(.subheadline, design: .rounded))
                         .foregroundStyle(.secondary)
                         .lineLimit(2)
                 }
             }
+            .padding(.vertical, 12)
+            .padding(.horizontal, 16)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .contentShape(Rectangle())
+            .background(Material.thin.opacity(0.5))
+            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
         }
         .buttonStyle(.plain)
         .accessibilityElement(children: .combine)

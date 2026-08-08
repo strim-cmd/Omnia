@@ -136,10 +136,23 @@ public struct ConversationScreenView: View {
     @ViewBuilder
     private var streamingBubble: some View {
         if case .active(let partialContent) = state.streamingCondition {
-            assistantBubble(partialContent, caption: nil)
+            HStack {
+                MessageBubbleView(
+                    message: MessagePresentation(role: .assistant, content: MarkdownContent(markdown: partialContent)),
+                    roleLabel: Localized.assistantMessage
+                )
+                Spacer(minLength: 48)
+            }
         } else if case .interrupted(let partialContent) = state.streamingCondition {
             VStack(alignment: .leading, spacing: 6) {
-                assistantBubble(partialContent, caption: Localized.interrupted)
+                HStack {
+                    MessageBubbleView(
+                        message: MessagePresentation(role: .assistant, content: MarkdownContent(markdown: partialContent)),
+                        roleLabel: Localized.assistantMessage,
+                        caption: Localized.interrupted
+                    )
+                    Spacer(minLength: 48)
+                }
                 Button(action: onRetry) {
                     Label(Localized.retry, systemImage: "arrow.clockwise")
                         .font(.subheadline)
@@ -152,38 +165,15 @@ public struct ConversationScreenView: View {
 
     @ViewBuilder
     private func messageBubble(_ message: MessagePresentation) -> some View {
-        switch message.role {
-        case .user:
-            HStack {
+        HStack {
+            if message.role == .user {
                 Spacer(minLength: 48)
-                bubbleContent(message, roleLabel: Localized.userMessage)
-            }
-        case .assistant, .system:
-            HStack {
-                bubbleContent(message, roleLabel: Localized.assistantMessage)
+                MessageBubbleView(message: message, roleLabel: Localized.userMessage)
+            } else {
+                MessageBubbleView(message: message, roleLabel: Localized.assistantMessage)
                 Spacer(minLength: 48)
             }
         }
-    }
-
-    /// A history message bubble with one consistent accessibility strategy: the
-    /// whole bubble is a single logical element whose label reads the role
-    /// followed by the content — the same for user and assistant messages (UX
-    /// audit A3).
-    private func bubbleContent(
-        _ message: MessagePresentation,
-        roleLabel: String
-    ) -> some View {
-        VStack(alignment: .leading, spacing: 2) {
-            if let content = message.content {
-                MarkdownView(content: content)
-            }
-        }
-        .padding(bubblePadding)
-        .background(message.role == .user ? Color.accentColor : Color.secondary.opacity(0.12))
-        .clipShape(RoundedRectangle(cornerRadius: 12))
-            .accessibilityElement(children: .combine)
-            .accessibilityLabel(Text("\(roleLabel), \(message.content?.accessibilityText ?? "")"))
     }
 
     /// The minimum and maximum height of the composer, in lines of text.
@@ -197,23 +187,19 @@ public struct ConversationScreenView: View {
     }
 
     private var composer: some View {
-        HStack(alignment: .bottom, spacing: 8) {
+        HStack(alignment: .bottom, spacing: 12) {
             ZStack(alignment: .topLeading) {
-                // Background for the TextEditor
-                RoundedRectangle(cornerRadius: 12)
-                    .fill(Color.secondary.opacity(0.12))
+                RoundedRectangle(cornerRadius: 20, style: .continuous)
+                    .fill(Material.thick)
+                    .shadow(color: Color.black.opacity(0.1), radius: 5, x: 0, y: 2)
 
-                // Multi-line TextEditor with custom Return key handling
                 TextEditor(text: Binding(
                     get: { draft },
                     set: { newValue in
-                        // Handle Return key for send (like the original TextField)
                         if newValue.contains("\n") && !newValue.contains("\n\n") {
-                            // Single Return press — send if not empty
                             if !trimmedDraft.isEmpty {
                                 submit()
                             }
-                            // Remove the newline
                             draft = newValue.replacingOccurrences(of: "\n", with: "")
                         } else {
                             draft = newValue
@@ -221,48 +207,42 @@ public struct ConversationScreenView: View {
                     }
                 ))
                 .font(.body)
-                .padding(bubblePadding)
+                .padding(.horizontal, 8)
+                .padding(.vertical, 4)
                 .frame(
                     minHeight: composerHeight(for: minComposerLines),
                     idealHeight: composerHeight(for: min(draft.count / 20 + 1, maxComposerLines)),
                     maxHeight: composerHeight(for: maxComposerLines)
                 )
+                .scrollContentBackground(.hidden)
                 .background(Color.clear)
                 .accessibilityLabel(Text(Localized.message))
-                .accessibilityHint(Text(Localized.userMessage))
-
-                // Placeholder text
-                if draft.isEmpty {
-                    Text(Localized.message)
-                        .foregroundStyle(.secondary)
-                        .padding(.horizontal, bubblePadding + 4)
-                        .padding(.vertical, bubblePadding + 1)
-                }
             }
-            .clipShape(RoundedRectangle(cornerRadius: 12))
+            .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
 
             if isStreaming {
-                Label(Localized.assistantIsResponding, systemImage: "ellipsis")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
                 Button(action: onCancel) {
                     Image(systemName: "stop.circle.fill")
-                        .font(.title2)
+                        .font(.system(size: 36))
+                        .foregroundStyle(.red)
                 }
                 .accessibilityLabel(Text(Localized.stop))
             } else {
                 Button(action: submit) {
                     Image(systemName: "arrow.up.circle.fill")
-                        .font(.title2)
+                        .font(.system(size: 36))
+                        .foregroundStyle(trimmedDraft.isEmpty ? .secondary : .accentColor)
                 }
                 .disabled(trimmedDraft.isEmpty)
                 .accessibilityLabel(Text(Localized.send))
                 .keyboardShortcut(.return, modifiers: .command)
             }
         }
-        .padding(.horizontal)
+        .padding(.horizontal, 16)
         .padding(.bottom, 8)
+        .animation(.easeOut(duration: 0.2), value: isStreaming)
     }
+
 }
 
 #endif
