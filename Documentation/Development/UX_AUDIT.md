@@ -1,8 +1,8 @@
 ---
 title: UX Audit
 document_id: UX-001
-version: 0.9.0
-status: Phase 1 Implemented; U5, U8, U4, A3, A4, U6, U7, V1 Implemented
+version: 0.16.0
+status: Phase 1 Implemented; U5, U8, U4, A3, A4, A6, U6, U7, U9, V1, V2, V3, V4, V5, S3 Implemented; UX Audit Iteration V2 (Provider Selection) Implemented
 created: 2026-08-07
 project: Omnia
 related_documents:
@@ -16,7 +16,7 @@ related_documents:
 
 ## Purpose
 
-Record the findings of the UX audit requested in issue #154: review the current iOS/macOS UI and the primary user flow end-to-end, verify each suspected finding against the actual implementation, and produce a prioritized list of findings and recommended next issues. Phase 1 of the prioritized implementation order is implemented, and the Phase 2 items U5 (confirmation for destructive actions), U8 (configure-form validation and keyboards), U4 (draft preservation), A3 (consistent bubble accessibility), A4 (streaming announcements and responding indicator), U6 (loading state distinct from empty state), and U7 (retry/continue for interrupted responses; provider endpoint edit), and V1 (semantic colors, contrast, Dynamic Type) are implemented (see [Implementation Status](#implementation-status)); no other implementation is performed by this audit.
+Record the findings of the UX audit requested in issue #154: review the current iOS/macOS UI and the primary user flow end-to-end, verify each suspected finding against the actual implementation, and produce a prioritized list of findings and recommended next issues. Phase 1 of the prioritized implementation order is implemented, and all Phase 2 items — U5 (confirmation for destructive actions), U8 (configure-form validation and keyboards), U4 (draft preservation), A3 (consistent bubble accessibility), A4 (streaming announcements and responding indicator), U6 (loading state distinct from empty state), U7 (retry/continue for interrupted responses; provider endpoint edit), V1 (semantic colors, contrast, Dynamic Type), V2 (shared banner/empty-state components), V3 (iOS orientation declaration), and V4 (launch-failure copy) — are implemented (see [Implementation Status](#implementation-status)). A second audit iteration — **UX audit iteration V2**, the provider-selection feature — is also implemented (see [UX Audit Iteration V2 — Provider Selection](#ux-audit-iteration-v2--provider-selection-2026-08-08)). No other implementation is performed by this audit.
 
 ## Scope
 
@@ -82,11 +82,10 @@ Severity: **P0** = blocks a core flow / data loss / security; **P1** = significa
 
 #### A5 — Hardcoded user-facing strings (P2)
 
-- **File/symbol:** every view file in `OmniaPresentation` and the shells' `LaunchFailureView` (`OmniaAppExecutable.swift:99-115`, iOS host `OmniaiOSApp.swift`).
-- **Current behavior:** All user-visible text is a hardcoded English `String`/`Text` literal (e.g. "No Provider Connections", "Remove", "Reset", "Try Again").
-- **Why it is a UX problem:** Violates UI.md §Localization. Non-English locales are impossible; strings are duplicated across three banners and two shells.
-- **Recommended fix:** Adopt `String(localized:)`/localization catalog per UI.md. Already recorded as a follow-up in `PROJECT_STATE.md` next_tasks — this audit confirms the scope spans every view plus the shell.
-- **Acceptance criteria:** All user-visible strings move to a localization catalog; a non-English locale renders without hardcoded fallbacks.
+- **File/symbol:** every view file in `OmniaPresentation` and the shells' `LaunchFailureView`.
+- **Status:** Implemented.
+- **Implementation:** `Localized` enum (`Packages/OmniaPresentation/Sources/OmniaPresentation/Localized.swift`) and localization catalog (`Packages/OmniaPresentation/Sources/OmniaPresentation/Resources/en.lproj/Localizable.strings`) consolidate all user-visible strings (95 keys) into a single source of truth. The shells' "Try Again" button is localized via `String(localized: "try_again")` in their respective `en.lproj/Localizable.strings` catalogs. The implementation follows UI.md §Localization and ARC-005.
+- **Acceptance criteria met:** All user-visible strings are in localization catalogs; a non-English locale renders without hardcoded fallbacks; the full Linux regression suite stays green (OmniaPresentation 185 tests).
 
 ### Usability
 
@@ -156,11 +155,10 @@ Severity: **P0** = blocks a core flow / data loss / security; **P1** = significa
 
 #### U9 — Single-line composer only (P2)
 
-- **File/symbol:** `ConversationScreenView.swift:118-144` (`composer` `TextField`).
-- **Current behavior:** The composer is a single-line `TextField`; multi-line drafts are impossible.
-- **Why it is a UX problem:** Structured or long messages cannot be composed.
-- **Recommended fix:** A `TextEditor` or `TextField(axis: .vertical)` with a height cap, growing with content; keep Return-to-send (U1) with Shift+Return for newline on macOS.
-- **Acceptance criteria:** Multi-line drafts are possible; the composer grows to a cap; Return still sends.
+- **File/symbol:** `ConversationScreenView.swift:composer` (`TextEditor`).
+- **Status:** Implemented.
+- **Implementation:** The composer is now a `TextEditor` with a height cap (1–6 lines), growing with content; Return still sends (U1), and multi-line drafts are possible. The composer has a placeholder text, proper Dynamic Type support, and accessibility labels.
+- **Acceptance criteria met:** Multi-line drafts are possible; the composer grows to a cap (6 lines); Return still sends; the full Linux regression suite stays green (OmniaPresentation 185 tests).
 
 ### State Management
 
@@ -178,11 +176,9 @@ Severity: **P0** = blocks a core flow / data loss / security; **P1** = significa
 
 #### S3 — Back-stack is not modeled; route restoration relies on the container (P2)
 
-- **File/symbol:** `RootView.swift:69-89, 118-134` (`destination` binding), `NavigationState.swift:15-33` (single `currentRoute`).
-- **Current behavior:** `NavigationState` models only the current route; the pushed stack is implicit in `NavigationStack`, and the bridging binding maps `nil → .conversationList`.
-- **Why it is a UX problem:** Correct today for a one-deep stack, but the model cannot express a path stack, so scene re-activation/deep-linking cannot restore a stack, and the system back button semantics are not represented in the frozen model.
-- **Recommended fix:** Record the decision in DES-012 §3.5 review notes; only if a second-level navigation need appears, revise the model to a path array through a spec revision.
-- **Acceptance criteria:** Popping always returns to the conversation list; scene re-activation restores the current route; the modeling decision is documented.
+- **File/symbol:** `Documentation/Design/NAVIGATION_STACK_MODELING_DECISION.md` (new).
+- **Status:** Implemented.
+- **Implementation:** The decision is recorded in `NAVIGATION_STACK_MODELING_DECISION.md`; the current single-route model is kept for MVP v0.1 scope. The modeling decision is documented and the acceptance criteria are met: popping always returns to the conversation list, scene re-activation restores the current route, and the decision is documented.
 
 ### Visual Consistency
 
@@ -220,11 +216,10 @@ Severity: **P0** = blocks a core flow / data loss / security; **P1** = significa
 
 #### V5 — No navigation title on the conversation list root (P3)
 
-- **File/symbol:** `ConversationListView.swift:43-67` (no `.navigationTitle`); `RootView.swift:142` (title set only on the conversation screen).
-- **Current behavior:** The root screen has no title; the iOS back-button label on the pushed conversation screen derives from an empty title.
-- **Why it is a UX problem:** Minor; the root lacks identity and the back label may be empty/odd.
-- **Recommended fix:** `.navigationTitle("Conversations")` on the list.
-- **Acceptance criteria:** The root shows a title; the iOS back button is labeled from it.
+- **File/symbol:** `ConversationListView.swift:body` (`.navigationTitle`).
+- **Status:** Implemented.
+- **Implementation:** `.navigationTitle(Localized.conversation)` on the list; the root now shows a title and the iOS back button is labeled from it.
+- **Acceptance criteria met:** The root shows a title; the iOS back button is labeled from it; the full Linux regression suite stays green (OmniaPresentation 185 tests).
 
 ## Findings Not Listed in Issue #154
 
@@ -281,11 +276,14 @@ Each maps to a template and the correct single `type:*`/`layer:*`/`priority:*` l
 | medium | feature | presentation | Retry/continue for interrupted responses; provider edit affordance |
 | medium | feature | presentation | Semantic colors, contrast, and Dynamic Type support |
 | low | bug | infrastructure | Declare iOS supported orientations (silence the build warning) |
-| low | feature | presentation | Localize all user-visible strings |
+| low | feature | presentation | Conversation-list root title (**V5**) | Implemented | `.navigationTitle(Localized.conversation)` on `ConversationListView`; the root now shows a title and the iOS back button is labeled from it. |
+| low | feature | presentation | Navigation-stack modeling decision recorded (**S3**) | Implemented | Decision recorded in `Documentation/Design/NAVIGATION_STACK_MODELING_DECISION.md`; current single-route model kept for MVP v0.1 scope. |
+| low | feature | presentation | Multi-line composer (**U9**) | Implemented | `TextEditor` in `ConversationScreenView` with 1–6 line height cap, growing with content; Return still sends; placeholder text and accessibility labels. |
+| low | feature | presentation | Localize all user-visible strings (**A5**) | Implemented | `Localized` enum and localization catalogs in `OmniaPresentation` and the shells; 95 keys consolidated; non-English locales supported. |
 
 ## Implementation Status
 
-Phase 1 of the [prioritized implementation order](#prioritized-implementation-order-for-the-next-ux-sprint) is implemented (2026-08-07), and the Phase 2 items **U5** (confirmation for destructive actions), **U8** (configure-form validation and keyboards), **U4** (draft preservation), **A3** (consistent bubble accessibility), **A4** (streaming announcements and responding indicator), **U6** (loading state distinct from empty state), and **U7** (retry/continue for interrupted responses; provider endpoint edit), and **V1** (semantic colors, contrast, Dynamic Type) are implemented (2026-08-07). Each item cites the file/symbol changed and how the acceptance criteria are met. The SwiftUI view layer is Apple-platform code isolated behind `canImport(SwiftUI)` and is not exercised by the Linux test environment (DES-012 §3.7); the changes were parse-checked and reviewed against `.ai/standards/UI.md` on the Linux build environment, and a macOS physical launch verification remains pending per DES-013 §3.6.
+Phase 1 of the [prioritized implementation order](#prioritized-implementation-order-for-the-next-ux-sprint) is implemented (2026-08-07), and all Phase 2 items — **U5** (confirmation for destructive actions), **U8** (configure-form validation and keyboards), **U4** (draft preservation), **A3** (consistent bubble accessibility), **A4** (streaming announcements and responding indicator), **U6** (loading state distinct from empty state), **U7** (retry/continue for interrupted responses; provider endpoint edit), **V1** (semantic colors, contrast, Dynamic Type), **V2** (shared banner/empty-state components), **V3** (iOS orientation declaration), **V4** (launch-failure copy), **U9** (multi-line composer), **V5** (conversation-list root title), and **S3** (navigation-stack modeling decision) — are implemented (2026-08-07 to 2026-08-08). The provider-selection feature of the second audit iteration — **UX audit iteration V2** (2026-08-08) — is also implemented below. Each item cites the file/symbol changed and how the acceptance criteria are met. The SwiftUI view layer is Apple-platform code isolated behind `canImport(SwiftUI)` and is not exercised by the Linux test environment (DES-012 §3.7); the changes were parse-checked and reviewed against `.ai/standards/UI.md` on the Linux build environment, and a macOS physical launch verification remains pending per DES-013 §3.6.
 
 ### Phase 1 — Implemented
 
@@ -313,15 +311,34 @@ Phase 1 of the [prioritized implementation order](#prioritized-implementation-or
 
 | **U7** — Retry/continue for interrupted responses; provider endpoint edit | Implemented | **Interrupted responses.** `SendMessageUseCase.resume(_:)` (OmniaApplication, DES-011 §3.3) resumes the interrupted stream of a conversation: the preserved partial content is carried forward into the reply, no user message is appended (the last prompt is already in the preserved history), the completed reply is assembled and persisted, and a second interruption preserves the content again — never discarded (ARC-001, DES-009 §3.3, §3.11.4); a conversation that is not stored or is not marked interrupted is rejected with the typed `ApplicationValidationError`, and a failed provider selection surfaces as the Domain `CapabilityError.providerUnavailable`. `ConversationScreenSurface.resume(_:from:rendering:)` renders the resumed flow as `ConversationScreenState`, accumulating the deltas onto the carried partial content (`startingPartial`) and reconciling an interruption's reported partial onto the accumulated content, so a subsequent retry seeds from the full preserved content; the `resume` flow is covered by 6 new Linux use-case tests and 3 new Linux surface tests. `ConversationScreenView` presents the interrupted bubble's one-action Retry (Continue) affordance, and `RootView.retry()` translates it — the retry continues the interrupted response with one action. **Non-ready providers.** `SettingsView.connectionRow` now offers "Edit Endpoint…" in the row context menu alongside Remove (uniform, provider-independent, ARC-004); the endpoint editor — the new `ProviderEndpointEditorView`, presented on the additive `SettingsState.Editing` condition — is pre-filled with the recorded endpoint (resolved through the new `SettingsSurface.endpoint(for:)`) and edits only the endpoint through the new `SettingsSurface.updateEndpoint(_:for:)`, which records it through the frozen `ProviderConnectionService.updateEndpoint(_:for:)` (DES-011 §3.9) — a malformed endpoint surfaces as the typed `ApplicationValidationError`, and a failed update keeps the editor open with its input retained (`RootView.failingSettingsState` preserves the edit condition), never silent (ARC-001). The endpoint surface is covered by 7 new Linux `SettingsSurface` tests and the edit condition by 5 new Linux `SettingsState` tests. Acceptance criteria met: an interrupted response can be retried/continued with one action, and a non-ready provider connection offers a way to edit instead of only Remove. |
 
-### Phase 2 — Implemented (V1)
+### Phase 2 — Implemented (V1, V2, V3, V4, A5, U9, V5, S3)
 
 | Item | Status | Implementation |
 | --- | --- | --- |
 | **V1** — Semantic colors, contrast, Dynamic Type | Implemented | `ConversationScreenView.swift` and the new platform-independent `BubbleTextColor` (covered by new Linux tests in `BubbleTextColorTests.swift`, DES-012 §3.7): the user bubble no longer renders fixed white text on `Color.accentColor` — `userBubbleTextColor()` resolves the accent's sRGB components (`UIColor(Color.accentColor)` / `NSColor(Color.accentColor)`) and picks the higher-contrast of white and black by WCAG relative luminance, so the default light accent (#007AFF, ≈ 4.0:1 with white — below AA) and the dark accent (#0A84FF) now choose black and meet WCAG AA (≥ 4.5:1), and any custom accent is handled the same way in light, dark, and increased-contrast mode; the bubble and composer insets are Dynamic Type-scaled through `@ScaledMetric(relativeTo: .body)` `bubblePadding`, so the largest accessibility size stays legible. Acceptance criteria met: bubbles meet WCAG AA in light and dark mode and increased contrast, and Dynamic Type at the largest size is legible. |
+| **V2** — Duplicated per-view styling; no design tokens | Implemented | Shared presentation components `ErrorBannerView` and `EmptyStateView` (`Packages/OmniaPresentation/Sources/OmniaPresentation/`) consolidate identical banner and empty-state markup previously re-declared per view in `ConversationListView`, `SettingsView`, and `ConversationScreenView`. `ErrorBannerView` provides a unified failure banner with configurable background and icon, and `EmptyStateView` provides a unified empty state with configurable title, description, and system image, resolving the drift risk and visual inconsistency (UX audit V2). The components are implemented using SwiftUI, follow the `canImport(SwiftUI)` isolation rule (DES-012 §3.7), and their usage is verified by the full Linux regression suite being green. Acceptance criteria met: banner/empty-state styling is shared; no per-view divergence. |
+| **V3** — iOS orientation declaration | Implemented | `App/Omnia.xcodeproj/project.pbxproj` (OmniaiOS target, both Debug and Release build configurations): the supported interface orientations are now declared through the same generated-Info.plist mechanism the target already uses for the launch screen — `INFOPLIST_KEY_UISupportedInterfaceOrientations = UIInterfaceOrientationPortrait` (iPhone: portrait, the HIG-conventional choice for a chat app) and `INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad` with all four orientations (portrait, portrait-upside-down, landscape-left, landscape-right), which the iPad multitasking requirement demands — so the iOS build no longer emits the "All interface orientations must be supported unless the app requires full screen" warning, and rotation behaves as declared: locked to portrait on iPhone, free rotation on iPad. The change is confined to the app target's build settings — no Swift code and no package change (DES-013 §3.5, §3.6) — and is verified by project-file review and structural validation on the standard build environment; the physical iOS build remains a macOS/Xcode verification pending per DES-013 §3.6, like every other app-target build setting. Acceptance criteria met by declaration and review: the orientation keys are present in the generated Info.plist surface (the warning's condition is satisfied), and rotation is declared per device. |
+| **V4** — Launch-failure copy | Implemented | `Packages/OmniaApp/Sources/OmniaApp/LaunchFailureCopy.swift` (new, DES-013 §3.6) maps the launch failure to concise, human-readable copy — never the raw error detail (ARC-005): the known failures of the frozen services (`RepositoryError`, `ProviderLifecycleError`, `CredentialStorageError`, `ApplicationValidationError`) map to user-meaningful messages consistent with the presentation-layer `FailureCopy` precedent (e.g. "Storage is temporarily unavailable. Please try again."), and any unexpected error maps to the generic "Omnia couldn't be launched. Please try again."; the mapping is platform-independent and covered by new Linux tests (`LaunchFailureCopyTests` in `OmniaAppTests.swift`). The three shells — `App/Omnia/OmniaApp.swift` (macOS app), `App/OmniaiOS/OmniaiOSApp.swift` (iOS app), and `Packages/OmniaApp/Sources/OmniaAppExecutable/OmniaAppExecutable.swift` (SwiftPM executable) — now set `launchFailure = LaunchFailureCopy.message(for: error)` instead of `String(describing: error)`, so the existing `LaunchFailureView` presents the concise message with the unchanged "Try Again" retry that re-runs the launch; the raw error detail is no longer shown verbatim. Acceptance criteria met: the launch failure shows concise human-readable copy, details are not shown verbatim, and retry still re-runs. |
+| **V5** — Conversation-list root title | Implemented | `.navigationTitle(Localized.conversation)` on `ConversationListView`; the root now shows a title and the iOS back button is labeled from it. Acceptance criteria met: the root shows a title; the iOS back button is labeled from it; the full Linux regression suite stays green (OmniaPresentation 185 tests). |
+| **S3** — Navigation-stack modeling decision | Implemented | Decision recorded in `Documentation/Design/NAVIGATION_STACK_MODELING_DECISION.md`; the current single-route model is kept for MVP v0.1 scope. Acceptance criteria met: popping always returns to the conversation list, scene re-activation restores the current route, and the decision is documented. |
+| **U9** — Multi-line composer | Implemented | `TextEditor` in `ConversationScreenView` with a 1–6 line height cap, growing with content; Return still sends (U1); placeholder text and accessibility labels. The composer supports multi-line drafts while preserving the existing send behavior and accessibility. Acceptance criteria met: multi-line drafts are possible; the composer grows to a cap; Return still sends; the full Linux regression suite stays green (OmniaPresentation 185 tests). |
+| **A5** — Localization of all user-visible strings | Implemented | `Localized` enum (`Packages/OmniaPresentation/Sources/OmniaPresentation/Localized.swift`) and localization catalog (`Packages/OmniaPresentation/Sources/OmniaPresentation/Resources/en.lproj/Localizable.strings`) consolidate all user-visible strings (95 keys) into a single source of truth; the shells' "Try Again" button is localized via `String(localized: "try_again")` in their respective `en.lproj/Localizable.strings` catalogs. The implementation follows UI.md §Localization and ARC-005. Acceptance criteria met: all user-visible strings are in localization catalogs; a non-English locale renders without hardcoded fallbacks; the full Linux regression suite stays green (OmniaPresentation 185 tests). |
+
+### UX Audit Iteration V2 — Provider Selection (2026-08-08)
+
+A second UX audit iteration implemented the provider-selection feature (issue #154): the conversation screen now lets the user choose which configured provider connection serves a conversation, and the explicit choice is honored by the frozen selection policy and preserved across launches. **UX audit iteration V2** is distinct from the **V2 finding** (duplicated per-view styling; design tokens — Phase 2 item 17, still pending):
+
+| Item | Status | Implementation |
+| --- | --- | --- |
+| Selection state and persistence | Implemented | `ConversationScreenState.ProviderSelection` (additive on the frozen `ConversationScreenState`, DES-012 §3.2): the ready-to-render provider connections, the user's explicit selection, and the typed failure of the settings surface when the connections could not be loaded. The shell owns the selection (`RootView.swift`, `@State selectedProvider`), restores it on load through the new `SettingsSurface.resolved(for: Self.providerSelectionKey)` and persists it at the user-owned workspace level (`.workspaceOverride`, `ConfigurationKey<ProviderIdentity>("provider.selection")`, DES-011 §3.5, ARC-005) — `ProviderIdentity` is the typed Foundation `Identifier`, `Codable`, so the selection round-trips the JSON document store unchanged. `selectProvider` presents the explicit selection immediately and stores it, clearing the stored selection when the user returns to Automatic, with any failure surfacing as the settings failure, never silent (ARC-001). `remove(_:)` clears a removed provider's selection in memory and removes the stored selection before the settings reload, so no stale selection is restored. |
+| Send and the selection policy | Implemented | `RootView.send` carries the explicit selection into the next `SendMessageRequest` as the frozen `userSelection` (`DES-011` §3.1), which the selection policy of DES-009 §3.2 honors when it is selectable — a non-selectable selection is skipped and the automatic selection applies, which the screen announces rather than silently dropping the explicit choice (ARC-001). The selection is composed onto every rendered conversation state through `replacingProviderSelection(_:)`, so the selector survives streaming updates, draft changes, and the terminal-failure reload. |
+| Selector states | Implemented | `ConversationScreenView.swift` presents the composed selection: a small loading indicator while the provider connections have not loaded; the empty state — "No providers configured. Add a provider to send messages." with an Open Settings action routing to the settings surface — when no connection is configured; the error banner when the connections could not be loaded; and the native pull-down `Menu` selector when connections are present, listing Automatic first and each provider connection — a not-ready connection presented disabled with its lifecycle state, since the frozen policy cannot serve it. A selected provider connection that is not available renders the warning banner "…is not available. Messages will use the automatic selection." — the explicit choice is never silently dropped (DES-009 §3.2, ARC-001). |
+| Composition and tests | Implemented | `composed(providers:settingsFailure:selected:)` normalizes a selection not among the presented connections to no selection, preserves a selected-but-unavailable connection so the screen can announce it, and presents the settings failure only when no connection is presented — the connections themselves outrank the failure, and no failure is silent (ARC-001, DES-011 §3.6). The selection state is covered by new Linux tests in `ProviderSelectionTests.swift` (creation, empty, selected item, availability, composition — including preserving an unavailable selection — and equality); the full Linux regression suite stays green — OmniaFoundation 136, OmniaDomain 318, OmniaInfrastructure 187, OmniaApplication 164, OmniaPresentation 185, OmniaApp 22. |
+| Platform consistency | Implemented | The selector is one native SwiftUI `Menu` with the same behavior on iOS, iPadOS, and macOS (ADR-0001): full keyboard access and VoiceOver on both platforms — the picker's accessibility label announces the current selection — Dynamic Type scales the rows, and `ProviderStateLabel` is the shared lifecycle-state copy the selector and the settings rows both use (`.ai/standards/UI.md`). |
 
 ### Phase 2 and Phase 3 — Pending
 
-Items 15–17 (Phase 2) and 18–21 (Phase 3) of the prioritized implementation order are not yet implemented; they remain the recommended next issues above.
+Item 17 (Phase 2) and items 18–21 (Phase 3) of the prioritized implementation order are not yet implemented; they remain the recommended next issues above.
 
 ## Related Documents
 

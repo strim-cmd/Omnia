@@ -1,0 +1,63 @@
+#if canImport(SwiftUI)
+
+import Foundation
+import OmniaApplication
+import SwiftUI
+
+/// The SwiftUI rendering of `MarkdownContent` with native Apple APIs only
+/// (DES-012 §3.3.1, ARC-009): prose text segments are rendered as Markdown
+/// through Foundation `AttributedString` parsing, and fenced code blocks are
+/// presented as distinct code-block elements — monospaced text, a distinct
+/// background, and preserved whitespace and wrapping — without language-aware
+/// syntax coloring. No third-party Markdown renderer or syntax-highlighting
+/// library is used (PRODUCT_CHARTER, no-third-party-packages non-goal).
+///
+/// The view is Apple-platform code, isolated behind platform availability; it
+/// is not exercised by the Linux test environment (§3.7) and is verified by
+/// review against `.ai/standards/UI.md`.
+@available(iOS 15.0, macOS 12.0, *)
+public struct MarkdownView: View {
+    /// The markdown content to render.
+    public let content: MarkdownContent
+
+    /// Creates a markdown view over the given content.
+    public init(content: MarkdownContent) {
+        self.content = content
+    }
+
+    public var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            ForEach(content.segments.indices, id: \.self) { index in
+                segment(content.segments[index])
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .accessibilityElement(children: .contain)
+    }
+
+    @ViewBuilder
+    private func segment(_ segment: MarkdownContent.Segment) -> some View {
+        switch segment {
+        case .text(let text):
+            Text(attributed(text))
+                .fixedSize(horizontal: false, vertical: true)
+                .textSelection(.enabled)
+        case .codeBlock(let code):
+            ScrollView(.horizontal, showsIndicators: false) {
+                Text(code)
+                    .font(.system(.body, design: .monospaced))
+                    .textSelection(.enabled)
+                    .padding(12)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(Color.secondary.opacity(0.12))
+                    .clipShape(RoundedRectangle(cornerRadius: 8))
+            }
+        }
+    }
+
+    private func attributed(_ text: String) -> AttributedString {
+        (try? AttributedString(markdown: text)) ?? AttributedString(text)
+    }
+}
+
+#endif

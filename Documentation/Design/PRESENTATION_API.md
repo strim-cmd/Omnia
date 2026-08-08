@@ -10,7 +10,7 @@ authors:
 reviewers:
   - Chief Architect
 created: 2026-08-05
-last_updated: 2026-08-06
+last_updated: 2026-08-08
 related_documents:
   - Documentation/Product/Roadmap/PRESENTATION_SPRINT_1_ROADMAP.md
   - Documentation/Product/Roadmap/MVP_V01_ROADMAP.md
@@ -137,7 +137,7 @@ The category comprises the state models of the surfaces of §3.3, §3.4, and §3
 | State | Surface | Content |
 |---|---|---|
 | `ConversationListState` | conversation list | the ordered `ConversationListItem`s of the list, and the empty and error conditions the list presents (create, select, delete over `ConversationService`, `DES-011` §3.2). |
-| `ConversationScreenState` | conversation screen | the `MessagePresentation`s of the active conversation's history, the user input draft, and the rendered streaming condition — active, complete, or interrupted (§3.3.1, `DES-011` §3.3). |
+| `ConversationScreenState` | conversation screen | the `MessagePresentation`s of the active conversation's history, the user input draft, the rendered streaming condition — active, complete, or interrupted (§3.3.1, `DES-011` §3.3) — and the ready-to-render provider selection: the provider connections of the settings surface and the user's explicit selection, composed by the shell (UX audit iteration V2). |
 | `SettingsState` | settings | the `ProviderConnectionListItem`s of the configured connections, the configuration values the settings surface presents, and the compose, endpoint-edit, and error conditions (`DES-011` §3.4, §3.5). |
 | `NavigationState` | navigation | the current route of the navigation structure — which surface the shell presents and the presentation flow that produced it (§3.5). |
 
@@ -164,6 +164,7 @@ The category comprises:
 | Create-in-workspace flow (v1.1.0) | translates the user's create action on the list into a create-in-workspace invocation — `ConversationListSurface.create(in: the presented workspace)` over `ConversationService.createConversation(in:)` (`DES-011` §3.8) — so every new conversation belongs to the workspace the list presents and appears in the membership-driven list (`DES-011` §3.2, PRD-008). The v1.0.0 `create()` surface method remains part of the surface but is not what the list renders (`DES-011` §3.2, §3.8). |
 | Conversation screen | presents `ConversationScreenState`: the history of the active conversation, the user input draft, and the streaming flow over `SendMessageUseCase` — the Domain `StreamingUpdate` events rendered incrementally without blocking the interface, the assembled assistant message on completion, and the preserved partial content on interruption, never discarded (`DES-011` §3.3, `ARC-001`). |
 | Send-message intent | translates the user's send action and the selection preferences into the frozen `SendMessageRequest` (`DES-011` §3.1, §3.3) and invokes the streaming use case. |
+| Provider-selection intent (UX audit iteration V2) | presents the user's explicit provider selection for the conversation — the provider connections and the typed settings failure the shell composes through `ConversationScreenState.ProviderSelection` (§3.2) — and carries it into the next `SendMessageRequest` as the frozen `userSelection`, which the selection policy of `DES-009` §3.2 honors when it is selectable; a non-selectable selection is skipped and the automatic selection applies, announced by the screen, never silent (`ARC-001`). |
 
 Normative statements:
 
@@ -172,6 +173,7 @@ Normative statements:
 - The list surface MUST receive the workspace identity it presents from the application edge — the workspace selection is session state owned there, not by this surface (`DES-011` §3.8, `ARC-009` OmniaApp) — and MUST create each new conversation in that workspace and list its membership (`createConversation(in:)` and `conversations(in:)`, `DES-011` §3.2, §3.8); the list and the create action MUST never diverge on the workspace (PRD-008).
 - The screen surface MUST render the Domain `StreamingUpdate` events incrementally as they arrive and MUST NOT block the interface during streaming (`ARC-001`, `DES-011` §3.3); the completed message is rendered from the completion event's assembled assistant message, and interruption renders the preserved partial content as incomplete — never discarded (`ARC-001`, `DES-009` §3.11.4).
 - The send-message intent MUST compose the frozen `SendMessageRequest` from the user input, the selected conversation, and the optional selection preferences, and MUST NOT perform the flow itself (`DES-011` §3.1).
+- The provider-selection intent MUST present the composed selection state of §3.2 and MUST carry the user's explicit selection into the next `SendMessageRequest` as the frozen `userSelection`; the selection policy of `DES-009` §3.2 skips a selection that is not selectable, and the screen MUST announce that the automatic selection applies instead of silently dropping the explicit choice (UX audit iteration V2, `ARC-001`).
 - The failures the services surface — `ApplicationValidationError`, and the Domain `RepositoryError`, `CapabilityError`, and `CredentialStorageError` — MUST be presented as they are, never wrapped or redefined (`DES-011` §3.6, `DES-009` §3.9); no failure is silent (`ARC-001`).
 - The active-conversation selection is session state owned at the application edge (`DES-011` §3.2); this surface presents the conversation it is given and exposes the operations and state the application edge composes.
 

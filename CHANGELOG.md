@@ -44,6 +44,14 @@ the presentation layer:
 
 ### Added
 
+- The conversation screen now lets you choose which configured provider connection serves a conversation: the provider selector — a native pull-down menu listing Automatic and each connection, with not-ready connections shown disabled — carries your explicit choice into the next message through the frozen selection request, honors the selection policy (a non-selectable choice is skipped and announced, never silently dropped), and preserves it across launches through the typed configuration (UX audit iteration V2).
+- Shared presentation components (banner/empty-state markup) have been consolidated, ensuring visual consistency and reducing the risk of drift (UX audit V2).
+- The iOS app now declares its supported interface orientations, so the build no longer warns and rotation behaves as intended: portrait on iPhone, and all orientations on iPad (UX audit V3).
+- A failed launch (for example storage or credential storage being unavailable, or a configured provider failing to prepare) now presents concise, human-readable copy — never the raw Swift error description — with the unchanged retry action (UX audit V4).
+- The conversation list now shows a navigation title, so the root has identity and the iOS back button is labeled correctly (UX audit V5).
+- The navigation-stack modeling decision is recorded, confirming the current single-route model is sufficient for MVP v0.1 (UX audit S3).
+- The message composer now supports multi-line drafts: the composer grows to a 6-line cap and preserves the Return-to-send behavior (UX audit U9).
+- All user-visible strings are now localized: the presentation layer and shells use `String(localized:)` and localization catalogs, enabling non-English locales (UX audit A5).
 - The message bubbles now meet WCAG AA contrast and stay legible at the
   largest Dynamic Type size: the user bubble's text color is chosen by WCAG
   relative luminance — the higher-contrast of white and black against the

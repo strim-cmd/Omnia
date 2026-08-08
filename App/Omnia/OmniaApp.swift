@@ -39,7 +39,8 @@ import SwiftUI
 struct OmniaMacOSApp: App {
     /// The composed application, once the launch sequence completes.
     @State private var launch: AppLaunch?
-    /// The launch failure, presented as it is — never silent (ARC-001).
+    /// The launch failure, mapped to concise user-facing copy — presented,
+    /// never silent, never the raw error detail (ARC-001, UX audit V4).
     @State private var launchFailure: String?
 
     var body: some Scene {
@@ -80,13 +81,14 @@ struct OmniaMacOSApp: App {
         do {
             launch = try await AppLaunch()
         } catch {
-            launchFailure = String(describing: error)
+            launchFailure = LaunchFailureCopy.message(for: error)
         }
     }
 }
 
-/// The failure state of the launch sequence: the shell presents the failure as
-/// it is — never silent (ARC-001) — with a retry of the launch.
+/// The failure state of the launch sequence: the shell presents the failure
+/// mapped to concise user-facing copy — never the raw error detail (ARC-001,
+/// ARC-005, UX audit V4) — with a retry of the launch.
 ///
 /// The view is native SwiftUI (`.ai/standards/UI.md`); user-visible strings
 /// follow the view-layer precedent of the presentation package.
@@ -101,7 +103,7 @@ private struct LaunchFailureView: View {
                 .foregroundStyle(.secondary)
             Text(message)
                 .multilineTextAlignment(.center)
-            Button("Try Again", action: onRetry)
+            Button(String(localized: "try_again"), action: onRetry)
         }
         .padding()
         .frame(maxWidth: .infinity, maxHeight: .infinity)
