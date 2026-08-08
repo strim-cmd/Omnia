@@ -1,8 +1,8 @@
 ---
 title: UX Audit
 document_id: UX-001
-version: 0.8.0
-status: Phase 1 Implemented; U5, U8, U4, A3, A4, U6, U7 Implemented
+version: 0.9.0
+status: Phase 1 Implemented; U5, U8, U4, A3, A4, U6, U7, V1 Implemented
 created: 2026-08-07
 project: Omnia
 related_documents:
@@ -16,7 +16,7 @@ related_documents:
 
 ## Purpose
 
-Record the findings of the UX audit requested in issue #154: review the current iOS/macOS UI and the primary user flow end-to-end, verify each suspected finding against the actual implementation, and produce a prioritized list of findings and recommended next issues. Phase 1 of the prioritized implementation order is implemented, and the Phase 2 items U5 (confirmation for destructive actions), U8 (configure-form validation and keyboards), U4 (draft preservation), A3 (consistent bubble accessibility), A4 (streaming announcements and responding indicator), U6 (loading state distinct from empty state), and U7 (retry/continue for interrupted responses; provider endpoint edit) are implemented (see [Implementation Status](#implementation-status)); no other implementation is performed by this audit.
+Record the findings of the UX audit requested in issue #154: review the current iOS/macOS UI and the primary user flow end-to-end, verify each suspected finding against the actual implementation, and produce a prioritized list of findings and recommended next issues. Phase 1 of the prioritized implementation order is implemented, and the Phase 2 items U5 (confirmation for destructive actions), U8 (configure-form validation and keyboards), U4 (draft preservation), A3 (consistent bubble accessibility), A4 (streaming announcements and responding indicator), U6 (loading state distinct from empty state), and U7 (retry/continue for interrupted responses; provider endpoint edit), and V1 (semantic colors, contrast, Dynamic Type) are implemented (see [Implementation Status](#implementation-status)); no other implementation is performed by this audit.
 
 ## Scope
 
@@ -285,7 +285,7 @@ Each maps to a template and the correct single `type:*`/`layer:*`/`priority:*` l
 
 ## Implementation Status
 
-Phase 1 of the [prioritized implementation order](#prioritized-implementation-order-for-the-next-ux-sprint) is implemented (2026-08-07), and the Phase 2 items **U5** (confirmation for destructive actions), **U8** (configure-form validation and keyboards), **U4** (draft preservation), **A3** (consistent bubble accessibility), **A4** (streaming announcements and responding indicator), **U6** (loading state distinct from empty state), and **U7** (retry/continue for interrupted responses; provider endpoint edit) are implemented (2026-08-07). Each item cites the file/symbol changed and how the acceptance criteria are met. The SwiftUI view layer is Apple-platform code isolated behind `canImport(SwiftUI)` and is not exercised by the Linux test environment (DES-012 §3.7); the changes were parse-checked and reviewed against `.ai/standards/UI.md` on the Linux build environment, and a macOS physical launch verification remains pending per DES-013 §3.6.
+Phase 1 of the [prioritized implementation order](#prioritized-implementation-order-for-the-next-ux-sprint) is implemented (2026-08-07), and the Phase 2 items **U5** (confirmation for destructive actions), **U8** (configure-form validation and keyboards), **U4** (draft preservation), **A3** (consistent bubble accessibility), **A4** (streaming announcements and responding indicator), **U6** (loading state distinct from empty state), and **U7** (retry/continue for interrupted responses; provider endpoint edit), and **V1** (semantic colors, contrast, Dynamic Type) are implemented (2026-08-07). Each item cites the file/symbol changed and how the acceptance criteria are met. The SwiftUI view layer is Apple-platform code isolated behind `canImport(SwiftUI)` and is not exercised by the Linux test environment (DES-012 §3.7); the changes were parse-checked and reviewed against `.ai/standards/UI.md` on the Linux build environment, and a macOS physical launch verification remains pending per DES-013 §3.6.
 
 ### Phase 1 — Implemented
 
@@ -313,9 +313,15 @@ Phase 1 of the [prioritized implementation order](#prioritized-implementation-or
 
 | **U7** — Retry/continue for interrupted responses; provider endpoint edit | Implemented | **Interrupted responses.** `SendMessageUseCase.resume(_:)` (OmniaApplication, DES-011 §3.3) resumes the interrupted stream of a conversation: the preserved partial content is carried forward into the reply, no user message is appended (the last prompt is already in the preserved history), the completed reply is assembled and persisted, and a second interruption preserves the content again — never discarded (ARC-001, DES-009 §3.3, §3.11.4); a conversation that is not stored or is not marked interrupted is rejected with the typed `ApplicationValidationError`, and a failed provider selection surfaces as the Domain `CapabilityError.providerUnavailable`. `ConversationScreenSurface.resume(_:from:rendering:)` renders the resumed flow as `ConversationScreenState`, accumulating the deltas onto the carried partial content (`startingPartial`) and reconciling an interruption's reported partial onto the accumulated content, so a subsequent retry seeds from the full preserved content; the `resume` flow is covered by 6 new Linux use-case tests and 3 new Linux surface tests. `ConversationScreenView` presents the interrupted bubble's one-action Retry (Continue) affordance, and `RootView.retry()` translates it — the retry continues the interrupted response with one action. **Non-ready providers.** `SettingsView.connectionRow` now offers "Edit Endpoint…" in the row context menu alongside Remove (uniform, provider-independent, ARC-004); the endpoint editor — the new `ProviderEndpointEditorView`, presented on the additive `SettingsState.Editing` condition — is pre-filled with the recorded endpoint (resolved through the new `SettingsSurface.endpoint(for:)`) and edits only the endpoint through the new `SettingsSurface.updateEndpoint(_:for:)`, which records it through the frozen `ProviderConnectionService.updateEndpoint(_:for:)` (DES-011 §3.9) — a malformed endpoint surfaces as the typed `ApplicationValidationError`, and a failed update keeps the editor open with its input retained (`RootView.failingSettingsState` preserves the edit condition), never silent (ARC-001). The endpoint surface is covered by 7 new Linux `SettingsSurface` tests and the edit condition by 5 new Linux `SettingsState` tests. Acceptance criteria met: an interrupted response can be retried/continued with one action, and a non-ready provider connection offers a way to edit instead of only Remove. |
 
+### Phase 2 — Implemented (V1)
+
+| Item | Status | Implementation |
+| --- | --- | --- |
+| **V1** — Semantic colors, contrast, Dynamic Type | Implemented | `ConversationScreenView.swift` and the new platform-independent `BubbleTextColor` (covered by new Linux tests in `BubbleTextColorTests.swift`, DES-012 §3.7): the user bubble no longer renders fixed white text on `Color.accentColor` — `userBubbleTextColor()` resolves the accent's sRGB components (`UIColor(Color.accentColor)` / `NSColor(Color.accentColor)`) and picks the higher-contrast of white and black by WCAG relative luminance, so the default light accent (#007AFF, ≈ 4.0:1 with white — below AA) and the dark accent (#0A84FF) now choose black and meet WCAG AA (≥ 4.5:1), and any custom accent is handled the same way in light, dark, and increased-contrast mode; the bubble and composer insets are Dynamic Type-scaled through `@ScaledMetric(relativeTo: .body)` `bubblePadding`, so the largest accessibility size stays legible. Acceptance criteria met: bubbles meet WCAG AA in light and dark mode and increased contrast, and Dynamic Type at the largest size is legible. |
+
 ### Phase 2 and Phase 3 — Pending
 
-Items 14–17 (Phase 2) and 18–21 (Phase 3) of the prioritized implementation order are not yet implemented; they remain the recommended next issues above.
+Items 15–17 (Phase 2) and 18–21 (Phase 3) of the prioritized implementation order are not yet implemented; they remain the recommended next issues above.
 
 ## Related Documents
 

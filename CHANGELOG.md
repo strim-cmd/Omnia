@@ -44,6 +44,11 @@ the presentation layer:
 
 ### Added
 
+- The message bubbles now meet WCAG AA contrast and stay legible at the
+  largest Dynamic Type size: the user bubble's text color is chosen by WCAG
+  relative luminance — the higher-contrast of white and black against the
+  accent — instead of fixed white, and the bubble and composer insets scale
+  with Dynamic Type (UX audit V1).
 - An interrupted assistant response can now be continued with one action: the
   interrupted bubble's Retry (Continue) resumes the response through
   `SendMessageUseCase.resume`, carrying the preserved partial content forward

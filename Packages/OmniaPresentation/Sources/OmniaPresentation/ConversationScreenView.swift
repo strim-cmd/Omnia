@@ -51,6 +51,9 @@ public struct ConversationScreenView: View {
     /// starting, completing, being interrupted — and not every content delta
     /// (UX audit A4).
     @State private var previousStreamingCondition: ConversationScreenState.StreamingCondition?
+    /// The bubble and composer inset, scaled with Dynamic Type so the largest
+    /// accessibility size stays legible (UX audit V1).
+    @ScaledMetric(relativeTo: .body) private var bubblePadding: CGFloat = 10
 
     /// Creates a conversation screen view over the given state, the draft
     /// binding, and the intent callbacks.
@@ -163,12 +166,52 @@ public struct ConversationScreenView: View {
                 MarkdownView(content: content)
             }
         }
-        .padding(10)
+        .padding(bubblePadding)
         .background(message.role == .user ? Color.accentColor : Color.secondary.opacity(0.12))
         .clipShape(RoundedRectangle(cornerRadius: 12))
-        .foregroundStyle(message.role == .user ? Color.white : Color.primary)
+        .foregroundStyle(message.role == .user ? userBubbleTextColor() : Color.primary)
         .accessibilityElement(children: .combine)
         .accessibilityLabel(Text(messageAccessibilityLabel(roleLabel: roleLabel, content: message.content)))
+    }
+
+    /// The text color that meets WCAG AA contrast against the user bubble's
+    /// `Color.accentColor` background in the current color scheme and
+    /// increased-contrast mode (UX audit V1): white for dark accents, black
+    /// for light accents, chosen by relative luminance rather than fixed
+    /// white.
+    private static func userBubbleTextColor() -> Color {
+        guard let components = accentRGBComponents() else { return .white }
+        switch BubbleTextColor.contrasting(
+            backgroundRed: components.red,
+            green: components.green,
+            blue: components.blue
+        ) {
+        case .white:
+            return .white
+        case .black:
+            return .black
+        }
+    }
+
+    /// The sRGB components of the resolved accent color, or `nil` when the
+    /// platform cannot expose them as RGB.
+    private static func accentRGBComponents() -> (red: Double, green: Double, blue: Double)? {
+        var red: CGFloat = 0
+        var green: CGFloat = 0
+        var blue: CGFloat = 0
+        var alpha: CGFloat = 0
+        let resolved: Bool
+        #if canImport(UIKit)
+        resolved = UIColor(Color.accentColor).getRed(&red, green: &green, blue: &blue, alpha: &alpha)
+        #elseif canImport(AppKit)
+        let accent = NSColor(Color.accentColor)
+        resolved = (accent.usingColorSpace(.sRGB) ?? accent)
+            .getRed(&red, green: &green, blue: &blue, alpha: &alpha)
+        #else
+        resolved = false
+        #endif
+        guard resolved else { return nil }
+        return (red: Double(red), green: Double(green), blue: Double(blue))
     }
 
     /// The streaming/interrupted bubble: one logical accessibility element
@@ -184,7 +227,7 @@ public struct ConversationScreenView: View {
                         .foregroundStyle(.secondary)
                 }
             }
-            .padding(10)
+            .padding(bubblePadding)
             .background(Color.secondary.opacity(0.12))
             .clipShape(RoundedRectangle(cornerRadius: 12))
             .accessibilityElement(children: .combine)
@@ -287,7 +330,7 @@ public struct ConversationScreenView: View {
         HStack(alignment: .bottom, spacing: 8) {
             TextField("Message", text: $draft)
                 .textFieldStyle(.plain)
-                .padding(10)
+                .padding(bubblePadding)
                 .background(Color.secondary.opacity(0.12))
                 .clipShape(RoundedRectangle(cornerRadius: 12))
                 .onSubmit(submit)
