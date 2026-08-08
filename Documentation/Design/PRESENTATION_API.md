@@ -138,7 +138,7 @@ The category comprises the state models of the surfaces of §3.3, §3.4, and §3
 |---|---|---|
 | `ConversationListState` | conversation list | the ordered `ConversationListItem`s of the list, and the empty and error conditions the list presents (create, select, delete over `ConversationService`, `DES-011` §3.2). |
 | `ConversationScreenState` | conversation screen | the `MessagePresentation`s of the active conversation's history, the user input draft, and the rendered streaming condition — active, complete, or interrupted (§3.3.1, `DES-011` §3.3). |
-| `SettingsState` | settings | the `ProviderConnectionListItem`s of the configured connections, the configuration values the settings surface presents, and the compose and error conditions (`DES-011` §3.4, §3.5). |
+| `SettingsState` | settings | the `ProviderConnectionListItem`s of the configured connections, the configuration values the settings surface presents, and the compose, endpoint-edit, and error conditions (`DES-011` §3.4, §3.5). |
 | `NavigationState` | navigation | the current route of the navigation structure — which surface the shell presents and the presentation flow that produced it (§3.5). |
 
 Normative statements:
@@ -208,6 +208,7 @@ The category comprises:
 | Configuration | presents the typed configuration values over `ConfigurationService` — store, read, resolve, and remove typed values at the documented levels (`DES-011` §3.5). |
 | Connection-form intent | translates the user's declaration of a new provider connection into the frozen `ConfigureProviderRequest` — display name, capabilities, limits, version, and the credential entered by the user — and hands it to `ProviderConnectionService` (`DES-011` §3.1, §3.4). |
 | Endpoint collection (v1.1.0) | collects the provider's OpenAI-compatible endpoint with the connection declaration and records it through `ProviderConnectionService.updateEndpoint(_:for:)` (`DES-011` §3.9) — the address the runtime provider adapter binding resolves (`DES-013` §3.3, PRD-008). The endpoint is never a credential and is presented by this surface, but the credential boundary of the connection-form intent remains absolute (`ARC-001`, `ARC-005`). |
+| Endpoint-edit intent (UX audit U7) | translates the user's edit of an existing connection's endpoint — the retry/edit affordance that offers a way to edit instead of only Remove — through the frozen endpoint surface of `ProviderConnectionService` (`DES-011` §3.9): the endpoint editor is pre-filled with the recorded endpoint (resolved through `endpoint(for:)`), a malformed endpoint surfaces as the typed `ApplicationValidationError`, and a failed update keeps the editor open with its input retained. Only the endpoint is edited; the connection declaration and its stored credential are unchanged (`ARC-001`, `ARC-005`). |
 
 Normative statements:
 
@@ -216,6 +217,7 @@ Normative statements:
 - The surface MUST present the generic connection state — identity, display name, capabilities, and lifecycle state — and MUST NEVER change the interface per provider or expose provider-specific detail (`PRODUCT_PRINCIPLES` — Provider Independence, `ARC-004`). Live availability is discovered and reported by the Infrastructure layer, never by this surface (`ARC-004` Capability Discovery).
 - The configuration values MUST be typed through the frozen configuration vocabulary — `ConfigurationKey` and `ConfigurationLevel` (`DES-009` §3.6, `DES-011` §3.5); raw or untyped values are never presented.
 - The endpoint MUST be recorded through the frozen `ProviderConnectionService` endpoint surface (`DES-011` §3.9) and MUST NOT enter the connection declaration or any Domain aggregate; the transport address is connection configuration, never provider model (`DES-011` §3.9, `ARC-004`). A malformed endpoint is rejected by the service's boundary validation and presented as the typed `ApplicationValidationError` (`DES-011` §3.6).
+- A non-ready provider connection MUST offer a way to edit its endpoint instead of only Remove (UX audit U7): the endpoint editor MUST be pre-filled with the recorded endpoint, MUST edit only the endpoint — the connection declaration and its stored credential are unchanged — and a failed update MUST keep the editor open with its input retained, never silent (`ARC-001`).
 - The failures the services surface — `ApplicationValidationError`, and the Domain `RepositoryError` and `CredentialStorageError` — MUST be presented as they are, never wrapped or redefined (`DES-011` §3.6, `DES-009` §3.9); no failure is silent (`ARC-001`).
 
 ### 3.5 Navigation Presentation Surface

@@ -3,8 +3,8 @@ import OmniaFoundation
 
 /// The ready-to-render state of the settings surface: the provider connection
 /// list items of the configured connections, the configuration values the
-/// surface presents, and the compose and error conditions (DES-012 §3.2,
-/// Settings module, ARC-007).
+/// surface presents, and the compose, endpoint-edit, and error conditions
+/// (DES-012 §3.2, Settings module, ARC-007).
 ///
 /// The state is owned by the Presentation layer and composed from the
 /// `ProviderConnectionService` and `ConfigurationService` it renders (DES-011
@@ -59,6 +59,38 @@ public struct SettingsState: Equatable, Sendable {
         }
     }
 
+    /// The endpoint-edit condition of the settings surface (DES-012 §3.2,
+    /// Settings module): the provider connection whose OpenAI-compatible
+    /// endpoint is being edited, the declared display name presented as the
+    /// editor's context, and the endpoint currently recorded — the value the
+    /// editor pre-fills (UX audit U7).
+    ///
+    /// The condition holds only the configured connection state and the
+    /// recorded endpoint — never a credential or provider-specific detail
+    /// (ARC-001, ARC-004, ARC-005). The endpoint is connection configuration
+    /// the user owns (ARC-005, DES-011 §3.9).
+    public struct Editing: Equatable, Sendable {
+        /// The identity of the provider connection being edited.
+        public let identity: ProviderIdentity
+        /// The declared display name of the provider connection.
+        public let displayName: String
+        /// The endpoint currently recorded for the connection, empty when none
+        /// is recorded.
+        public let currentEndpoint: String
+
+        /// Creates the endpoint-edit condition for the provider connection
+        /// with the given identity, display name, and current endpoint.
+        public init(
+            identity: ProviderIdentity,
+            displayName: String,
+            currentEndpoint: String
+        ) {
+            self.identity = identity
+            self.displayName = displayName
+            self.currentEndpoint = currentEndpoint
+        }
+    }
+
     /// The provider connection list items of the configured connections, in
     /// the deterministic order the service lists them (DES-011 §3.4).
     public let connections: [ProviderConnectionListItem]
@@ -67,22 +99,27 @@ public struct SettingsState: Equatable, Sendable {
     /// The compose condition: the provider-connection compose form is
     /// presented and the configure flow is active.
     public let isComposing: Bool
+    /// The endpoint-edit condition: the provider-connection endpoint editor is
+    /// presented and the endpoint-update flow is active.
+    public let editing: Editing?
     /// The typed failure of a settings operation, when the settings surface is
     /// in an error condition.
     public let failure: Failure?
 
     /// Creates a settings state from the configured connections, the
-    /// configuration values, the compose condition, and the optional typed
-    /// failure.
+    /// configuration values, the compose condition, the endpoint-edit
+    /// condition, and the optional typed failure.
     public init(
         connections: [ProviderConnectionListItem],
         configuration: [ConfigurationItem] = [],
         isComposing: Bool = false,
+        editing: Editing? = nil,
         failure: Failure? = nil
     ) {
         self.connections = connections
         self.configuration = configuration
         self.isComposing = isComposing
+        self.editing = editing
         self.failure = failure
     }
 

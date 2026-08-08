@@ -157,6 +157,7 @@ The category is realized by the `SendMessageUseCase`:
 | Method | Meaning |
 |---|---|
 | `send(_ request: SendMessageRequest) async throws -> AsyncThrowingStream<StreamingUpdate, Error>` | performs the streaming flow and delivers the Domain `StreamingUpdate` events incrementally. |
+| `resume(_ conversation: ConversationIdentity) async throws -> AsyncThrowingStream<StreamingUpdate, Error>` | resumes the interrupted stream of a conversation — the retry/continue of an interrupted response (UX audit U7): the preserved partial content is carried forward into the reply, no user message is appended (the last prompt is already in the preserved history), and the completed reply and any second interruption preserve the content again, never discarded (ARC-001, DES-009 §3.3, §3.11.4). A conversation that is not stored, or is not marked interrupted, is rejected with the typed `ApplicationValidationError`; a failed provider selection surfaces as the Domain `CapabilityError.providerUnavailable` (§3.6, DES-009 §3.9). Additive and backward-compatible. |
 
 Normative statements:
 
@@ -166,6 +167,7 @@ Normative statements:
 - The use case MUST deliver the Domain `StreamingUpdate` events to the caller incrementally; the completion event carries the assembled assistant `Message` (DES-009 §3.11.1).
 - On completion, the use case MUST append the assembled assistant message to the conversation and persist it — completion never loses the reply (ARC-001, DES-009 §3.3).
 - On interruption, the use case MUST preserve the partial content as incomplete and MUST NOT discard it; the conversation is marked interrupted and carries the partial content forward (ARC-001, DES-009 §3.11.4).
+- The resume flow MUST NOT append a user message and MUST carry the preserved partial content of the interrupted stream forward into the reply; a resume MUST reject a conversation that is not stored or is not marked interrupted, and MUST surface provider-selection failure as the Domain `CapabilityError.providerUnavailable` (ARC-001, DES-009 §3.2, §3.9, §3.11.4).
 - Capability failures MUST surface as the Domain `CapabilityError`, and credential-resolution failures MUST surface as the Domain `CredentialStorageError`; neither is ever wrapped (§3.6, DES-009 §3.9).
 - The flow MUST never block the caller and MUST be testable without a network; the streaming capability and the repository are injected, so tests deliver their own (ARC-001, ARC-006).
 - The use case delivers exactly the events the Domain declares and invents no stream lifecycle of its own (ARC-002, DES-009 §3.11.4).

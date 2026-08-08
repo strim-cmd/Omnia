@@ -510,6 +510,116 @@ final class ConversationScreenSurfaceTests: XCTestCase {
         XCTAssertEqual(state, .interrupted(partialContent: "Par"))
     }
 
+    func testResume_RendersTheCarriedPartialContentThenTheCompletedAssistantMessage() async throws {
+        let repository = InMemoryConversationRepository()
+        let conversation = Conversation(identity: ConversationIdentity())
+        var interrupted = conversation
+        try interrupted.append(Message(role: .user, content: "First"))
+        try interrupted.beginStreaming()
+        try interrupted.appendPartial("Par")
+        try interrupted.interruptStreaming()
+        try await repository.save(interrupted)
+        let surface = await makeSurface(
+            contract: ScriptedStreamingContract { request in
+                AsyncThrowingStream { continuation in
+                    continuation.yield(.contentDelta(identity: request.identity, content: "tial"))
+                    continuation.yield(
+                        .completion(
+                            identity: request.identity,
+                            message: Message(role: .assistant, content: "Partial")
+                        )
+                    )
+                    continuation.finish()
+                }
+            },
+            repository: repository
+        )
+        let history = userHistory("First")
+
+        var states: [ConversationScreenState] = []
+        for try await state in surface.resume(
+            conversation.identity,
+            from: "Par",
+            rendering: history
+        ) {
+            states.append(state)
+        }
+
+        XCTAssertEqual(states.count, 2)
+        XCTAssertEqual(states[0].messages, history)
+        XCTAssertEqual(states[0].streamingCondition, .active(partialContent: "Partial"))
+        let completed = try XCTUnwrap(states.last)
+        XCTAssertEqual(completed.messages, history + [presentation(role: .assistant, "Partial")])
+        XCTAssertEqual(completed.streamingCondition, .complete)
+        XCTAssertNil(completed.failure)
+    }
+
+    func testResume_RendersAnInterruptionPreservingTheCarriedContent() async throws {
+        let repository = InMemoryConversationRepository()
+        let conversation = Conversation(identity: ConversationIdentity())
+        var interrupted = conversation
+        try interrupted.append(Message(role: .user, content: "First"))
+        try interrupted.beginStreaming()
+        try interrupted.appendPartial("Par")
+        try interrupted.interruptStreaming()
+        try await repository.save(interrupted)
+        let surface = await makeSurface(
+            contract: ScriptedStreamingContract { request in
+                AsyncThrowingStream { continuation in
+                    continuation.yield(.contentDelta(identity: request.identity, content: "t"))
+                    continuation.yield(.interruption(identity: request.identity, partialContent: "t"))
+                    continuation.finish()
+                }
+            },
+            repository: repository
+        )
+        let history = userHistory("First")
+
+        var states: [ConversationScreenState] = []
+        for try await state in surface.resume(
+            conversation.identity,
+            from: "Par",
+            rendering: history
+        ) {
+            states.append(state)
+        }
+
+        XCTAssertEqual(states.count, 2)
+        XCTAssertEqual(states[0].streamingCondition, .active(partialContent: "Part"))
+        let finalState = try XCTUnwrap(states.last)
+        XCTAssertEqual(finalState.messages, history)
+        XCTAssertEqual(finalState.streamingCondition, .interrupted(partialContent: "Part"))
+        XCTAssertNil(finalState.failure)
+    }
+
+    func testResume_PresentsValidationFailureAsTerminalState() async throws {
+        let repository = InMemoryConversationRepository()
+        let conversation = Conversation(identity: ConversationIdentity())
+        try await repository.save(conversation)
+        let surface = await makeSurface(
+            contract: ScriptedStreamingContract { _ in
+                AsyncThrowingStream { $0.finish() }
+            },
+            repository: repository
+        )
+
+        var states: [ConversationScreenState] = []
+        do {
+            for try await state in surface.resume(conversation.identity, from: "") {
+                states.append(state)
+            }
+        } catch {
+            return XCTFail("expected a terminal failure state, got a throw: \(error)")
+        }
+
+        XCTAssertEqual(states.count, 1)
+        let failed = try XCTUnwrap(states.first)
+        XCTAssertEqual(
+            failed.failure,
+            .application(.invalid(reason: "The conversation has no interrupted response to resume."))
+        )
+    }
+
     private func pollInterruptedState(
         identity: ConversationIdentity,
         repository: InMemoryConversationRepository

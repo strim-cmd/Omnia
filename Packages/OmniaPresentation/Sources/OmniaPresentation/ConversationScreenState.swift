@@ -28,8 +28,9 @@ public struct ConversationScreenState: Equatable, Sendable {
     /// The failure is the typed error the `SendMessageUseCase` surfaced —
     /// `ApplicationValidationError`, and the Domain `RepositoryError`,
     /// `CapabilityError`, and `CredentialStorageError` — presented as it is,
-    /// never wrapped or redefined (DES-011 §3.6, DES-009 §3.9); no failure is
-    /// silent (ARC-001).
+    /// never wrapped or redefined (DES-011 §3.6, DES-009 §3.9); an error the
+    /// presentation layer cannot map to a typed failure is presented as
+    /// `.unexpected`, still never silent (ARC-001).
     public enum Failure: Equatable, Sendable {
         /// Input validation failed at the application boundary.
         case application(ApplicationValidationError)
@@ -39,6 +40,9 @@ public struct ConversationScreenState: Equatable, Sendable {
         case capability(CapabilityError)
         /// A credential storage operation failed.
         case credentialStorage(CredentialStorageError)
+        /// The streaming flow failed with an error the presentation layer cannot
+        /// map to a typed failure; the failure is never silent (ARC-001).
+        case unexpected
     }
 
     /// The rendered streaming condition of the screen (DES-012 §3.2).
@@ -88,5 +92,36 @@ public struct ConversationScreenState: Equatable, Sendable {
     /// The error condition: a send operation failed.
     public var hasError: Bool {
         failure != nil
+    }
+
+    /// Returns a copy of the state with the rendered draft replaced, preserving
+    /// the history, the streaming condition, and the failure. The draft is the
+    /// user's in-progress composer input — rendered from state through a
+    /// binding (UX audit U4) — so this is the way the shell preserves it across
+    /// streaming updates and rehydrates it when a conversation is reopened.
+    public func replacingDraft(_ draft: String) -> ConversationScreenState {
+        ConversationScreenState(
+            messages: messages,
+            draft: draft,
+            streamingCondition: streamingCondition,
+            failure: failure
+        )
+    }
+
+    /// Returns a copy of the state with the rendered streaming condition
+    /// replaced, preserving the history, the draft, and the failure. The shell
+    /// uses it to render a user-initiated stop as the interrupted condition the
+    /// Domain preserved — the partial content is never discarded (ARC-001) —
+    /// so the screen announces the interruption and the Stop affordance gives
+    /// way to the composer (UX audit A4).
+    public func replacingStreamingCondition(
+        _ condition: StreamingCondition?
+    ) -> ConversationScreenState {
+        ConversationScreenState(
+            messages: messages,
+            draft: draft,
+            streamingCondition: condition,
+            failure: failure
+        )
     }
 }

@@ -101,6 +101,84 @@ final class ConversationScreenStateTests: XCTestCase {
         XCTAssertEqual(credential.failure, .credentialStorage(.storageUnavailable))
     }
 
+    func testFailure_UnexpectedErrorIsNeverSilent() {
+        let state = ConversationScreenState(
+            messages: [presentation("Partial reply")],
+            failure: .unexpected
+        )
+        XCTAssertEqual(state.failure, .unexpected)
+        XCTAssertTrue(state.hasError)
+        XCTAssertEqual(state.messages, [presentation("Partial reply")])
+    }
+
+    func testFailure_DistinctFailuresAreNotEqual() {
+        let unexpected = ConversationScreenState(messages: [], failure: .unexpected)
+        XCTAssertNotEqual(
+            unexpected.failure,
+            ConversationScreenState(messages: [], failure: .capability(.invalidResponse)).failure
+        )
+        XCTAssertNotEqual(unexpected, ConversationScreenState(messages: []))
+    }
+
+    // MARK: Draft rehydration (UX audit U4)
+
+    func testReplacingDraft_UpdatesDraftAndPreservesContent() {
+        let state = ConversationScreenState(
+            messages: [presentation("Reply")],
+            streamingCondition: .active(partialContent: "Part"),
+            failure: .capability(.invalidResponse)
+        )
+        let replaced = state.replacingDraft("In progress")
+        XCTAssertEqual(replaced.draft, "In progress")
+        XCTAssertEqual(replaced.messages, [presentation("Reply")])
+        XCTAssertEqual(replaced.streamingCondition, .active(partialContent: "Part"))
+        XCTAssertEqual(replaced.failure, .capability(.invalidResponse))
+        XCTAssertEqual(state.draft, "")
+    }
+
+    func testReplacingDraft_EmptyDraftClearsPrevious() {
+        let state = ConversationScreenState(messages: [], draft: "Draft")
+        let replaced = state.replacingDraft("")
+        XCTAssertEqual(replaced.draft, "")
+        XCTAssertEqual(replaced.messages, [])
+    }
+
+    // MARK: Streaming condition transition (UX audit A4)
+
+    func testReplacingStreamingCondition_ActiveToInterruptedPreservesContent() {
+        let state = ConversationScreenState(
+            messages: [presentation("Reply")],
+            draft: "In progress",
+            streamingCondition: .active(partialContent: "Partial"),
+            failure: .capability(.invalidResponse)
+        )
+        let replaced = state.replacingStreamingCondition(.interrupted(partialContent: "Partial"))
+        XCTAssertEqual(replaced.streamingCondition, .interrupted(partialContent: "Partial"))
+        XCTAssertEqual(replaced.messages, [presentation("Reply")])
+        XCTAssertEqual(replaced.draft, "In progress")
+        XCTAssertEqual(replaced.failure, .capability(.invalidResponse))
+        XCTAssertEqual(state.streamingCondition, .active(partialContent: "Partial"))
+    }
+
+    func testReplacingStreamingCondition_ToActive() {
+        let state = ConversationScreenState(
+            messages: [],
+            streamingCondition: .interrupted(partialContent: "Partial")
+        )
+        let replaced = state.replacingStreamingCondition(.active(partialContent: "Partial"))
+        XCTAssertEqual(replaced.streamingCondition, .active(partialContent: "Partial"))
+    }
+
+    func testReplacingStreamingCondition_ClearsCondition() {
+        let state = ConversationScreenState(
+            messages: [presentation("Reply")],
+            streamingCondition: .active(partialContent: "Partial")
+        )
+        let replaced = state.replacingStreamingCondition(nil)
+        XCTAssertNil(replaced.streamingCondition)
+        XCTAssertEqual(replaced.messages, [presentation("Reply")])
+    }
+
     // MARK: Equality
 
     func testEquality_SameContentIsEqual() {

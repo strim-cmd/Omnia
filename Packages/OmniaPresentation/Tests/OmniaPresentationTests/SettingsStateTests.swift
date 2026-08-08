@@ -47,6 +47,34 @@ final class SettingsStateTests: XCTestCase {
         XCTAssertTrue(state.isComposing)
     }
 
+    func testCreation_EditingDefaultsToNil() {
+        let state = SettingsState(connections: [])
+        XCTAssertNil(state.editing)
+    }
+
+    func testEditCondition_ReflectsTheEndpointEditFlow() {
+        let identity = ProviderIdentity()
+        let editing = SettingsState.Editing(
+            identity: identity,
+            displayName: "Example Provider",
+            currentEndpoint: "https://api.example.com/v1"
+        )
+        let state = SettingsState(connections: [], editing: editing)
+        XCTAssertEqual(state.editing, editing)
+        XCTAssertEqual(state.editing?.identity, identity)
+        XCTAssertEqual(state.editing?.displayName, "Example Provider")
+        XCTAssertEqual(state.editing?.currentEndpoint, "https://api.example.com/v1")
+    }
+
+    func testEditCondition_CurrentEndpointDefaultsToEmptyWhenNoneIsRecorded() {
+        let editing = SettingsState.Editing(
+            identity: ProviderIdentity(),
+            displayName: "Example Provider",
+            currentEndpoint: ""
+        )
+        XCTAssertEqual(editing.currentEndpoint, "")
+    }
+
     func testFailure_ApplicationValidationError() {
         let state = SettingsState(
             connections: [],
@@ -77,6 +105,28 @@ final class SettingsStateTests: XCTestCase {
         let a = SettingsState(connections: [], isComposing: false)
         let b = SettingsState(connections: [], isComposing: true)
         XCTAssertNotEqual(a, b)
+    }
+
+    func testEquality_DifferentEditConditionIsNotEqual() {
+        let editing = SettingsState.Editing(
+            identity: ProviderIdentity(),
+            displayName: "Example Provider",
+            currentEndpoint: "https://api.example.com/v1"
+        )
+        let a = SettingsState(connections: [])
+        let b = SettingsState(connections: [], editing: editing)
+        XCTAssertNotEqual(a, b)
+    }
+
+    func testEquality_EditingEqualToItself() {
+        let editing = SettingsState.Editing(
+            identity: ProviderIdentity(),
+            displayName: "Example Provider",
+            currentEndpoint: "https://api.example.com/v1"
+        )
+        let a = SettingsState(connections: [], editing: editing)
+        let b = SettingsState(connections: [], editing: editing)
+        XCTAssertEqual(a, b)
     }
 
     func testEquality_DifferentConnectionsAreNotEqual() {

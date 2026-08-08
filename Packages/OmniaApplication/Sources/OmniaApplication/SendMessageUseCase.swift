@@ -80,6 +80,38 @@ public struct SendMessageUseCase: Sendable {
         return makeStream(initialConversation: conversation, model: model)
     }
 
+    /// Resumes the interrupted response of a conversation, delivering the
+    /// Domain `StreamingUpdate` events incrementally (DES-011 §3.3, DES-009
+    /// §3.3, §3.11.4).
+    ///
+    /// A resume re-sends the last prompt against the preserved partial content
+    /// without appending a new user message: the prompt is already in the
+    /// preserved history, and the partial content of the interrupted stream is
+    /// carried forward — folded into the completed reply on completion, or
+    /// preserved again on a second interruption (ARC-001, DES-009 §3.3). The
+    /// provider and model are selected through the Domain selection service as
+    /// in `send`, and the same failure surfaces — `CapabilityError`,
+    /// `CredentialStorageError`, `RepositoryError`, never wrapped (§3.6, DES-009
+    /// §3.9).
+    public func resume(
+        _ conversation: ConversationIdentity
+    ) async throws -> AsyncThrowingStream<StreamingUpdate, Error> {
+        guard var conversation = try await conversationRepository.conversation(with: conversation) else {
+            throw ApplicationValidationError.invalid(reason: "The conversation is not stored.")
+        }
+        guard case .interrupted = conversation.streamingState else {
+            throw ApplicationValidationError.invalid(
+                reason: "The conversation has no interrupted response to resume."
+            )
+        }
+        let selection = await selectionService.select(requiredCapability: .streaming)
+        guard case let .selected(provider: _, model: model) = selection else {
+            throw CapabilityError.providerUnavailable
+        }
+        try conversation.beginStreaming()
+        return makeStream(initialConversation: conversation, model: model)
+    }
+
     /// Validates the request at the application boundary (ARC-009, DES-011 §3.6).
     private func validate(_ request: SendMessageRequest) throws {
         guard !request.message.content.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {

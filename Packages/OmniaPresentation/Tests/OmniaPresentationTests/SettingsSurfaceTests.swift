@@ -493,6 +493,123 @@ final class SettingsSurfaceTests: XCTestCase {
         XCTAssertTrue(state.connections.isEmpty)
     }
 
+    // MARK: Endpoint — update and read (UX audit U7)
+
+    func testEndpoint_ReturnsNilWhenNoEndpointIsRecorded() async throws {
+        let surface = makeSurface(
+            providerRepository: InMemoryProviderRepository(),
+            credentialStorage: InMemoryCredentialStorage(),
+            configurationRepository: InMemoryConfigurationRepository()
+        )
+        let connection = try await surface.configure(request())
+        let endpoint = try await surface.endpoint(for: connection.identity)
+        XCTAssertNil(endpoint)
+    }
+
+    func testUpdateEndpoint_RecordsTheEndpointAtProviderSettingsLevel() async throws {
+        let surface = makeSurface(
+            providerRepository: InMemoryProviderRepository(),
+            credentialStorage: InMemoryCredentialStorage(),
+            configurationRepository: InMemoryConfigurationRepository()
+        )
+        let connection = try await surface.configure(request(), endpoint: "https://api.example.com/v1")
+
+        try await surface.updateEndpoint("https://api.updated.example.com/v1", for: connection.identity)
+
+        let endpoint = try await surface.endpoint(for: connection.identity)
+        XCTAssertEqual(endpoint, "https://api.updated.example.com/v1")
+    }
+
+    func testUpdateEndpoint_ReplacesThePreviouslyRecordedEndpoint() async throws {
+        let surface = makeSurface(
+            providerRepository: InMemoryProviderRepository(),
+            credentialStorage: InMemoryCredentialStorage(),
+            configurationRepository: InMemoryConfigurationRepository()
+        )
+        let connection = try await surface.configure(request(), endpoint: "https://api.example.com/v1")
+
+        try await surface.updateEndpoint("https://api.updated.example.com/v1", for: connection.identity)
+        try await surface.updateEndpoint("https://api.final.example.com/v1", for: connection.identity)
+
+        let endpoint = try await surface.endpoint(for: connection.identity)
+        XCTAssertEqual(endpoint, "https://api.final.example.com/v1")
+    }
+
+    func testUpdateEndpoint_TrimsWhitespaceAroundTheEndpoint() async throws {
+        let surface = makeSurface(
+            providerRepository: InMemoryProviderRepository(),
+            credentialStorage: InMemoryCredentialStorage(),
+            configurationRepository: InMemoryConfigurationRepository()
+        )
+        let connection = try await surface.configure(request())
+
+        try await surface.updateEndpoint("  https://api.example.com/v1  ", for: connection.identity)
+
+        let endpoint = try await surface.endpoint(for: connection.identity)
+        XCTAssertEqual(endpoint, "https://api.example.com/v1")
+    }
+
+    func testUpdateEndpoint_InvalidEndpointSurfacesAsApplicationValidationError() async throws {
+        let surface = makeSurface(
+            providerRepository: InMemoryProviderRepository(),
+            credentialStorage: InMemoryCredentialStorage(),
+            configurationRepository: InMemoryConfigurationRepository()
+        )
+        let connection = try await surface.configure(request(), endpoint: "https://api.example.com/v1")
+
+        do {
+            try await surface.updateEndpoint("api.example.com/v1", for: connection.identity)
+            XCTFail("Expected ApplicationValidationError")
+        } catch let error as ApplicationValidationError {
+            XCTAssertEqual(
+                error,
+                .invalid(reason: "The endpoint must be an absolute http or https URL.")
+            )
+        } catch {
+            XCTFail("Unexpected error: \(error)")
+        }
+
+        let endpoint = try await surface.endpoint(for: connection.identity)
+        XCTAssertEqual(endpoint, "https://api.example.com/v1")
+    }
+
+    func testUpdateEndpoint_EmptyEndpointSurfacesAsApplicationValidationError() async throws {
+        let surface = makeSurface(
+            providerRepository: InMemoryProviderRepository(),
+            credentialStorage: InMemoryCredentialStorage(),
+            configurationRepository: InMemoryConfigurationRepository()
+        )
+        let connection = try await surface.configure(request(), endpoint: "https://api.example.com/v1")
+
+        do {
+            try await surface.updateEndpoint("", for: connection.identity)
+            XCTFail("Expected ApplicationValidationError")
+        } catch let error as ApplicationValidationError {
+            XCTAssertEqual(error, .invalid(reason: "The endpoint is empty."))
+        } catch {
+            XCTFail("Unexpected error: \(error)")
+        }
+
+        let endpoint = try await surface.endpoint(for: connection.identity)
+        XCTAssertEqual(endpoint, "https://api.example.com/v1")
+    }
+
+    func testUpdateEndpoint_RepositoryFailureSurfacesAsRepositoryError() async throws {
+        let surface = makeSurface(
+            providerRepository: InMemoryProviderRepository(),
+            credentialStorage: InMemoryCredentialStorage(),
+            configurationRepository: FailingConfigurationRepository()
+        )
+        do {
+            try await surface.updateEndpoint("https://api.example.com/v1", for: ProviderIdentity())
+            XCTFail("Expected RepositoryError")
+        } catch let error as RepositoryError {
+            XCTAssertEqual(error, .storageUnavailable)
+        } catch {
+            XCTFail("Unexpected error: \(error)")
+        }
+    }
+
     // MARK: Remove
 
     func testRemove_RemovesProviderCredentialAndReference() async throws {

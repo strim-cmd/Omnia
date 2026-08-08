@@ -89,11 +89,69 @@ public struct ConversationScreenSurface: Sendable {
         _ request: SendMessageRequest,
         rendering history: [MessagePresentation] = []
     ) -> AsyncThrowingStream<ConversationScreenState, any Error> {
+        perform({ try await useCase.send(request) }, rendering: history)
+    }
+
+    /// Resumes the interrupted response of a conversation and renders the
+    /// Domain `StreamingUpdate` events incrementally as `ConversationScreenState`
+    /// snapshots (UX audit U7, DES-012 §3.3, DES-011 §3.3).
+    ///
+    /// Unlike `send`, a resume does not add a user message: the last prompt is
+    /// already in the rendered history, and the preserved partial content of
+    /// the interrupted stream is carried forward into the reply — the content
+    /// deltas accumulate onto `partialContent`, so the active condition renders
+    /// the carried content as it continues, the completion event appends the
+    /// assembled assistant message, and a second interruption preserves the
+    /// carried content again, never discarded (ARC-001, DES-009 §3.3,
+    /// §3.11.4). The `history` rendered is the screen's current message
+    /// presentations; `partialContent` is the interrupted condition's preserved
+    /// content the screen presents.
+    ///
+    /// The failures the use case surfaces are presented as a typed terminal
+    /// failure state, as they are, never wrapped (DES-011 §3.6, DES-009 §3.9);
+    /// an unexpected failure is thrown as it is. The flow stops cooperatively
+    /// on cancellation, distinct from failure (DES-008, ARC-001).
+    public func resume(
+        _ conversation: ConversationIdentity,
+        from partialContent: String,
+        rendering history: [MessagePresentation] = []
+    ) -> AsyncThrowingStream<ConversationScreenState, any Error> {
+        perform(
+            { try await useCase.resume(conversation) },
+            rendering: history,
+            startingPartial: partialContent
+        )
+    }
+
+    /// Performs the given send-message use-case operation and renders the
+    /// Domain `StreamingUpdate` events incrementally as `ConversationScreenState`
+    /// snapshots (DES-012 §3.3, DES-011 §3.3).
+    ///
+    /// The `history` rendered is the history the screen already presents, so
+    /// every yielded state carries the full rendered history alongside the
+    /// streaming condition: `active` renders the content deltas incrementally
+    /// onto `startingPartial` — empty for a send, the preserved content for a
+    /// resume — `complete` renders the assembled assistant message of the
+    /// completion event appended to the history, and `interrupted` renders the
+    /// preserved partial content as incomplete, never discarded (ARC-001,
+    /// DES-009 §3.11.4).
+    ///
+    /// The failures the use case surfaces — `ApplicationValidationError`, and
+    /// the Domain `RepositoryError`, `CapabilityError`, and
+    /// `CredentialStorageError` — are presented as a typed terminal failure
+    /// state, as they are, never wrapped or redefined (DES-011 §3.6, DES-009
+    /// §3.9); an unexpected failure is thrown as it is. The flow stops
+    /// cooperatively on cancellation, distinct from failure (DES-008, ARC-001).
+    private func perform(
+        _ start: @escaping @Sendable () async throws -> AsyncThrowingStream<StreamingUpdate, Error>,
+        rendering history: [MessagePresentation],
+        startingPartial: String = ""
+    ) -> AsyncThrowingStream<ConversationScreenState, any Error> {
         AsyncThrowingStream { continuation in
             let task = Task {
-                var partialContent = ""
+                var partialContent = startingPartial
                 do {
-                    let stream = try await useCase.send(request)
+                    let stream = try await start()
                     for try await update in stream {
                         switch update {
                         case .contentDelta(_, let content):
@@ -113,7 +171,14 @@ public struct ConversationScreenSurface: Sendable {
                             )
                             continuation.finish()
                             return
-                        case .interruption(_, let partialContent):
+                        case .interruption(_, let content):
+                            // The interruption event reports the partial content
+                            // the provider accumulated since the request began;
+                            // on a resume the carried content precedes it, so the
+                            // preserved partial is the longer of the two when one
+                            // extends the other — never discarded (ARC-001,
+                            // DES-009 §3.11.4).
+                            partialContent = Self.reconciledPartial(current: partialContent, to: content)
                             continuation.yield(
                                 ConversationScreenState(
                                     messages: history,
@@ -148,6 +213,17 @@ public struct ConversationScreenSurface: Sendable {
                 task.cancel()
             }
         }
+    }
+
+    /// Reconciles the partial content an interruption event reports onto the
+    /// partial content already accumulated: when one extends the other it is
+    /// carried forward in full, otherwise the accumulated content is kept —
+    /// partial content is never discarded (ARC-001, DES-009 §3.11.4).
+    private static func reconciledPartial(current: String, to content: String) -> String {
+        if content.hasPrefix(current), content.count > current.count {
+            return content
+        }
+        return current
     }
 
     /// Maps the typed failures of the send-message use case into the screen's

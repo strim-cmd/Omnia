@@ -763,6 +763,176 @@ final class SendMessageUseCaseTests: XCTestCase {
         XCTAssertEqual(stored.streamingState, .interrupted(partialContent: "Part"))
     }
 
+    func testResume_CarriesThePreservedPartialContentIntoTheCompletedReplyWithoutAppendingAUserMessage() async throws {
+        let repository = InMemoryConversationRepository()
+        let conversation = Conversation(identity: ConversationIdentity())
+        var interrupted = conversation
+        try interrupted.append(Message(role: .user, content: "First"))
+        try interrupted.beginStreaming()
+        try interrupted.appendPartial("Par")
+        try interrupted.interruptStreaming()
+        try await repository.save(interrupted)
+        let (selection, _) = await makeSelectionService(modelsByProvider: [
+            providerA: [ModelReference(name: "model")],
+        ])
+        let useCase = makeUseCase(
+            contract: ScriptedStreamingContract { request in
+                AsyncThrowingStream { continuation in
+                    continuation.yield(.contentDelta(identity: request.identity, content: "tial"))
+                    continuation.yield(
+                        .completion(
+                            identity: request.identity,
+                            message: Message(role: .assistant, content: "tial")
+                        )
+                    )
+                    continuation.finish()
+                }
+            },
+            selectionService: selection,
+            repository: repository
+        )
+        let stream = try await useCase.resume(interrupted.identity)
+        for try await _ in stream {}
+
+        let storedConversation = try? await repository.conversation(with: interrupted.identity)
+        let stored = try XCTUnwrap(storedConversation)
+        XCTAssertEqual(stored.history, [
+            Message(role: .user, content: "First"),
+            Message(role: .assistant, content: "Partial"),
+        ])
+        XCTAssertEqual(stored.streamingState, .idle)
+    }
+
+    func testResume_DeliversThePreservedHistoryToTheProviderWithoutDuplicatingThePrompt() async throws {
+        let repository = InMemoryConversationRepository()
+        let conversation = Conversation(identity: ConversationIdentity())
+        var interrupted = conversation
+        try interrupted.append(Message(role: .user, content: "First"))
+        try interrupted.beginStreaming()
+        try interrupted.appendPartial("Par")
+        try interrupted.interruptStreaming()
+        try await repository.save(interrupted)
+        let (selection, _) = await makeSelectionService(modelsByProvider: [
+            providerA: [ModelReference(name: "model")],
+        ])
+        let captured = CapturedRequest()
+        let useCase = makeUseCase(
+            contract: ScriptedStreamingContract { request in
+                captured.set(request)
+                return completionStream(request)
+            },
+            selectionService: selection,
+            repository: repository
+        )
+        let stream = try await useCase.resume(interrupted.identity)
+        for try await _ in stream {}
+
+        XCTAssertEqual(try XCTUnwrap(captured.get()).history, [
+            Message(role: .user, content: "First"),
+        ])
+    }
+
+    func testResume_PreservesCarriedAndNewContentWhenInterruptedAgain() async throws {
+        let repository = InMemoryConversationRepository()
+        let conversation = Conversation(identity: ConversationIdentity())
+        var interrupted = conversation
+        try interrupted.append(Message(role: .user, content: "First"))
+        try interrupted.beginStreaming()
+        try interrupted.appendPartial("Par")
+        try interrupted.interruptStreaming()
+        try await repository.save(interrupted)
+        let (selection, _) = await makeSelectionService(modelsByProvider: [
+            providerA: [ModelReference(name: "model")],
+        ])
+        let useCase = makeUseCase(
+            contract: ScriptedStreamingContract { request in
+                AsyncThrowingStream { continuation in
+                    continuation.yield(.contentDelta(identity: request.identity, content: "t"))
+                    continuation.yield(.interruption(identity: request.identity, partialContent: "t"))
+                    continuation.finish()
+                }
+            },
+            selectionService: selection,
+            repository: repository
+        )
+        let stream = try await useCase.resume(interrupted.identity)
+        for try await _ in stream {}
+
+        let storedConversation = try? await repository.conversation(with: interrupted.identity)
+        let stored = try XCTUnwrap(storedConversation)
+        XCTAssertEqual(stored.history, [Message(role: .user, content: "First")])
+        XCTAssertEqual(stored.streamingState, .interrupted(partialContent: "Part"))
+    }
+
+    func testResume_RejectsAConversationThatIsNotStored() async throws {
+        let (selection, _) = await makeSelectionService(modelsByProvider: [
+            providerA: [ModelReference(name: "model")],
+        ])
+        let useCase = makeUseCase(
+            contract: ScriptedStreamingContract { completionStream($0) },
+            selectionService: selection,
+            repository: InMemoryConversationRepository()
+        )
+
+        do {
+            _ = try await useCase.resume(ConversationIdentity())
+            XCTFail("expected a validation failure")
+        } catch {
+            XCTAssertEqual(
+                error as? ApplicationValidationError,
+                .invalid(reason: "The conversation is not stored.")
+            )
+        }
+    }
+
+    func testResume_RejectsAConversationWithoutAnInterruptedResponse() async throws {
+        let repository = InMemoryConversationRepository()
+        let conversation = Conversation(identity: ConversationIdentity())
+        try await repository.save(conversation)
+        let (selection, _) = await makeSelectionService(modelsByProvider: [
+            providerA: [ModelReference(name: "model")],
+        ])
+        let useCase = makeUseCase(
+            contract: ScriptedStreamingContract { completionStream($0) },
+            selectionService: selection,
+            repository: repository
+        )
+
+        do {
+            _ = try await useCase.resume(conversation.identity)
+            XCTFail("expected a validation failure")
+        } catch {
+            XCTAssertEqual(
+                error as? ApplicationValidationError,
+                .invalid(reason: "The conversation has no interrupted response to resume.")
+            )
+        }
+    }
+
+    func testResume_SurfacesProviderSelectionFailureAsUnavailable() async throws {
+        let repository = InMemoryConversationRepository()
+        let conversation = Conversation(identity: ConversationIdentity())
+        var interrupted = conversation
+        try interrupted.append(Message(role: .user, content: "First"))
+        try interrupted.beginStreaming()
+        try interrupted.appendPartial("Par")
+        try interrupted.interruptStreaming()
+        try await repository.save(interrupted)
+        let (selection, _) = await makeSelectionService(modelsByProvider: [:])
+        let useCase = makeUseCase(
+            contract: ScriptedStreamingContract { completionStream($0) },
+            selectionService: selection,
+            repository: repository
+        )
+
+        do {
+            _ = try await useCase.resume(interrupted.identity)
+            XCTFail("expected a selection failure")
+        } catch {
+            XCTAssertEqual(error as? CapabilityError, .providerUnavailable)
+        }
+    }
+
     func testSend_ShareAcrossConcurrencyDomain() async throws {
         let repository = InMemoryConversationRepository()
         let conversation = Conversation(identity: ConversationIdentity())

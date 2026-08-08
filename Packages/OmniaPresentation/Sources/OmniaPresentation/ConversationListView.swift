@@ -26,6 +26,12 @@ public struct ConversationListView: View {
     /// identity.
     public let onDelete: (ConversationIdentity) -> Void
 
+    /// The conversation awaiting destructive confirmation before the delete
+    /// intent is translated — nil until a destructive action is requested.
+    /// A full swipe never deletes: the confirm step is explicit and the
+    /// system confirmation dialog is the accessibility path (UX audit U5).
+    @State private var pendingDeletion: ConversationIdentity?
+
     /// Creates a conversation list view over the given state and intent
     /// callbacks.
     public init(
@@ -55,6 +61,24 @@ public struct ConversationListView: View {
             if let failure = state.failure {
                 failureBanner(failure)
             }
+        }
+        .confirmationDialog(
+            "Delete Conversation?",
+            isPresented: Binding(
+                get: { pendingDeletion != nil },
+                set: { presented in
+                    if !presented {
+                        pendingDeletion = nil
+                    }
+                }
+            ),
+            presenting: pendingDeletion
+        ) { identity in
+            Button("Delete", role: .destructive) {
+                onDelete(identity)
+            }
+        } message: { _ in
+            Text("This conversation and its messages will be permanently deleted.")
         }
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
@@ -90,9 +114,16 @@ public struct ConversationListView: View {
         }
         .buttonStyle(.plain)
         .accessibilityElement(children: .combine)
-        .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+        .contextMenu {
             Button(role: .destructive) {
-                onDelete(item.identity)
+                pendingDeletion = item.identity
+            } label: {
+                Label("Delete", systemImage: "trash")
+            }
+        }
+        .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+            Button(role: .destructive) {
+                pendingDeletion = item.identity
             } label: {
                 Label("Delete", systemImage: "trash")
             }
@@ -115,7 +146,8 @@ public struct ConversationListView: View {
     }
 
     private func failureBanner(_ failure: RepositoryError) -> some View {
-        Label("Something went wrong. Please try again.", systemImage: "exclamationmark.triangle")
+        let message = FailureCopy.message(for: failure)
+        return Label(message, systemImage: "exclamationmark.triangle")
             .font(.subheadline)
             .foregroundStyle(.white)
             .padding(10)
@@ -123,7 +155,7 @@ public struct ConversationListView: View {
             .background(Color.red)
             .clipShape(RoundedRectangle(cornerRadius: 8))
             .padding(.horizontal)
-            .accessibilityLabel(Text("Error"))
+            .accessibilityLabel(Text(message))
     }
 }
 

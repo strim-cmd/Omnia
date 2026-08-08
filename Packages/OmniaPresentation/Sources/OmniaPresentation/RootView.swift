@@ -41,6 +41,11 @@ public struct RootView: View {
     @State private var presentedConversation: Conversation?
     /// The ready-to-render conversation screen state.
     @State private var screenState: ConversationScreenState?
+    /// The in-progress composer drafts of the conversations, keyed by
+    /// identity: the rendered draft lives in `screenState.draft`, and this
+    /// store lets an unsent draft survive leaving and returning to a
+    /// conversation (UX audit U4).
+    @State private var conversationDrafts: [ConversationIdentity: String] = [:]
     /// The ready-to-render settings state.
     @State private var settingsState: SettingsState?
     /// The streaming task of the active send-message flow.
@@ -60,12 +65,18 @@ public struct RootView: View {
 
     public var body: some View {
         NavigationStack {
-            ConversationListView(
-                state: listState ?? ConversationListState(items: []),
-                onCreate: createConversation,
-                onSelect: openConversation,
-                onDelete: deleteConversation
-            )
+            Group {
+                if let listState {
+                    ConversationListView(
+                        state: listState,
+                        onCreate: createConversation,
+                        onSelect: openConversation,
+                        onDelete: deleteConversation
+                    )
+                } else {
+                    loadingState
+                }
+            }
             .navigationDestination(
                 isPresented: Binding(
                     get: { destination.wrappedValue != nil },
@@ -136,8 +147,10 @@ public struct RootView: View {
     private func conversationScreen(for identity: ConversationIdentity) -> some View {
         ConversationScreenView(
             state: screenState ?? ConversationScreenState(messages: []),
+            draft: draftBinding,
             onSend: send,
-            onCancel: cancel
+            onCancel: cancel,
+            onRetry: retry
         )
         .navigationTitle(title(for: identity))
         .onDisappear {
@@ -146,15 +159,39 @@ public struct RootView: View {
         }
     }
 
-    private var settingsScreen: some View {
-        SettingsView(
-            state: settingsState ?? SettingsState(connections: [], configuration: []),
-            onCompose: presentConnectionForm,
-            onCancel: dismissConnectionForm,
-            onConfigure: configure,
-            onRemove: remove,
-            onResetConfiguration: resetConfiguration
+    /// A binding to the rendered draft of the presented conversation's state:
+    /// typing edits `screenState.draft` directly and records the in-progress
+    /// draft per conversation, so an unsent draft is never lost when the
+    /// conversation is left and reopened (UX audit U4).
+    private var draftBinding: Binding<String> {
+        Binding(
+            get: { screenState?.draft ?? "" },
+            set: { draft in
+                if case .conversationScreen(let identity) = navigation.currentRoute {
+                    conversationDrafts[identity] = draft
+                }
+                screenState = screenState?.replacingDraft(draft)
+            }
         )
+    }
+
+    private var settingsScreen: some View {
+        if let settingsState {
+            SettingsView(
+                state: settingsState,
+                onCompose: presentConnectionForm,
+                onCancel: dismissConnectionForm,
+                onConfigure: configure,
+                onRemove: remove,
+                onEditProvider: editProvider,
+                onUpdateEndpoint: updateEndpoint,
+                onCancelEndpointEdit: cancelEndpointEdit,
+                onResetConfiguration: resetConfiguration
+            )
+        } else {
+            loadingState
+                .navigationTitle("Settings")
+        }
     }
 
     /// The navigation title of the conversation screen: the conversation's
@@ -169,6 +206,16 @@ public struct RootView: View {
     }
 
     // MARK: Loading
+
+    /// The loading state shown until the first load resolves: a centered
+    /// progress indicator, distinct from the loaded-but-empty state, so no
+    /// empty-state flash appears while the conversation list or the settings
+    /// load (UX audit U6). The pattern matches the shells' launch loading state.
+    private var loadingState: some View {
+        ProgressView()
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .accessibilityLabel(Text("Loading"))
+    }
 
     @MainActor
     private func loadConversationList() async {
@@ -216,6 +263,7 @@ public struct RootView: View {
                 let conversation = try await surface.conversationList.create(in: workspace)
                 presentedConversation = conversation
                 screenState = surface.conversationScreen.load(conversation)
+                    .replacingDraft(conversationDrafts[conversation.identity] ?? "")
                 guard case .conversationList = navigation.currentRoute else { return }
                 navigation = NavigationState(
                     currentRoute: .conversationScreen(conversation: conversation.identity)
@@ -237,6 +285,7 @@ public struct RootView: View {
                 guard let conversation = try await surface.conversationList.select(identity) else { return }
                 presentedConversation = conversation
                 screenState = surface.conversationScreen.load(conversation)
+                    .replacingDraft(conversationDrafts[identity] ?? "")
                 guard case .conversationList = navigation.currentRoute else { return }
                 navigation = NavigationState(
                     currentRoute: .conversationScreen(conversation: identity)
@@ -255,6 +304,7 @@ public struct RootView: View {
         Task { @MainActor in
             do {
                 try await surface.conversationList.delete(identity)
+                conversationDrafts[identity] = nil
                 await loadConversationList()
             } catch let error as RepositoryError {
                 listState = ConversationListState(items: listState?.items ?? [], failure: error)
@@ -279,31 +329,77 @@ public struct RootView: View {
         streamingTask = Task { @MainActor in
             do {
                 for try await state in surface.conversationScreen.send(request, rendering: history) {
-                    screenState = state
+                    screenState = state.replacingDraft(conversationDrafts[identity] ?? "")
                 }
             } catch {
                 if error is CancellationError { return }
-                await reloadPresentedConversation()
+                await presentUnexpectedStreamFailure()
             }
         }
     }
 
-    /// Translates the cancel intent of an active stream.
+    /// Translates the cancel intent of an active stream: the stream is stopped,
+    /// and the rendered state becomes the interrupted condition the Domain
+    /// preserved — the partial content is rendered as incomplete, never
+    /// discarded (ARC-001) — so the screen announces the interruption and the
+    /// Stop affordance gives way to the composer (UX audit A4).
     private func cancel() {
         streamingTask?.cancel()
         streamingTask = nil
+        guard let state = screenState, case .active(let partialContent) = state.streamingCondition else {
+            return
+        }
+        screenState = state.replacingStreamingCondition(.interrupted(partialContent: partialContent))
     }
 
-    /// Reloads the presented conversation after an unexpected stream failure:
-    /// the Domain preserved the partial content as interrupted, which the
-    /// screen renders as incomplete — never discarded (ARC-001, DES-009
-    /// §3.11.4).
+    /// Translates the retry intent of an interrupted response: the conversation's
+    /// interrupted stream is resumed — the preserved partial content is carried
+    /// forward into the reply, never discarded (ARC-001, DES-009 §3.3) — and no
+    /// duplicate user message is appended: the last prompt is already in the
+    /// preserved history (UX audit U7). The rendered history and the preserved
+    /// partial content come from the presented state, so the resumed stream
+    /// continues the interrupted bubble where it left off.
+    private func retry() {
+        guard case .conversationScreen(let identity) = navigation.currentRoute,
+              case .interrupted(let partialContent)? = screenState?.streamingCondition
+        else {
+            return
+        }
+        let history = screenState?.messages ?? []
+        streamingTask = Task { @MainActor in
+            do {
+                for try await state in surface.conversationScreen.resume(
+                    identity,
+                    from: partialContent,
+                    rendering: history
+                ) {
+                    screenState = state.replacingDraft(conversationDrafts[identity] ?? "")
+                }
+            } catch {
+                if error is CancellationError { return }
+                await presentUnexpectedStreamFailure()
+            }
+        }
+    }
+
+    /// Presents an unexpected stream failure as a terminal failure on the
+    /// screen: the conversation is reloaded — the Domain preserved the partial
+    /// content as interrupted, which the screen renders as incomplete, never
+    /// discarded (ARC-001, DES-009 §3.11.4) — and a `.unexpected` failure state
+    /// is set on it, so the interruption reason is visible and distinct from a
+    /// user-initiated cancellation, never silent (UX audit S1, ARC-001).
     @MainActor
-    private func reloadPresentedConversation() async {
+    private func presentUnexpectedStreamFailure() async {
         guard case .conversationScreen(let identity) = navigation.currentRoute else { return }
         guard let conversation = try? await surface.conversationList.select(identity) else { return }
         presentedConversation = conversation
-        screenState = surface.conversationScreen.load(conversation)
+        let loaded = surface.conversationScreen.load(conversation)
+        screenState = ConversationScreenState(
+            messages: loaded.messages,
+            draft: conversationDrafts[identity] ?? "",
+            streamingCondition: loaded.streamingCondition,
+            failure: .unexpected
+        )
     }
 
     // MARK: Settings intents
@@ -315,7 +411,8 @@ public struct RootView: View {
         settingsState = SettingsState(
             connections: current.connections,
             configuration: current.configuration,
-            isComposing: true
+            isComposing: true,
+            editing: nil
         )
     }
 
@@ -357,6 +454,60 @@ public struct RootView: View {
         }
     }
 
+    /// Translates the endpoint-edit intent: the connection's recorded endpoint
+    /// is resolved through the settings surface and the endpoint-edit condition
+    /// of the settings state is presented — the editor pre-filled with the
+    /// current endpoint, so a provider connection offers a way to edit instead
+    /// of only Remove (UX audit U7). The condition holds only the configured
+    /// connection state and the recorded endpoint, never a credential
+    /// (ARC-001, ARC-005).
+    private func editProvider(_ item: ProviderConnectionListItem) {
+        Task { @MainActor in
+            do {
+                let endpoint = try await surface.settings.endpoint(for: item.identity)
+                guard let current = settingsState else { return }
+                settingsState = SettingsState(
+                    connections: current.connections,
+                    configuration: current.configuration,
+                    isComposing: false,
+                    editing: SettingsState.Editing(
+                        identity: item.identity,
+                        displayName: item.displayName,
+                        currentEndpoint: endpoint ?? ""
+                    )
+                )
+            } catch {
+                settingsState = failingSettingsState(error)
+            }
+        }
+    }
+
+    /// Translates the endpoint-update intent: the updated endpoint is recorded
+    /// through the settings surface — validated at the service boundary before
+    /// any write (DES-011 §3.9, ARC-009) — and the settings state reloads, so
+    /// the endpoint editor closes and the connection row reflects the change.
+    private func updateEndpoint(_ endpoint: String, for identity: ProviderIdentity) {
+        Task { @MainActor in
+            do {
+                try await surface.settings.updateEndpoint(endpoint, for: identity)
+                await loadSettings()
+            } catch {
+                settingsState = failingSettingsState(error)
+            }
+        }
+    }
+
+    /// Translates the cancel intent of the endpoint editor.
+    private func cancelEndpointEdit() {
+        guard let current = settingsState else { return }
+        settingsState = SettingsState(
+            connections: current.connections,
+            configuration: current.configuration,
+            isComposing: false,
+            editing: nil
+        )
+    }
+
     /// Translates the reset intent: the configuration value is removed at the
     /// user-owned workspace level, and the settings state reloads (DES-011
     /// §3.5).
@@ -372,7 +523,12 @@ public struct RootView: View {
     }
 
     /// Composes the settings state presenting the typed failure of a settings
-    /// operation, as it is, never wrapped (DES-011 §3.6, DES-009 §3.9).
+    /// operation, as it is, never wrapped (DES-011 §3.6, DES-009 §3.9). The
+    /// compose condition is preserved: a failed configure keeps the
+    /// connection form presented with its input retained, so the failure is
+    /// shown inside the form and no declaration is lost (UX audit U3). The
+    /// endpoint-edit condition is preserved: a failed endpoint update keeps
+    /// the endpoint editor presented with its input retained (UX audit U7).
     private func failingSettingsState(_ error: any Error) -> SettingsState {
         let failure: SettingsState.Failure = switch error {
         case let error as ApplicationValidationError: .application(error)
@@ -383,7 +539,8 @@ public struct RootView: View {
         return SettingsState(
             connections: settingsState?.connections ?? [],
             configuration: settingsState?.configuration ?? [],
-            isComposing: false,
+            isComposing: settingsState?.isComposing ?? false,
+            editing: settingsState?.editing,
             failure: failure
         )
     }

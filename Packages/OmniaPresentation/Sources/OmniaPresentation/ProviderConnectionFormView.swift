@@ -58,7 +58,12 @@ public struct ProviderConnectionFormView: View {
             Section("Connection") {
                 TextField("Display Name", text: $displayName)
                 TextField("Endpoint", text: $endpoint)
+                    .keyboardType(.URL)
+                    .autocorrectionDisabled()
+                    .textInputAutocapitalization(.never)
                 SecureField("API Key", text: $credentialSecret)
+                    .autocorrectionDisabled()
+                    .textInputAutocapitalization(.never)
             }
             Section("Capabilities") {
                 ForEach(Self.allCapabilities, id: \.self) { capability in
@@ -67,12 +72,26 @@ public struct ProviderConnectionFormView: View {
             }
             Section("Limits") {
                 TextField("Max Requests per Minute", text: $maxRequestsPerMinute)
+                    .keyboardType(.numberPad)
+                    .autocorrectionDisabled()
+                if showLimitError {
+                    validationMessage("Enter a whole number, or leave empty for no limit.")
+                }
             }
             Section("Version") {
                 HStack {
                     TextField("Major", text: $versionMajor)
+                        .keyboardType(.numberPad)
+                        .autocorrectionDisabled()
                     TextField("Minor", text: $versionMinor)
+                        .keyboardType(.numberPad)
+                        .autocorrectionDisabled()
                     TextField("Patch", text: $versionPatch)
+                        .keyboardType(.numberPad)
+                        .autocorrectionDisabled()
+                }
+                if showVersionError {
+                    validationMessage("Each version part must be a non-negative whole number.")
                 }
             }
         }
@@ -93,17 +112,19 @@ public struct ProviderConnectionFormView: View {
     /// declared endpoint (DES-012 §3.4): the display name trimmed, the declared
     /// capabilities, the stated limits and version, the endpoint, and the
     /// entered credential. The credential field is cleared on submit (ARC-005).
+    /// `canSubmit` guarantees the numeric fields are valid, so the saved
+    /// request never contains a silently coerced value.
     private func submit() {
         guard canSubmit else { return }
         onConfigure(
             ConfigureProviderRequest(
                 displayName: trimmedDisplayName,
                 capabilities: ProviderCapabilities(capabilities: selectedCapabilities),
-                limits: ProviderLimits(maxRequestsPerMinute: Int(maxRequestsPerMinute)),
+                limits: ProviderLimits(maxRequestsPerMinute: parsedLimit),
                 version: SemanticVersion(
-                    major: Int(versionMajor) ?? 0,
-                    minor: Int(versionMinor) ?? 0,
-                    patch: Int(versionPatch) ?? 0
+                    major: parsedVersionMajor ?? 0,
+                    minor: parsedVersionMinor ?? 0,
+                    patch: parsedVersionPatch ?? 0
                 ),
                 credential: Credential(secret: credentialSecret)
             ),
@@ -113,11 +134,62 @@ public struct ProviderConnectionFormView: View {
     }
 
     /// The submit is enabled when the declaration is complete — a display
-    /// name, at least one capability, an endpoint, and a credential — so an
-    /// incomplete declaration never reaches the service.
+    /// name, at least one capability, an endpoint, and a credential — and the
+    /// numeric fields are valid, so an incomplete or invalid declaration never
+    /// reaches the service.
     private var canSubmit: Bool {
         !trimmedDisplayName.isEmpty && !selectedCapabilities.isEmpty
             && !trimmedEndpoint.isEmpty && !credentialSecret.isEmpty
+            && limitIsValid && versionIsValid
+    }
+
+    /// The stated limit as a non-negative integer: `nil` when the field is
+    /// empty (no limit stated, per the frozen `ProviderLimits`), and never a
+    /// silently coerced value for non-numeric text.
+    private var parsedLimit: Int? {
+        guard !maxRequestsPerMinute.isEmpty else { return nil }
+        guard let value = Int(maxRequestsPerMinute), value >= 0 else { return nil }
+        return value
+    }
+
+    private var limitIsValid: Bool {
+        maxRequestsPerMinute.isEmpty || parsedLimit != nil
+    }
+
+    private var showLimitError: Bool {
+        !limitIsValid
+    }
+
+    /// Each version part parsed as a non-negative integer; the parts are
+    /// required (the frozen `SemanticVersion` has no empty form), so empty or
+    /// non-numeric text is never coerced.
+    private var parsedVersionMajor: Int? {
+        guard let value = Int(versionMajor), value >= 0 else { return nil }
+        return value
+    }
+
+    private var parsedVersionMinor: Int? {
+        guard let value = Int(versionMinor), value >= 0 else { return nil }
+        return value
+    }
+
+    private var parsedVersionPatch: Int? {
+        guard let value = Int(versionPatch), value >= 0 else { return nil }
+        return value
+    }
+
+    private var versionIsValid: Bool {
+        parsedVersionMajor != nil && parsedVersionMinor != nil && parsedVersionPatch != nil
+    }
+
+    private var showVersionError: Bool {
+        !versionIsValid
+    }
+
+    private func validationMessage(_ message: String) -> some View {
+        Text(message)
+            .font(.caption)
+            .foregroundStyle(.red)
     }
 
     private var trimmedDisplayName: String {

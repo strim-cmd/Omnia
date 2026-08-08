@@ -2,8 +2,8 @@ import OmniaApplication
 import OmniaFoundation
 
 /// The settings presentation surface: provider connections and configuration —
-/// configure, list, and remove provider connections over
-/// `ProviderConnectionService`, and present typed configuration over
+/// configure, list, remove, and update the endpoint of provider connections
+/// over `ProviderConnectionService`, and present typed configuration over
 /// `ConfigurationService` as `SettingsState` (DES-012 §3.4, Settings module,
 /// ARC-007).
 ///
@@ -11,10 +11,11 @@ import OmniaFoundation
 /// of DES-011 §3.4 and the frozen `ConfigurationService` of DES-011 §3.5 are
 /// delivered to the settings surface (DES-012 §3.6, ARC-006). It receives them
 /// through its public initializer, translates user intent — declaring a new
-/// provider connection, removing one, and storing, reading, resolving, and
-/// removing typed configuration values — into use-case invocations, and it
-/// composes the ready-to-render settings state from the configured connections
-/// and the configuration values the services load (ARC-002, ADR-0001).
+/// provider connection, removing one, updating the endpoint of one (DES-011
+/// §3.9, UX audit U7), and storing, reading, resolving, and removing typed
+/// configuration values — into use-case invocations, and it composes the
+/// ready-to-render settings state from the configured connections and the
+/// configuration values the services load (ARC-002, ADR-0001).
 ///
 /// It consumes only the frozen DES-011 settings surface and owns no business
 /// rules (ARC-002): the provider aggregate and its lifecycle are the Domain's,
@@ -129,6 +130,38 @@ public struct SettingsSurface: Sendable {
     /// §3.6).
     public func remove(_ identity: ProviderIdentity) async throws {
         try await connectionService.remove(identity)
+    }
+
+    /// Updates the provider connection's OpenAI-compatible endpoint — the
+    /// endpoint-edit intent of the settings surface (DES-012 §3.4, UX audit
+    /// U7): the endpoint is recorded through the service's endpoint surface,
+    /// keyed by the provider identity, replacing any previously recorded
+    /// endpoint (DES-011 §3.9).
+    ///
+    /// The endpoint is connection configuration the user owns (ARC-005); it
+    /// never enters the `ProviderConnection` or `Provider` aggregate or any
+    /// rendered state (DES-011 §3.9, ARC-004). It is validated at the service
+    /// boundary before any write; a malformed endpoint surfaces as the typed
+    /// `ApplicationValidationError`, never wrapped (DES-011 §3.6, DES-009
+    /// §3.9).
+    public func updateEndpoint(
+        _ endpoint: String,
+        for identity: ProviderIdentity
+    ) async throws {
+        try await connectionService.updateEndpoint(endpoint, for: identity)
+    }
+
+    /// Returns the provider connection's recorded OpenAI-compatible endpoint,
+    /// or `nil` when none is recorded — the value the endpoint editor pre-fills
+    /// (DES-012 §3.4, DES-011 §3.9, UX audit U7).
+    ///
+    /// The endpoint is connection configuration the user owns (ARC-005);
+    /// failures surface as the Domain `RepositoryError`, never wrapped (DES-011
+    /// §3.6).
+    public func endpoint(
+        for identity: ProviderIdentity
+    ) async throws -> String? {
+        try await connectionService.endpoint(for: identity)
     }
 
     /// Stores `value` for `key` at `level`, replacing any previously stored
