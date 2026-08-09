@@ -35,6 +35,10 @@ public struct RootView: View {
 
     /// The current route of the navigation structure (DES-012 §3.5).
     @State private var navigation = NavigationState(currentRoute: .conversationList)
+    /// Whether the navigation drawer is presented over the shell (new_design.md
+    /// §7): the drawer is a slide-in overlay opened by the conversation list's
+    /// menu button and closed by its dim backdrop or a row selection.
+    @State private var isMenuPresented = false
     /// The ready-to-render conversation list state.
     @State private var listState: ConversationListState?
     /// The conversation the conversation screen presents.
@@ -75,63 +79,110 @@ public struct RootView: View {
     private static let providerSelectionKey = ConfigurationKey<ProviderIdentity>("provider.selection")
 
     public var body: some View {
-        NavigationStack {
-            Group {
-                if let listState {
-                    ConversationListView(
-                        state: listState,
-                        onCreate: createConversation,
-                        onSelect: openConversation,
-                        onDelete: deleteConversation
-                    )
-                } else {
-                    loadingState
+        ZStack(alignment: .leading) {
+            NavigationStack {
+                Group {
+                    if let listState {
+                        ConversationListView(
+                            state: listState,
+                            onCreate: createConversation,
+                            onSelect: openConversation,
+                            onDelete: deleteConversation,
+                            onOpenMenu: presentMenu
+                        )
+                    } else {
+                        loadingState
+                    }
                 }
-            }
-            .navigationDestination(
-                isPresented: Binding(
-                    get: { destination.wrappedValue != nil },
-                    set: { isPresented in
-                        if !isPresented {
-                            destination.wrappedValue = nil
+                .navigationDestination(
+                    isPresented: Binding(
+                        get: { destination.wrappedValue != nil },
+                        set: { isPresented in
+                            if !isPresented {
+                                destination.wrappedValue = nil
+                            }
+                        }
+                    )
+                ) {
+                    Group {
+                        switch destination.wrappedValue {
+                        case .conversation(let identity):
+                            conversationScreen(for: identity)
+                        case .settings:
+                            settingsScreen
+                        case nil:
+                            EmptyView()
                         }
                     }
-                )
-            ) {
-                Group {
-                    switch destination.wrappedValue {
-                    case .conversation(let identity):
-                        conversationScreen(for: identity)
-                    case .settings:
-                        settingsScreen
-                    case nil:
-                        EmptyView()
+                }
+                .toolbar {
+                    ToolbarItem(placement: .primaryAction) {
+                        Button(action: openSettings) {
+                            Label("Settings", systemImage: "gearshape")
+                        }
+                        .accessibilityLabel(Text("Settings"))
+                    }
+                }
+                .task {
+                    await loadSettings()
+                }
+                .task(id: navigation.currentRoute) {
+                    guard navigation.currentRoute == .conversationList else { return }
+                    streamingTask?.cancel()
+                    streamingTask = nil
+                    await loadConversationList()
+                }
+                .onChange(of: providerSelection) { selection in
+                    if let screenState {
+                        self.screenState = screenState.replacingProviderSelection(selection)
                     }
                 }
             }
-            .toolbar {
-                ToolbarItem(placement: .primaryAction) {
-                    Button(action: openSettings) {
-                        Label("Settings", systemImage: "gearshape")
-                    }
-                    .accessibilityLabel(Text("Settings"))
-                }
-            }
-            .task {
-                await loadSettings()
-            }
-            .task(id: navigation.currentRoute) {
-                guard navigation.currentRoute == .conversationList else { return }
-                streamingTask?.cancel()
-                streamingTask = nil
-                await loadConversationList()
-            }
-            .onChange(of: providerSelection) { selection in
-                if let screenState {
-                    self.screenState = screenState.replacingProviderSelection(selection)
-                }
+            .disabled(isMenuPresented)
+
+            if isMenuPresented {
+                drawer
             }
         }
+        .animation(OmniaTheme.Motion.drawer, value: isMenuPresented)
+    }
+
+    /// The presented navigation drawer: the dim backdrop that closes it and the
+    /// slide-in panel over the shell (new_design.md §7).
+    private var drawer: some View {
+        ZStack(alignment: .leading) {
+            Color.black.opacity(0.35)
+                .ignoresSafeArea()
+                .onTapGesture {
+                    isMenuPresented = false
+                }
+
+            SideMenuView(
+                workspaceName: Localized.workspace,
+                providerCount: settingsState?.connections.count ?? 0,
+                currentRoute: navigation.currentRoute,
+                onOpenConversations: {
+                    closeMenu(route: .conversationList)
+                },
+                onOpenSettings: {
+                    closeMenu(route: .settings)
+                }
+            )
+            .transition(.move(edge: .leading))
+        }
+        .transition(.opacity)
+    }
+
+    /// Presents the navigation drawer.
+    private func presentMenu() {
+        isMenuPresented = true
+    }
+
+    /// Closes the navigation drawer and routes to the given destination
+    /// (DES-012 §3.5).
+    private func closeMenu(route: NavigationState.Route) {
+        isMenuPresented = false
+        navigation = NavigationState(currentRoute: route)
     }
 
     // MARK: Routes

@@ -9,10 +9,12 @@
 "automatic" = "Automatic";
 "cancel" = "Cancel";
 "capabilities" = "Capabilities";
+"clear_search" = "Clear search";
 "configuration" = "Configuration";
 "configure_provider" = "Configure Provider";
 "connection" = "Connection";
 "conversation" = "Conversation";
+"conversations" = "Conversations";
 "delete" = "Delete";
 "delete_conversation" = "Delete Conversation?";
 "delete_conversation_confirmation" = "This conversation and its messages will be permanently deleted.";
@@ -32,6 +34,7 @@
 "major" = "Major";
 "max_requests_per_minute" = "Max Requests per Minute";
 "message" = "Message";
+"menu" = "Menu";
 "minor" = "Minor";
 "model" = "Model";
 "new_conversation" = "New Conversation";
@@ -39,6 +42,7 @@
 "no_conversations_description" = "Start a new conversation to begin.";
 "no_provider_connections" = "No Provider Connections";
 "no_provider_connections_description" = "Add a connection to start.";
+"no_search_results" = "No conversations found";
 "no_configuration_values" = "No configuration values.";
 "open_settings" = "Open Settings";
 "patch" = "Patch";
@@ -58,8 +62,11 @@
 "save_endpoint" = "Save Endpoint";
 "save_model" = "Save Model";
 "save_provider_connection" = "Save Provider Connection";
+"search_conversations" = "Search conversations";
 "send" = "Send";
 "settings" = "Settings";
+"start_new_conversation" = "Start a Conversation";
+"start_new_conversation_description" = "Choose New Conversation to begin.";
 "stop" = "Stop";
 "streaming" = "Streaming";
 "structured_output" = "Structured Output";
@@ -73,6 +80,7 @@
 "validated" = "Validated";
 "version" = "Version";
 "vision" = "Vision";
+"workspace" = "Workspace";
 "provider_unavailable" = "%@ is not available. Messages will use the automatic selection.";
 "provider_state_count" = "%d";
 "provider_state_count_range" = "%d-%d";

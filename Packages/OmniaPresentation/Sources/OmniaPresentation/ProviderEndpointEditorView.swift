@@ -49,29 +49,61 @@ public struct ProviderEndpointEditorView: View {
     }
 
     public var body: some View {
-        Form {
-            Section {
-                TextField("Endpoint", text: $endpoint)
-                    #if os(iOS)
-                    .keyboardType(.URL)
-                    #endif
-                    .autocorrectionDisabled()
-                    #if os(iOS)
-                    .textInputAutocapitalization(.never)
-                    #endif
-            } footer: {
-                Text("Update the endpoint \(displayName) connects to.")
+        ScrollView {
+            VStack(spacing: OmniaTheme.Spacing.lg) {
+                OmniaCard {
+                    VStack(alignment: .leading, spacing: OmniaTheme.Spacing.md) {
+                        TextField("Endpoint", text: $endpoint)
+                            .font(OmniaTheme.Typography.body)
+                            .foregroundStyle(OmniaTheme.Colors.textPrimary)
+                            .tint(OmniaTheme.Colors.accent)
+                            .autocorrectionDisabled()
+                            .textFieldStyle(.plain)
+                            .padding(OmniaTheme.Spacing.sm)
+                            .background(OmniaTheme.Colors.elevatedSurface)
+                            .clipShape(RoundedRectangle(cornerRadius: OmniaTheme.Radii.medium, style: .continuous))
+                            .overlay(
+                                RoundedRectangle(cornerRadius: OmniaTheme.Radii.medium, style: .continuous)
+                                    .stroke(OmniaTheme.Colors.border, lineWidth: 0.5)
+                            )
+                            #if os(iOS)
+                            .keyboardType(.URL)
+                            .textInputAutocapitalization(.never)
+                            #endif
+                        Text("Update the endpoint \(displayName) connects to.")
+                            .font(OmniaTheme.Typography.secondary)
+                            .foregroundStyle(OmniaTheme.Colors.textSecondary)
+                    }
+                }
+                .padding(OmniaTheme.Spacing.lg)
+                HStack(spacing: OmniaTheme.Spacing.md) {
+                    OmniaButton(
+                        title: Localized.cancel,
+                        systemImage: "xmark",
+                        style: .secondary,
+                        action: onCancel
+                    )
+                    OmniaButton(
+                        title: Localized.saveEndpoint,
+                        systemImage: "checkmark",
+                        style: .primary,
+                        action: submit
+                    )
+                    .disabled(!canSubmit)
+                }
+                .padding(OmniaTheme.Spacing.lg)
             }
         }
-        .navigationTitle("Edit Endpoint")
+        .background(OmniaTheme.Colors.background)
+        .navigationTitle(Localized.editEndpoint)
         .toolbar {
             ToolbarItem(placement: .cancellationAction) {
-                Button("Cancel", action: onCancel)
+                Button(Localized.cancel, action: onCancel)
             }
             ToolbarItem(placement: .confirmationAction) {
-                Button("Save", action: submit)
+                Button(Localized.saveEndpoint, action: submit)
                     .disabled(!canSubmit)
-                    .accessibilityLabel(Text("Save Endpoint"))
+                    .accessibilityLabel(Text(Localized.saveEndpoint))
             }
         }
     }

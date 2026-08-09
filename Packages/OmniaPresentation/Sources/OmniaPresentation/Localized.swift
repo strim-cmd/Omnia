@@ -15,10 +15,12 @@ public enum Localized {
     public static var automatic: String { String(localized: "automatic") }
     public static var cancel: String { String(localized: "cancel") }
     public static var capabilities: String { String(localized: "capabilities") }
+    public static var clearSearch: String { String(localized: "clear_search") }
     public static var configuration: String { String(localized: "configuration") }
     public static var configureProvider: String { String(localized: "configure_provider") }
     public static var connection: String { String(localized: "connection") }
     public static var conversation: String { String(localized: "conversation") }
+    public static var conversations: String { String(localized: "conversations") }
     public static var delete: String { String(localized: "delete") }
     public static var deleteConversation: String { String(localized: "delete_conversation") }
     public static var deleteConversationConfirmation: String { String(localized: "delete_conversation_confirmation") }
@@ -38,6 +40,7 @@ public enum Localized {
     public static var major: String { String(localized: "major") }
     public static var maxRequestsPerMinute: String { String(localized: "max_requests_per_minute") }
     public static var message: String { String(localized: "message") }
+    public static var menu: String { String(localized: "menu") }
     public static var minor: String { String(localized: "minor") }
     public static var model: String { String(localized: "model") }
     public static var newConversation: String { String(localized: "new_conversation") }
@@ -45,6 +48,7 @@ public enum Localized {
     public static var noConversationsDescription: String { String(localized: "no_conversations_description") }
     public static var noProviderConnections: String { String(localized: "no_provider_connections") }
     public static var noProviderConnectionsDescription: String { String(localized: "no_provider_connections_description") }
+    public static var noSearchResults: String { String(localized: "no_search_results") }
     public static var noConfigurationValues: String { String(localized: "no_configuration_values") }
     public static var openSettings: String { String(localized: "open_settings") }
     public static var patch: String { String(localized: "patch") }
@@ -66,8 +70,11 @@ public enum Localized {
     public static var saveEndpoint: String { String(localized: "save_endpoint") }
     public static var saveModel: String { String(localized: "save_model") }
     public static var saveProviderConnection: String { String(localized: "save_provider_connection") }
+    public static var searchConversations: String { String(localized: "search_conversations") }
     public static var send: String { String(localized: "send") }
     public static var settings: String { String(localized: "settings") }
+    public static var startNewConversation: String { String(localized: "start_new_conversation") }
+    public static var startNewConversationDescription: String { String(localized: "start_new_conversation_description") }
     public static var stop: String { String(localized: "stop") }
     public static var streaming: String { String(localized: "streaming") }
     public static var structuredOutput: String { String(localized: "structured_output") }
@@ -85,6 +92,7 @@ public enum Localized {
     public static var validated: String { String(localized: "validated") }
     public static var version: String { String(localized: "version") }
     public static var vision: String { String(localized: "vision") }
+    public static var workspace: String { String(localized: "workspace") }
     public static func providerUnavailable(_ provider: String) -> String {
         String(format: String(localized: "provider_unavailable"), provider)
     }

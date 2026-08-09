@@ -58,45 +58,93 @@ public struct ProviderConnectionFormView: View {
     }
 
     public var body: some View {
-        Form {
-            Section("Connection") {
+        ScrollView {
+            VStack(spacing: OmniaTheme.Spacing.lg) {
+                connectionSection
+                capabilitiesSection
+                limitsSection
+                versionSection
+                actionButtons
+            }
+            .padding(OmniaTheme.Spacing.lg)
+        }
+        .background(OmniaTheme.Colors.background)
+    }
+
+    /// The connection section: the display name, endpoint, model, and credential
+    /// fields (new_design.md §14).
+    private var connectionSection: some View {
+        OmniaCard {
+            VStack(alignment: .leading, spacing: OmniaTheme.Spacing.md) {
+                Text("Connection")
+                    .font(OmniaTheme.Typography.sectionTitle)
+                    .foregroundStyle(OmniaTheme.Colors.textPrimary)
                 TextField("Display Name", text: $displayName)
-                TextField(Localized.model, text: $model)
+                    .font(OmniaTheme.Typography.body)
+                    .foregroundStyle(OmniaTheme.Colors.textPrimary)
+                    .tint(OmniaTheme.Colors.accent)
                     .autocorrectionDisabled()
+                    .textFieldStyle(.plain)
+                    .padding(OmniaTheme.Spacing.sm)
+                    .background(OmniaTheme.Colors.elevatedSurface)
+                    .clipShape(RoundedRectangle(cornerRadius: OmniaTheme.Radii.medium, style: .continuous))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: OmniaTheme.Radii.medium, style: .continuous)
+                            .stroke(OmniaTheme.Colors.border, lineWidth: 0.5)
+                    )
+                TextField(Localized.model, text: $model)
+                    .font(OmniaTheme.Typography.body)
+                    .foregroundStyle(OmniaTheme.Colors.textPrimary)
+                    .tint(OmniaTheme.Colors.accent)
+                    .autocorrectionDisabled()
+                    .textFieldStyle(.plain)
+                    .padding(OmniaTheme.Spacing.sm)
+                    .background(OmniaTheme.Colors.elevatedSurface)
+                    .clipShape(RoundedRectangle(cornerRadius: OmniaTheme.Radii.medium, style: .continuous))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: OmniaTheme.Radii.medium, style: .continuous)
+                            .stroke(OmniaTheme.Colors.border, lineWidth: 0.5)
+                    )
                     #if os(iOS)
                     .textInputAutocapitalization(.never)
                     .keyboardType(.URL)
                     #endif
                 TextField("Endpoint", text: $endpoint)
+                    .font(OmniaTheme.Typography.body)
+                    .foregroundStyle(OmniaTheme.Colors.textPrimary)
+                    .tint(OmniaTheme.Colors.accent)
+                    .autocorrectionDisabled()
+                    .textFieldStyle(.plain)
+                    .padding(OmniaTheme.Spacing.sm)
+                    .background(OmniaTheme.Colors.elevatedSurface)
+                    .clipShape(RoundedRectangle(cornerRadius: OmniaTheme.Radii.medium, style: .continuous))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: OmniaTheme.Radii.medium, style: .continuous)
+                            .stroke(OmniaTheme.Colors.border, lineWidth: 0.5)
+                    )
                     #if os(iOS)
                     .keyboardType(.URL)
-                    #endif
-                    .autocorrectionDisabled()
-                    #if os(iOS)
                     .textInputAutocapitalization(.never)
                     #endif
                 SecureField("API Key", text: $credentialSecret)
+                    .font(OmniaTheme.Typography.body)
+                    .foregroundStyle(OmniaTheme.Colors.textPrimary)
+                    .tint(OmniaTheme.Colors.accent)
                     .autocorrectionDisabled()
+                    .textFieldStyle(.plain)
+                    .padding(OmniaTheme.Spacing.sm)
+                    .background(OmniaTheme.Colors.elevatedSurface)
+                    .clipShape(RoundedRectangle(cornerRadius: OmniaTheme.Radii.medium, style: .continuous))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: OmniaTheme.Radii.medium, style: .continuous)
+                            .stroke(OmniaTheme.Colors.border, lineWidth: 0.5)
+                    )
                     #if os(iOS)
                     .textInputAutocapitalization(.never)
                     #endif
             }
-            Section("Capabilities") {
-                ForEach(Self.allCapabilities, id: \.self) { capability in
-                    Toggle(capabilityLabel(capability), isOn: binding(for: capability))
-                }
-            }
-            Section("Limits") {
-                TextField("Max Requests per Minute", text: $maxRequestsPerMinute)
-                    #if os(iOS)
-                    .keyboardType(.numberPad)
-                    #endif
-                    .autocorrectionDisabled()
-                if showLimitError {
-                    validationMessage("Enter a whole number, or leave empty for no limit.")
-                }
-            }
-            Section("Version") {
+        }
+    }
                 HStack {
                     TextField("Major", text: $versionMajor)
                         #if os(iOS)

@@ -14,18 +14,22 @@ struct ErrorBannerView: View {
 
     var body: some View {
         Label(message, systemImage: systemImage)
-            .font(.subheadline)
-            .foregroundStyle(.white)
-            .padding(12)
+            .font(OmniaTheme.Typography.body)
+            .foregroundStyle(Color.white)
+            .padding(OmniaTheme.Spacing.md)
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(backgroundColor.opacity(0.8))
-            .clipShape(RoundedRectangle(cornerRadius: OmniaTheme.Radii.container))
+            .clipShape(RoundedRectangle(cornerRadius: OmniaTheme.Radii.medium, style: .continuous))
             .overlay(
-                RoundedRectangle(cornerRadius: OmniaTheme.Radii.container)
+                RoundedRectangle(cornerRadius: OmniaTheme.Radii.medium, style: .continuous)
                     .stroke(Color.white.opacity(0.2), lineWidth: 0.5)
             )
-            .padding(.horizontal, OmniaTheme.Spacing.l)
+            .padding(.horizontal, OmniaTheme.Spacing.lg)
             .accessibilityLabel(Text(message))
+    }
+
+    private var backgroundColor: Color {
+        .red
     }
 }
 

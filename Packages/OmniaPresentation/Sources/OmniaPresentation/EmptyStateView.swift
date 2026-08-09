@@ -13,19 +13,27 @@ struct EmptyStateView: View {
     let systemImage: String
 
     var body: some View {
-        VStack(spacing: 12) {
+        VStack(spacing: OmniaTheme.Spacing.md) {
             Image(systemName: systemImage)
-                .font(.largeTitle)
+                .font(OmniaTheme.Typography.largeTitle)
                 .symbolRenderingMode(.hierarchical)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(OmniaTheme.Colors.accent)
             Text(title)
-                .font(.headline)
+                .font(OmniaTheme.Typography.sectionTitle)
+                .foregroundStyle(OmniaTheme.Colors.textPrimary)
             Text(description)
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
+                .font(OmniaTheme.Typography.secondary)
+                .foregroundStyle(OmniaTheme.Colors.textSecondary)
         }
-        .padding()
+        .padding(OmniaTheme.Spacing.xl)
         .frame(maxWidth: .infinity)
+        .background(OmniaTheme.Colors.elevatedSurface)
+        .clipShape(RoundedRectangle(cornerRadius: OmniaTheme.Radii.card, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: OmniaTheme.Radii.card, style: .continuous)
+                .stroke(OmniaTheme.Colors.border, lineWidth: 0.5)
+        )
+        .padding(OmniaTheme.Spacing.lg)
         .accessibilityElement(children: .combine)
     }
 }

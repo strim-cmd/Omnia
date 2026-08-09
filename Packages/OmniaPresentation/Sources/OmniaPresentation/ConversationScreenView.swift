@@ -18,9 +18,12 @@ import AppKit
 /// that translates the send and cancel intents. The view renders state and
 /// translates intent; it owns no business logic (ARC-002).
 ///
-/// The view is Apple-platform code, isolated behind platform availability; it
-/// is not exercised by the Linux test environment (§3.7) and is verified by
-/// review against `project UI standards`.
+/// The screen is the primary surface of the product (new_design.md §5): the
+/// premium dark AI-client hierarchy — message content first, the compact
+/// capsule composer, the provider pill, and the light navigation chrome. The
+/// view layer isolates all platform code; it is not exercised by the Linux
+/// test environment (§3.7) and is verified by review against `project UI
+/// standards`.
 @available(iOS 15.0, macOS 12.0, *)
 public struct ConversationScreenView: View {
     /// The ready-to-render screen state.
@@ -34,73 +37,75 @@ public struct ConversationScreenView: View {
     public let onSend: (String) -> Void
     /// Translates the cancel intent while a stream is active.
     public let onCancel: () -> Void
-    /// Translates the retry intent of an interrupted response: the preserved
-    /// partial content is carried forward into the reply (UX audit U7).
-    public let onRetry: () -> Void
-    /// Translates the provider-selection intent of the conversation screen: the
-    /// user's explicit provider choice, or `nil` for the automatic selection
-    /// (UX audit V2).
-    public let onSelectProvider: (ProviderIdentity?) -> Void
-    /// Translates the open-settings intent of the empty provider state: no
-    /// provider connection is configured, so the screen invites adding one in
-    /// the settings surface (UX audit V2).
-    public let onOpenSettings: () -> Void
+    /// Translates the regenerate intent for the message with the given index.
+    public let onRegenerate: (Int) -> Void
+    /// Translates the copy intent for the message with the given index.
+    public let onCopy: (Int) -> Void
+    /// Translates the provider selection intent.
+    public let onSelectProvider: (ProviderConnectionListItem) -> Void
 
-    /// The composed position the view keeps the newest content in view on:
-    /// `true` while the bottom marker is within the scroll viewport, so
-    /// streaming appends auto-scroll only while the user is reading the newest
-    /// content and a manual scroll upward is never overridden (UX audit U2).
-    @State private var isNearBottom = true
-    /// The height of the scroll viewport, reported by the scroll view's frame;
-    /// drives the near-bottom determination alongside the bottom marker.
+    /// The coordinate space of the scroll view, used to measure the viewport
+    /// and the bottom marker's position (UX audit U2).
+    private let scrollCoordinateSpace = "scroll"
+    /// The anchor that triggers auto-scroll to the latest content: a UUID that
+    /// changes when a new message arrives or the streaming condition changes
+    /// (UX audit U2).
+    @State private var autoScrollAnchor = UUID()
+    /// The height of the scroll viewport, measured from the scroll view's frame
+    /// (UX audit U2).
     @State private var viewportHeight: CGFloat = 0
-    /// The last rendered streaming condition the screen announced, so the
-    /// transition handler announces only the stream lifecycle transitions —
-    /// starting, completing, being interrupted — and not every content delta
-    /// (UX audit A4).
+    /// Whether the bottom marker is near the bottom of the viewport, so the
+    /// jump-to-latest affordance is hidden (UX audit U2).
+    @State private var isNearBottom = true
+    /// The previous streaming condition, used to announce transitions to
+    /// VoiceOver (UX audit A4).
     @State private var previousStreamingCondition: ConversationScreenState.StreamingCondition?
-    /// The bubble and composer inset, scaled with Dynamic Type so the largest
-    /// accessibility size stays legible (UX audit V1).
-    @ScaledMetric(relativeTo: .body) private var bubblePadding: CGFloat = 10
+    /// The indices of the messages the user has liked, purely presentational
+    /// feedback (new_design.md §5).
+    @State private var likedMessages = Set<Int>()
+    /// The indices of the messages the user has disliked, purely presentational
+    /// feedback (new_design.md §5).
+    @State private var dislikedMessages = Set<Int>()
 
-    /// Creates a conversation screen view over the given state, the draft
-    /// binding, and the intent callbacks.
+    /// Creates a conversation screen view over the given state and intent
+    /// callbacks.
     public init(
         state: ConversationScreenState,
         draft: Binding<String>,
         onSend: @escaping (String) -> Void,
         onCancel: @escaping () -> Void,
-        onRetry: @escaping () -> Void,
-        onSelectProvider: @escaping (ProviderIdentity?) -> Void,
-        onOpenSettings: @escaping () -> Void
+        onRegenerate: @escaping (Int) -> Void,
+        onCopy: @escaping (Int) -> Void,
+        onSelectProvider: @escaping (ProviderConnectionListItem) -> Void
     ) {
         self.state = state
         self._draft = draft
         self.onSend = onSend
         self.onCancel = onCancel
-        self.onRetry = onRetry
+        self.onRegenerate = onRegenerate
+        self.onCopy = onCopy
         self.onSelectProvider = onSelectProvider
-        self.onOpenSettings = onOpenSettings
     }
 
     public var body: some View {
         ZStack(alignment: .bottom) {
-            OmniaTheme.Colors.background.ignoresSafeArea()
-            
+            OmniaBackground()
+
             VStack(spacing: 0) {
+                customTopBar
                 ScrollViewReader { proxy in
                     ScrollView {
-                        // A regular (non-lazy) stack so the bottom marker is always
-                        // rendered and `scrollTo` can reliably reach it, including
-                        // for long histories (UX audit U2).
-                        VStack(alignment: .leading, spacing: OmniaTheme.Spacing.m) {
+                        VStack(alignment: .leading, spacing: OmniaTheme.Spacing.md) {
                             ForEach(state.messages.indices, id: \.self) { index in
-                                messageBubble(state.messages[index])
+                                messageBubble(state.messages[index], index: index)
+                            }
+                            if case .active = state.streamingCondition {
+                                streamingIndicator
                             }
                             streamingBubble
                             bottomMarker
                         }
-                        .padding(OmniaTheme.Spacing.l)
+                        .padding(OmniaTheme.Spacing.lg)
                     }
                     .coordinateSpace(name: scrollCoordinateSpace)
                     .background(
@@ -135,125 +140,125 @@ public struct ConversationScreenView: View {
                 composer
             }
         }
+        .toolbarBackground(OmniaTheme.Colors.background, for: .navigationBar)
+        .toolbarBackground(.visible, for: .navigationBar)
+        .tint(OmniaTheme.Colors.accent)
         .onChange(of: state.streamingCondition) { condition in
             announceStreamingTransition(from: previousStreamingCondition, to: condition)
             previousStreamingCondition = condition
         }
     }
 
-    @ViewBuilder
-    private var streamingBubble: some View {
-        if case .active(let partialContent) = state.streamingCondition {
-            HStack {
-                MessageBubbleView(
-                    message: MessagePresentation(role: .assistant, content: MarkdownContent(markdown: partialContent)),
-                    roleLabel: Localized.assistantMessage
-                )
-                Spacer(minLength: 48)
-            }
-        } else if case .interrupted(let partialContent) = state.streamingCondition {
-            VStack(alignment: .leading, spacing: 6) {
-                HStack {
-                    MessageBubbleView(
-                        message: MessagePresentation(role: .assistant, content: MarkdownContent(markdown: partialContent)),
-                        roleLabel: Localized.assistantMessage,
-                        caption: Localized.interrupted
-                    )
-                    Spacer(minLength: 48)
-                }
-                Button(action: onRetry) {
-                    Label(Localized.retry, systemImage: "arrow.clockwise")
-                        .font(.subheadline)
-                }
-                .buttonStyle(.borderless)
-                .accessibilityLabel(Text(Localized.retryInterruptedResponse))
-            }
-        }
-    }
-
-    @ViewBuilder
-    private func messageBubble(_ message: MessagePresentation) -> some View {
+    /// The custom top bar of the screen: the back button, the conversation
+    /// title, and the model indicator pill (new_design.md §5).
+    private var customTopBar: some View {
         HStack {
-            if message.role == .user {
-                Spacer(minLength: 48)
-                MessageBubbleView(message: message, roleLabel: Localized.userMessage)
-            } else {
-                MessageBubbleView(message: message, roleLabel: Localized.assistantMessage)
-                Spacer(minLength: 48)
-            }
+            OmniaIconButton(systemImage: "chevron.left", size: 36, action: {})
+                .accessibilityLabel(Text(Localized.back))
+            Spacer()
+            Text(state.displayTitle.isEmpty ? Localized.untitledConversation : state.displayTitle)
+                .font(OmniaTheme.Typography.sectionTitle)
+                .foregroundStyle(OmniaTheme.Colors.textPrimary)
+                .lineLimit(1)
+            Spacer()
+            modelIndicator
         }
+        .padding(.horizontal, OmniaTheme.Spacing.lg)
+        .padding(.vertical, OmniaTheme.Spacing.sm)
+        .background(OmniaTheme.Colors.background.opacity(0.8))
     }
 
-    /// The minimum and maximum height of the composer, in lines of text.
-    private let minComposerLines = 1
-    private let maxComposerLines = 6
-
-    /// The line height of the composer's body text on the current platform.
-    private func composerLineHeight() -> CGFloat {
-        #if canImport(UIKit)
-        return UIFont.preferredFont(forTextStyle: .body).lineHeight
-        #elseif canImport(AppKit)
-        let font = NSFont.preferredFont(forTextStyle: .body)
-        return font.ascender - font.descender + font.leading
-        #else
-        return 17
-        #endif
+    /// The model indicator pill of the top bar: the provider icon and the
+    /// selected model name (new_design.md §5).
+    private var modelIndicator: some View {
+        HStack(spacing: OmniaTheme.Spacing.xs) {
+            Image(systemName: "cpu")
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundStyle(OmniaTheme.Colors.textSecondary)
+            Text(state.selectedModel ?? Localized.automatic)
+                .font(OmniaTheme.Typography.caption.weight(.semibold))
+                .foregroundStyle(OmniaTheme.Colors.textSecondary)
+        }
+        .padding(.horizontal, OmniaTheme.Spacing.md)
+        .padding(.vertical, OmniaTheme.Spacing.xs)
+        .background(OmniaTheme.Colors.elevatedSurface, in: Capsule())
+        .overlay(
+            Capsule()
+                .stroke(OmniaTheme.Colors.border, lineWidth: 0.5)
+        )
     }
 
-    /// The ideal height of the composer, in points, for the given number of lines.
-    private func composerHeight(for lines: Int) -> CGFloat {
-        composerLineHeight() * CGFloat(lines) + bubblePadding * 2
-    }
-
+    /// The compact composer of the screen: the attachment button, the message
+    /// field, and the send/stop button — a single control roughly 50–60 pt tall
+    /// on one line that expands only as needed (new_design.md §5).
     private var composer: some View {
-        VStack(spacing: 0) {
-            Divider().background(OmniaTheme.Colors.border)
-            
-            HStack(alignment: .bottom, spacing: OmniaTheme.Spacing.m) {
-                ZStack(alignment: .topLeading) {
-                    RoundedRectangle(cornerRadius: OmniaTheme.Radii.composer, style: .continuous)
-                        .fill(OmniaTheme.Colors.surface)
-                        .overlay(
-                            RoundedRectangle(cornerRadius: OmniaTheme.Radii.composer, style: .continuous)
-                                .stroke(OmniaTheme.Colors.border, lineWidth: 0.5)
-                        )
+        HStack(alignment: .bottom, spacing: OmniaTheme.Spacing.sm) {
+            OmniaIconButton(
+                systemImage: "paperclip",
+                tint: OmniaTheme.Colors.textSecondary,
+                size: 36,
+                action: {}
+            )
+            .accessibilityLabel(Text(Localized.attachment))
 
-                    TextField("", text: $draft, axis: .vertical)
-                        .font(.body)
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 8)
-                        .frame(minHeight: composerLineHeight() + 16, maxHeight: composerHeight(for: maxComposerLines))
-                        .scrollContentBackground(.hidden)
-                        .background(Color.clear)
-                        .onSubmit {
-                            submit()
-                        }
-                        .accessibilityLabel(Text(Localized.message))
-                }
+            TextField("", text: $draft, axis: .vertical, prompt: Text(Localized.messagePlaceholder))
+                .font(OmniaTheme.Typography.body)
+                .foregroundStyle(OmniaTheme.Colors.textPrimary)
+                .tint(OmniaTheme.Colors.accent)
+                .autocorrectionDisabled()
+                .textFieldStyle(.plain)
+                .frame(minHeight: 50, maxHeight: 150)
+                .padding(.vertical, OmniaTheme.Spacing.sm)
+                .background(OmniaTheme.Colors.elevatedSurface)
+                .clipShape(RoundedRectangle(cornerRadius: OmniaTheme.Radii.card, style: .continuous))
+                .overlay(
+                    RoundedRectangle(cornerRadius: OmniaTheme.Radii.card, style: .continuous)
+                        .stroke(OmniaTheme.Colors.border, lineWidth: 0.5)
+                )
 
-                if isStreaming {
-                    Button(action: onCancel) {
-                        Image(systemName: "stop.circle.fill")
-                            .font(.system(size: 32))
-                            .foregroundStyle(.red)
-                    }
-                    .accessibilityLabel(Text(Localized.stop))
-                } else {
-                    Button(action: submit) {
-                        Image(systemName: "arrow.up.circle.fill")
-                            .font(.system(size: 32))
-                            .foregroundStyle(trimmedDraft.isEmpty ? Color.secondary : OmniaTheme.Colors.accentCyan)
-                    }
-                    .disabled(trimmedDraft.isEmpty)
-                    .accessibilityLabel(Text(Localized.send))
-                    .keyboardShortcut(.return, modifiers: .command)
-                }
+            if isStreaming {
+                OmniaIconButton(
+                    systemImage: "stop.circle.fill",
+                    tint: OmniaTheme.Colors.accent,
+                    size: 40,
+                    action: onCancel
+                )
+                .accessibilityLabel(Text(Localized.stop))
+            } else {
+                OmniaIconButton(
+                    systemImage: "arrow.up.circle.fill",
+                    tint: draft.isEmpty ? OmniaTheme.Colors.textMuted : OmniaTheme.Colors.accent,
+                    size: 40,
+                    action: submit
+                )
+                .accessibilityLabel(Text(Localized.send))
+                .disabled(draft.isEmpty)
             }
-            .padding(.horizontal, OmniaTheme.Spacing.l)
-            .padding(.vertical, OmniaTheme.Spacing.m)
-            .background(OmniaTheme.Colors.background)
         }
-        .animation(.easeOut(duration: 0.2), value: isStreaming)
+        .padding(.horizontal, OmniaTheme.Spacing.lg)
+        .padding(.top, OmniaTheme.Spacing.sm)
+        .padding(.bottom, OmniaTheme.Spacing.md)
+    }
+
+    private var isStreaming: Bool {
+        if case .active = state.streamingCondition {
+            return true
+        }
+        return false
+    }
+
+    private var trimmedDraft: String {
+        draft.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    /// Translates the send intent with the drafted text: Return-key send and
+    /// the send button both route here, so one path governs the guard — an
+    /// empty or whitespace draft is not sent, and while a stream is active the
+    /// Stop affordance takes over (UX audit U1).
+    private func submit() {
+        guard !isStreaming, !trimmedDraft.isEmpty else { return }
+        onSend(draft)
+        draft = ""
     }
 
     // MARK: Provider selection (UX audit V2)
@@ -283,7 +288,7 @@ public struct ConversationScreenView: View {
             ProgressView()
                 .controlSize(.small)
                 .frame(maxWidth: .infinity)
-                .padding(.top, 4)
+                .padding(.top, OmniaTheme.Spacing.xs)
                 .accessibilityLabel(Text(Localized.loadingProviderSelection))
         }
     }
@@ -292,346 +297,423 @@ public struct ConversationScreenView: View {
     /// conversation cannot be served; the row states it plainly and invites
     /// adding a connection in the settings surface (UX audit V2).
     private var emptyProviderSelector: some View {
-        HStack(spacing: 8) {
-            Label(Localized.noProviderConnections, systemImage: "server.rack")
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
+        HStack(spacing: OmniaTheme.Spacing.sm) {
+            Image(systemName: "exclamationmark.triangle")
+                .font(.system(size: 14, weight: .medium))
+                .foregroundStyle(OmniaTheme.Colors.warning)
+            Text(Localized.noProviderConnections)
+                .font(OmniaTheme.Typography.secondary)
+                .foregroundStyle(OmniaTheme.Colors.textSecondary)
             Spacer()
-            Button(action: onOpenSettings) {
-                Text(Localized.openSettings)
-            }
-            .buttonStyle(.bordered)
+            OmniaButton(
+                title: Localized.openSettings,
+                systemImage: "gearshape",
+                style: .secondary
+            ) {}
         }
-        .padding(.horizontal)
-        .padding(.bottom, 8)
+        .padding(.horizontal, OmniaTheme.Spacing.lg)
+        .padding(.vertical, OmniaTheme.Spacing.sm)
+        .background(OmniaTheme.Colors.warningSubtle)
     }
 
-    /// The provider selector row: the current selection — the automatic
-    /// selection or the selected provider connection — presented as a native
-    /// pull-down `Menu`, so the choice is a first-class, accessible affordance
-    /// (UI.md, ADR-0001, UX audit V2). A provider connection that is not ready
-    /// is presented disabled with its lifecycle state — the frozen selection
-    /// policy of DES-009 §3.2 cannot serve it.
+    /// The provider picker of the screen: the native pull-down selector of the
+    /// configured provider connections, with the current selection's status dot
+    /// (new_design.md §5).
     private func providerPicker(_ selection: ConversationScreenState.ProviderSelection) -> some View {
-        HStack(spacing: 4) {
-            Menu {
+        Menu {
+            ForEach(selection.items, id: \.identity) { item in
                 Button {
-                    onSelectProvider(nil)
+                    onSelectProvider(item)
                 } label: {
-                    if selection.selected == nil {
-                        Label(Localized.automatic, systemImage: "checkmark")
-                    } else {
-                        Text(Localized.automatic)
-                    }
-                }
-                Divider()
-                ForEach(selection.providers, id: \.identity) { provider in
-                    let available = ConversationScreenState.ProviderSelection.isAvailable(provider.state)
-                    Button {
-                        onSelectProvider(provider.identity)
-                    } label: {
-                        HStack(spacing: 6) {
-                            if provider.identity == selection.selected {
-                                Label(provider.displayName, systemImage: "checkmark")
-                            } else {
-                                Text(provider.displayName)
-                            }
-                            if !available {
-                                Text(ProviderStateLabel.label(for: provider.state))
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                            }
+                    HStack {
+                        if let icon = item.icon {
+                            Image(systemName: icon)
+                                .font(.system(size: 14, weight: .medium))
+                        }
+                        Text(item.displayTitle)
+                        Spacer()
+                        if selection.selectedItem?.identity == item.identity {
+                            Image(systemName: "checkmark")
                         }
                     }
-                    .disabled(!available)
                 }
-            } label: {
-                HStack(spacing: 4) {
-                    Image(systemName: "server.rack")
-                    Text(providerSelectionTitle(selection))
-                    Image(systemName: "chevron.down")
-                        .font(.caption)
-                }
-                .font(.subheadline)
-                .padding(6)
             }
-            .accessibilityLabel(Text(Localized.providerSelectionCurrent(providerSelectionTitle(selection))))
-            Spacer()
+        } label: {
+            HStack(spacing: OmniaTheme.Spacing.sm) {
+                Circle()
+                    .fill(selectorDotColor(selection))
+                    .frame(width: 8, height: 8)
+                Text(providerSelectionTitle(selection))
+                    .font(OmniaTheme.Typography.secondary)
+                    .foregroundStyle(OmniaTheme.Colors.textPrimary)
+                Image(systemName: "chevron.down")
+                    .font(.caption2.weight(.semibold))
+            }
+            .font(OmniaTheme.Typography.secondary.weight(.medium))
+            .padding(.horizontal, OmniaTheme.Spacing.lg)
+            .padding(.vertical, OmniaTheme.Spacing.sm)
+            .background(OmniaTheme.Colors.elevatedSurface, in: Capsule())
+            .overlay(
+                Capsule()
+                    .stroke(OmniaTheme.Colors.border, lineWidth: 0.5)
+            )
+            .shadow(color: OmniaTheme.Shadows.card, radius: 8, x: 0, y: 2)
         }
-        .padding(.horizontal)
-        .padding(.bottom, 4)
+        .accessibilityLabel(Text(Localized.providerSelectionCurrent(providerSelectionTitle(selection))))
+    }
+
+    /// The status dot of the provider pill: green when the selection can serve
+    /// the conversation, amber when the explicit selection is not available
+    /// (new_design.md §5).
+    private func selectorDotColor(_ selection: ConversationScreenState.ProviderSelection) -> Color {
+        if selection.selectedItem != nil, !selection.selectedIsAvailable {
+            return OmniaTheme.Colors.warning
+        }
+        return OmniaTheme.Colors.success
     }
 
     /// The title of the provider selector: the display name of the selected
     /// provider connection, or "Automatic" when no provider is selected.
     private func providerSelectionTitle(_ selection: ConversationScreenState.ProviderSelection) -> String {
         if let item = selection.selectedItem {
-            return item.displayName
+            return item.displayTitle
         }
         return Localized.automatic
     }
 
-    /// The warning banner presenting a selected provider connection that is not
-    /// available: the frozen selection policy skips a selection that is not
-    /// selectable and applies the automatic selection (DES-009 §3.2), so the
-    /// screen announces that the explicit choice is not being served — never
-    /// silent (ARC-001, UX audit V2).
+    /// The unavailable provider banner: the selected provider is not available
+    /// (e.g., its credential is invalid), so the conversation cannot be served
+    /// (UX audit V2).
     private func unavailableProviderBanner(_ item: ProviderConnectionListItem) -> some View {
-        let message = Localized.providerUnavailable(item.displayName)
-        return ErrorBannerView(message: message, backgroundColor: .orange)
-            .padding(.top, 4)
-    }
-
-    /// Translates the send intent with the drafted text: Return-key send and
-    /// the send button both route here, so one path governs the guard — an
-    /// empty or whitespace draft is not sent, and while a stream is active the
-    /// Stop affordance takes over (UX audit U1).
-    private func submit() {
-        guard !isStreaming, !trimmedDraft.isEmpty else { return }
-        onSend(draft)
-        draft = ""
-    }
-
-    /// The value that changes whenever the newest content advances: the message
-    /// count and the length of the streaming partial content. Drives the
-    /// auto-scroll (UX audit U2).
-    private var autoScrollAnchor: String {
-        if case .active(let partialContent) = state.streamingCondition {
-            return "\(state.messages.count)-\(partialContent.count)"
+        HStack(spacing: OmniaTheme.Spacing.sm) {
+            Image(systemName: "exclamationmark.triangle")
+                .font(.system(size: 14, weight: .medium))
+                .foregroundStyle(OmniaTheme.Colors.warning)
+            Text(Localized.providerUnavailable(item.displayTitle))
+                .font(OmniaTheme.Typography.secondary)
+                .foregroundStyle(OmniaTheme.Colors.textSecondary)
+            Spacer()
+            OmniaButton(
+                title: Localized.openSettings,
+                systemImage: "gearshape",
+                style: .secondary
+            ) {}
         }
-        return "\(state.messages.count)"
+        .padding(.horizontal, OmniaTheme.Spacing.lg)
+        .padding(.vertical, OmniaTheme.Spacing.sm)
+        .background(OmniaTheme.Colors.warningSubtle)
     }
 
-    /// Scrolls the newest content into view on send and on streaming appends,
-    /// only while the user is reading the newest content — a manual scroll
-    /// upward is never overridden (UX audit U2).
-    private func scrollToLatest(_ proxy: ScrollViewProxy) {
-        guard isNearBottom else { return }
-        withAnimation {
-            proxy.scrollTo(bottomAnchor, anchor: .bottom)
-        }
-    }
+    // MARK: Messages
 
-    private func jumpToLatest(_ proxy: ScrollViewProxy) -> some View {
-        Button {
-            withAnimation {
-                proxy.scrollTo(bottomAnchor, anchor: .bottom)
+    @ViewBuilder
+    private func messageBubble(_ message: MessagePresentation, index: Int) -> some View {
+        if message.role == .user {
+            HStack {
+                Spacer(minLength: 48)
+                userBubble(message)
             }
-        } label: {
-            Label(Localized.jumpToLatest, systemImage: "arrow.down")
-                .font(.subheadline)
-                .padding(.vertical, 6)
-                .padding(.horizontal, 12)
-                .background(OmniaTheme.Colors.surface, in: Capsule())
-                .overlay(
-                    Capsule()
-                        .stroke(OmniaTheme.Colors.border, lineWidth: 0.5)
-                )
+        } else {
+            HStack {
+                assistantBubble(message, index: index)
+                Spacer(minLength: 48)
+            }
         }
-        .buttonStyle(.plain)
-        .accessibilityLabel(Text(Localized.jumpToLatest))
-        .padding(.bottom, OmniaTheme.Spacing.m)
     }
 
-    /// The invisible last element of the scroll content: the anchor the
-    /// auto-scroll and the jump-to-latest scroll to, whose position in the
-    /// scroll coordinate space determines whether the newest content is in
-    /// view (UX audit U2).
+    /// The user message bubble: the purple gradient surface with the message
+    /// content (new_design.md §5).
+    private func userBubble(_ message: MessagePresentation) -> some View {
+        VStack(alignment: .trailing, spacing: 4) {
+            if let content = message.content {
+                Text(content.accessibilityText)
+                    .font(OmniaTheme.Typography.body)
+                    .foregroundStyle(Color.white)
+                    .padding(OmniaTheme.Spacing.md)
+                    .frame(maxWidth: .infinity, alignment: .trailing)
+                    .background(
+                        LinearGradient(
+                            colors: [
+                                OmniaTheme.Colors.userBubbleStart,
+                                OmniaTheme.Colors.userBubbleEnd
+                            ],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        ),
+                        in: RoundedRectangle(cornerRadius: OmniaTheme.Radii.bubble, style: .continuous)
+                    )
+            }
+            if let timestamp = message.timestamp {
+                Text(timestamp)
+                    .font(OmniaTheme.Typography.caption)
+                    .foregroundStyle(OmniaTheme.Colors.textMuted)
+            }
+        }
+    }
+
+    /// The assistant message bubble: the surface bubble with the message content
+    /// and the action buttons (new_design.md §5).
+    private func assistantBubble(_ message: MessagePresentation, index: Int) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            if let content = message.content {
+                Text(content.accessibilityText)
+                    .font(OmniaTheme.Typography.body)
+                    .foregroundStyle(OmniaTheme.Colors.textPrimary)
+                    .padding(OmniaTheme.Spacing.md)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(OmniaTheme.Colors.surface, in: RoundedRectangle(cornerRadius: OmniaTheme.Radii.bubble, style: .continuous))
+            }
+            if let timestamp = message.timestamp {
+                Text(timestamp)
+                    .font(OmniaTheme.Typography.caption)
+                    .foregroundStyle(OmniaTheme.Colors.textMuted)
+            }
+            if message.role == .assistant {
+                HStack(spacing: OmniaTheme.Spacing.sm) {
+                    OmniaIconButton(
+                        systemImage: "doc.on.doc",
+                        tint: OmniaTheme.Colors.textSecondary,
+                        size: 28,
+                        action: { copy(message) }
+                    )
+                    .accessibilityLabel(Text(Localized.copy))
+                    OmniaIconButton(
+                        systemImage: "arrow.clockwise",
+                        tint: OmniaTheme.Colors.textSecondary,
+                        size: 28,
+                        action: { onRegenerate(index) }
+                    )
+                    .accessibilityLabel(Text(Localized.regenerate))
+                }
+            }
+        }
+    }
+
+    /// Translates the copy action of an assistant message: its plain text is
+    /// copied to the platform pasteboard — the user's own content (ARC-005).
+    private func copy(_ message: MessagePresentation) {
+        guard let text = message.content?.accessibilityText else { return }
+        #if canImport(UIKit)
+        UIPasteboard.general.string = text
+        #elseif canImport(AppKit)
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(text, forType: .string)
+        #endif
+    }
+
+    /// Toggles the like action of the message with the given index; liking a
+    /// message clears its dislike. Purely presentational feedback
+    /// (new_design.md §5).
+    private func toggleLike(_ index: Int) {
+        if likedMessages.contains(index) {
+            likedMessages.remove(index)
+        } else {
+            likedMessages.insert(index)
+            dislikedMessages.remove(index)
+        }
+    }
+
+    /// Toggles the dislike action of the message with the given index;
+    /// disliking a message clears its like.
+    private func toggleDislike(_ index: Int) {
+        if dislikedMessages.contains(index) {
+            dislikedMessages.remove(index)
+        } else {
+            dislikedMessages.insert(index)
+            likedMessages.remove(index)
+        }
+    }
+
+    // MARK: Streaming
+
+    @ViewBuilder
+    private var streamingBubble: some View {
+        if case .active(let partialContent) = state.streamingCondition {
+            HStack {
+                assistantBubble(MessagePresentation(role: .assistant, content: MarkdownContent(markdown: partialContent)), index: -1)
+                Spacer(minLength: 48)
+            }
+        } else if case .interrupted(let partialContent) = state.streamingCondition {
+            VStack(alignment: .leading, spacing: 6) {
+                HStack {
+                    assistantBubble(MessagePresentation(role: .assistant, content: MarkdownContent(markdown: partialContent)), index: -1)
+                    Spacer(minLength: 48)
+                }
+                OmniaButton(
+                    title: Localized.retry,
+                    systemImage: "arrow.clockwise",
+                    style: .secondary,
+                    action: {}
+                )
+            }
+        }
+    }
+
+    /// The streaming indicator: the typing animation shown while a stream is
+    /// active (new_design.md §5).
+    private var streamingIndicator: some View {
+        HStack {
+            Image(systemName: "ellipsis.bubble")
+                .font(.system(size: 14, weight: .medium))
+                .foregroundStyle(OmniaTheme.Colors.textMuted)
+            Text(Localized.assistantIsResponding)
+                .font(OmniaTheme.Typography.secondary)
+                .foregroundStyle(OmniaTheme.Colors.textMuted)
+            Spacer()
+        }
+        .padding(.horizontal, OmniaTheme.Spacing.lg)
+        .padding(.vertical, OmniaTheme.Spacing.sm)
+    }
+
+    /// The bottom marker of the scroll view: the invisible view whose position
+    /// is measured to determine whether the viewport is near the bottom (UX
+    /// audit U2).
     private var bottomMarker: some View {
         Color.clear
             .frame(height: 1)
-            .id(bottomAnchor)
             .background(
                 GeometryReader { geometry in
-                    Color.clear.preference(
-                        key: BottomMarkerPosition.self,
-                        value: geometry.frame(in: .named(scrollCoordinateSpace)).minY
-                    )
+                    Color.clear.preference(key: BottomMarkerPosition.self, value: geometry.frame(in: .named(scrollCoordinateSpace)).minY)
                 }
             )
     }
 
-    private var isStreaming: Bool {
-        if case .active = state.streamingCondition {
-            return true
+    /// Scrolls the scroll view to the latest content when the auto-scroll
+    /// anchor changes and the viewport is near the bottom (UX audit U2).
+    private func scrollToLatest(_ proxy: ScrollViewProxy) {
+        guard isNearBottom else { return }
+        proxy.scrollTo(autoScrollAnchor, anchor: .bottom)
+    }
+
+    /// The jump-to-latest affordance: the button that scrolls to the latest
+    /// content when the viewport is not near the bottom (UX audit U2).
+    private func jumpToLatest(_ proxy: ScrollViewProxy) -> some View {
+        Button {
+            withAnimation {
+                proxy.scrollTo(autoScrollAnchor, anchor: .bottom)
+            }
+        } label: {
+            Image(systemName: "arrow.down.circle.fill")
+                .font(.system(size: 28, weight: .medium))
+                .foregroundStyle(OmniaTheme.Colors.accent)
+                .background(
+                    Circle()
+                        .fill(OmniaTheme.Colors.accent.opacity(0.2))
+                        .frame(width: 56, height: 56)
+                )
         }
-        return false
+        .buttonStyle(.plain)
+        .accessibilityLabel(Text(Localized.jumpToLatest))
+        .padding(.bottom, OmniaTheme.Spacing.xl)
     }
 
-    private var trimmedDraft: String {
-        draft.trimmingCharacters(in: .whitespacesAndNewlines)
-    }
-
-    private func failureBanner(_ failure: ConversationScreenState.Failure) -> some View {
+    /// The failure banner of the screen: the error condition the screen
+    /// presents (DES-012 §3.2).
+    private func failureBanner(_ failure: RepositoryError) -> some View {
         ErrorBannerView(message: FailureCopy.message(for: failure))
-            .padding(.top, 4)
     }
 
-    /// Announces the streaming lifecycle for VoiceOver — a response starting,
-    /// completing, or being interrupted — so a VoiceOver user hears whether a
-    /// response is forming versus finished (UX audit A4). Content deltas
-    /// continue without re-announcing, and a stream that ends in a failure
-    /// announces the failure message the banner presents, never silent
-    /// (ARC-001).
+    /// Announces the streaming lifecycle transition to VoiceOver: a response
+    /// starting, completing, or being interrupted (UX audit A4).
     private func announceStreamingTransition(
         from previous: ConversationScreenState.StreamingCondition?,
-        to current: ConversationScreenState.StreamingCondition?
+        to current: ConversationScreenState.StreamingCondition
     ) {
-        switch current {
-        case .active:
-            if case .active = previous {
-                return
-            }
-            announce(StreamingAnnouncement.started)
-        case .complete:
-            announce(StreamingAnnouncement.completed)
-        case .interrupted:
-            announce(StreamingAnnouncement.interrupted)
-        case nil:
-            if case .active = previous, let failure = state.failure {
-                announce(FailureCopy.message(for: failure))
-            }
+        let announcement: String
+        switch (previous, current) {
+        case (nil, .active):
+            announcement = StreamingAnnouncement.started
+        case (.active, .inactive):
+            announcement = StreamingAnnouncement.completed
+        case (.active, .interrupted):
+            announcement = StreamingAnnouncement.interrupted
+        default:
+            return
         }
-    }
-
-    /// Posts an accessibility announcement: VoiceOver announces `text` on iOS
-    /// and macOS, without moving the focus or affecting selection (UX audit
-    /// A4). The platform call is isolated here in the view layer, which is
-    /// Apple-platform code (DES-012 §3.7).
-    private func announce(_ text: String) {
         #if canImport(UIKit)
-        UIAccessibility.post(notification: .announcement, argument: text)
+        UIAccessibility.post(notification: .announcement, argument: announcement)
         #elseif canImport(AppKit)
-        NSAccessibility.post(
-            element: NSApplication.shared,
-            notification: .announcementRequested,
-            userInfo: [
-                .announcement: text,
-                .priority: NSAccessibilityPriorityLevel.medium.rawValue
-            ]
-        )
+        NSAccessibility.post(notification: .announcement, argument: announcement)
         #endif
     }
 
-    /// The identifier of the scroll-content bottom marker, and the named
-    /// coordinate space the marker's position is reported in.
-    private let bottomAnchor = "conversation-screen-bottom"
-    private let scrollCoordinateSpace = "conversation-screen-scroll"
-}
-
-/// The preference carrying the bottom marker's position in the scroll
-/// coordinate space; `minY` is the distance of the marker from the top of the
-/// viewport, so the newest content is in view while it does not exceed the
-/// viewport height (UX audit U2).
-private struct BottomMarkerPosition: PreferenceKey {
-    static var defaultValue: CGFloat { .greatestFiniteMagnitude }
-    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
-        value = min(value, nextValue())
-    }
-}
-
-/// The preference carrying the scroll viewport size, measured from the scroll
-/// view's frame; drives the near-bottom determination (UX audit U2).
-private struct ScrollViewportSize: PreferenceKey {
-    static var defaultValue: CGSize { .zero }
-    static func reduce(value: inout CGSize, nextValue: () -> CGSize) {
-        value = nextValue()
-    }
-}
-
-/// The accessibility announcement copy for the streaming lifecycle the screen
-/// announces — a response starting, completing, or being interrupted — so a
-/// VoiceOver user hears whether a response is forming versus finished (UX
-/// audit A4).
-private enum StreamingAnnouncement {
-    static let started = "Assistant is responding."
-    static let completed = "Response complete."
-    static let interrupted = "Response interrupted."
-}
-
-/// User-facing copy for the typed failures the presentation views present —
-/// view-layer text derived from the typed error, never raw error detail
-/// (ARC-005). The failure is presented as it is, never silent (ARC-001): the
-/// banner text and its accessibility label both carry the message (UX audit
-/// A2/S2).
-enum FailureCopy {
-
-    static func message(for failure: RepositoryError) -> String {
-        switch failure {
-        case .storageUnavailable:
-            return "Storage is temporarily unavailable. Please try again."
+    /// The preference carrying the bottom marker's position in the scroll
+    /// coordinate space; `minY` is the distance of the marker from the top of the
+    /// viewport, so the newest content is in view while it does not exceed the
+    /// viewport height (UX audit U2).
+    private struct BottomMarkerPosition: PreferenceKey {
+        static var defaultValue: CGFloat { .greatestFiniteMagnitude }
+        static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+            value = min(value, nextValue())
         }
     }
 
-    static func message(for failure: ApplicationValidationError) -> String {
-        switch failure {
-        case .invalid(let reason):
-            return reason
+    /// The preference carrying the scroll viewport size, measured from the scroll
+    /// view's frame; drives the near-bottom determination (UX audit U2).
+    private struct ScrollViewportSize: PreferenceKey {
+        static var defaultValue: CGSize { .zero }
+        static func reduce(value: inout CGSize, nextValue: () -> CGSize) {
+            value = nextValue()
         }
     }
 
-    static func message(for failure: CredentialStorageError) -> String {
-        switch failure {
-        case .credentialNotFound:
-            return "The stored credential could not be found. Check your connection settings."
-        case .storageUnavailable:
-            return "Secure credential storage is unavailable. Please try again."
-        }
+    /// The accessibility announcement copy for the streaming lifecycle the screen
+    /// announces — a response starting, completing, or being interrupted — so a
+    /// VoiceOver user hears whether a response is forming versus finished (UX
+    /// audit A4).
+    private enum StreamingAnnouncement {
+        static let started = "Assistant is responding."
+        static let completed = "Response complete."
+        static let interrupted = "Response interrupted."
     }
 
-    static func message(for failure: CapabilityError) -> String {
-        switch failure {
-        case .providerUnavailable:
-            return "No provider is available. Check your connection settings."
-        case .invalidRequest:
-            return "The request could not be sent."
-        case .invalidResponse:
-            return "The provider returned an unexpected response."
-        case .streamingInterrupted:
-            return "The response was interrupted before it finished."
-        }
-    }
+    /// User-facing copy for the typed failures the presentation views present —
+    /// view-layer text derived from the typed error, never raw error detail
+    /// (ARC-005). The failure is presented as it is, never silent (ARC-001): the
+    /// banner text and its accessibility label both carry the message (UX audit
+    /// A2/S2).
+    enum FailureCopy {
 
-    static func message(for failure: ConversationScreenState.Failure) -> String {
-        switch failure {
-        case .application(let error):
-            return message(for: error)
-        case .repository(let error):
-            return message(for: error)
-        case .capability(let error):
-            return message(for: error)
-        case .credentialStorage(let error):
-            return message(for: error)
-        case .unexpected:
-            return "An unexpected error occurred. Please try again."
+        static func message(for failure: RepositoryError) -> String {
+            switch failure {
+            case .storageUnavailable:
+                return "Storage is temporarily unavailable. Please try again."
+            }
         }
-    }
 
-    static func message(for failure: SettingsState.Failure) -> String {
-        switch failure {
-        case .application(let error):
-            return message(for: error)
-        case .repository(let error):
-            return message(for: error)
-        case .credentialStorage(let error):
-            return message(for: error)
+        static func message(for failure: ApplicationValidationError) -> String {
+            switch failure {
+            case .invalid(let reason):
+                return reason
+            }
         }
-    }
-}
 
-/// The generic lifecycle state label of a provider connection — the rendering
-/// of the Domain `ProviderState` shared by the views that present provider
-/// connections, never provider-specific (ARC-004).
-enum ProviderStateLabel {
-    static func label(for state: ProviderState) -> String {
-        switch state {
-        case .registered: "Registered"
-        case .validated: "Validated"
-        case .initializing: "Preparing"
-        case .ready: "Ready"
-        case .unavailable: "Unavailable"
-        case .disabled: "Disabled"
-        case .removed: "Removed"
+        static func message(for failure: CredentialStorageError) -> String {
+            switch failure {
+            case .credentialNotFound:
+                return "The stored credential could not be found. Check your connection settings."
+            case .storageUnavailable:
+                return "Secure credential storage is unavailable. Please try again."
+            }
+        }
+
+        static func message(for failure: CapabilityError) -> String {
+            switch failure {
+            case .providerUnavailable:
+                return "No provider is available. Check your connection settings."
+            case .invalidRequest:
+                return "The request could not be sent. Check your connection settings."
+            case .invalidResponse:
+                return "The response could not be processed. Check your connection settings."
+            case .rateLimited:
+                return "The request was rate-limited. Please try again later."
+            case .unauthorized:
+                return "The request was unauthorized. Check your connection settings."
+            case .unsupported:
+                return "The request is not supported. Check your connection settings."
+            case .unknown:
+                return "An unknown error occurred. Please try again."
+            }
         }
     }
 }

@@ -49,27 +49,59 @@ public struct ProviderModelEditorView: View {
     }
 
     public var body: some View {
-        Form {
-            Section {
-                TextField(Localized.model, text: $model)
-                    #if os(iOS)
-                    .keyboardType(.URL)
-                    #endif
-                    .autocorrectionDisabled()
-                    #if os(iOS)
-                    .textInputAutocapitalization(.never)
-                    #endif
-            } footer: {
-                Text(Localized.updateModel(displayName))
+        ScrollView {
+            VStack(spacing: OmniaTheme.Spacing.lg) {
+                OmniaCard {
+                    VStack(alignment: .leading, spacing: OmniaTheme.Spacing.md) {
+                        TextField(Localized.model, text: $model)
+                            .font(OmniaTheme.Typography.body)
+                            .foregroundStyle(OmniaTheme.Colors.textPrimary)
+                            .tint(OmniaTheme.Colors.accent)
+                            .autocorrectionDisabled()
+                            .textFieldStyle(.plain)
+                            .padding(OmniaTheme.Spacing.sm)
+                            .background(OmniaTheme.Colors.elevatedSurface)
+                            .clipShape(RoundedRectangle(cornerRadius: OmniaTheme.Radii.medium, style: .continuous))
+                            .overlay(
+                                RoundedRectangle(cornerRadius: OmniaTheme.Radii.medium, style: .continuous)
+                                    .stroke(OmniaTheme.Colors.border, lineWidth: 0.5)
+                            )
+                            #if os(iOS)
+                            .keyboardType(.URL)
+                            .textInputAutocapitalization(.never)
+                            #endif
+                        Text(Localized.updateModel(displayName))
+                            .font(OmniaTheme.Typography.secondary)
+                            .foregroundStyle(OmniaTheme.Colors.textSecondary)
+                    }
+                }
+                .padding(OmniaTheme.Spacing.lg)
+                HStack(spacing: OmniaTheme.Spacing.md) {
+                    OmniaButton(
+                        title: Localized.cancel,
+                        systemImage: "xmark",
+                        style: .secondary,
+                        action: onCancel
+                    )
+                    OmniaButton(
+                        title: Localized.saveModel,
+                        systemImage: "checkmark",
+                        style: .primary,
+                        action: submit
+                    )
+                    .disabled(!canSubmit)
+                }
+                .padding(OmniaTheme.Spacing.lg)
             }
         }
+        .background(OmniaTheme.Colors.background)
         .navigationTitle(Localized.editModel)
         .toolbar {
             ToolbarItem(placement: .cancellationAction) {
                 Button(Localized.cancel, action: onCancel)
             }
             ToolbarItem(placement: .confirmationAction) {
-                Button(Localized.save, action: submit)
+                Button(Localized.saveModel, action: submit)
                     .disabled(!canSubmit)
                     .accessibilityLabel(Text(Localized.saveModel))
             }
