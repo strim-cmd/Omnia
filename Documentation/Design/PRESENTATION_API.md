@@ -1,7 +1,7 @@
 ---
 title: OmniaPresentation Public API Contract
 document_id: DES-012
-version: 1.1.0
+version: 1.2.0
 status: Ratified
 owner: Founder
 project: Omnia
@@ -10,7 +10,7 @@ authors:
 reviewers:
   - Chief Architect
 created: 2026-08-05
-last_updated: 2026-08-08
+last_updated: 2026-08-09
 related_documents:
   - Documentation/Product/Roadmap/PRESENTATION_SPRINT_1_ROADMAP.md
   - Documentation/Product/Roadmap/MVP_V01_ROADMAP.md
@@ -59,6 +59,8 @@ This document specifies the initial public API inventory, the package responsibi
 This initial contract is frozen as **Presentation API Freeze v1**. From this revision, the public surface of §3 is part of the frozen contract; a change requires a specification revision, exactly as the prior API freezes do (`PROJECT_STATE.md`). It is the single source of truth for the implementation of the Presentation layer (PRD-007 Stage 1), including the resolved Markdown rendering and code highlighting mechanism (§3.3).
 
 This revision (v1.1.0) extends the contract with the conversation list create-in-workspace flow of §3.3 and the provider connection form's endpoint collection of §3.4 — exactly as the MVP v0.1 Roadmap sequences it (`MVP_V01_ROADMAP.md`, PRD-008, The Integration Gap and Stage 1). The extension is additive and backward-compatible (§6.3); the existing public API of the frozen Presentation API Freeze v1 is unchanged. The new surfaces are frozen in §3.3 and §3.4 and are the single source of truth for the implementation of the revision (PRD-008, App Contract Freeze).
+
+This revision (v1.2.0) extends the contract with the optional per-provider model surface of the Settings module — the generic **Model** field of the provider connection form, the **Edit Model** editor beside **Edit Endpoint**, and the model-edit condition of §3.2 — recording and resolving the model name (the OmniRoute combo, or any OpenAI-compatible provider model name) through the frozen `DES-011` §3.10 model surface, so a user can record the model the app-edge selection and routing pass as the wire `model` (`OMNIROUTE_INTEGRATION_PLAN.md`). The extension is additive and backward-compatible (§6.3) with two authorized signature modifications, both confined to the view layer and consumed only by OmniaApp's `RootView`: `ProviderConnectionFormView.onConfigure` is extended from the `(ConfigureProviderRequest, String)` pair to the `(ConfigureProviderRequest, String, String)` triple (request, endpoint, model), and `SettingsView.init` gains the three required `onEditModel`/`onUpdateModel`/`onCancelModelEdit` parameters (no two-arg overload retained). `SettingsState` gains `ModelEditing`/`editingModel` with a `nil` default, so all existing constructions compile unchanged. The new surfaces are frozen in §3.2 and §3.4 and are the single source of truth for the implementation of the revision.
 
 The specification governs the package alone. It defines no behavior of the Foundation, Domain, Application, Infrastructure, or application-shell layers; those are specified by their own documents.
 
@@ -138,8 +140,15 @@ The category comprises the state models of the surfaces of §3.3, §3.4, and §3
 |---|---|---|
 | `ConversationListState` | conversation list | the ordered `ConversationListItem`s of the list, and the empty and error conditions the list presents (create, select, delete over `ConversationService`, `DES-011` §3.2). |
 | `ConversationScreenState` | conversation screen | the `MessagePresentation`s of the active conversation's history, the user input draft, the rendered streaming condition — active, complete, or interrupted (§3.3.1, `DES-011` §3.3) — and the ready-to-render provider selection: the provider connections of the settings surface and the user's explicit selection, composed by the shell (UX audit iteration V2). |
-| `SettingsState` | settings | the `ProviderConnectionListItem`s of the configured connections, the configuration values the settings surface presents, and the compose, endpoint-edit, and error conditions (`DES-011` §3.4, §3.5). |
+| `SettingsState` | settings | the `ProviderConnectionListItem`s of the configured connections, the configuration values the settings surface presents, and the compose, endpoint-edit, model-edit (v1.2.0), and error conditions (`DES-011` §3.4, §3.5). |
 | `NavigationState` | navigation | the current route of the navigation structure — which surface the shell presents and the presentation flow that produced it (§3.5). |
+
+The v1.2.0 revision adds the model-edit condition to `SettingsState`:
+
+| Member | Meaning |
+|---|---|
+| `ModelEditing` | the value type of the model-edit condition, mirroring the endpoint `Editing` type: the connection identity, its display name, and the currently recorded model — a provider with no recorded model presents `currentModel == ""`. |
+| `editingModel: ModelEditing?` | the model-edit condition — when it holds, the settings surface presents the model editor; the initializer parameter defaults to `nil`, so all existing constructions compile unchanged. |
 
 Normative statements:
 
@@ -148,6 +157,7 @@ Normative statements:
 - The state models MUST be immutable value types and MUST own no business logic (`ARC-002`).
 - The rendered streaming condition MUST mirror the Domain stream's active, complete, and interrupted conditions without redefining them (`DES-009` §3.11.4, `DES-011` §3.3): the partial content on interruption is preserved and presented, never discarded (`ARC-001`).
 - The state MUST NOT hold credentials, raw secrets, or provider-specific detail (`ARC-001`, `ARC-004`, `ARC-005`).
+- The v1.2.0 model-edit condition MUST mirror the endpoint-edit condition: it is session state composed by the shell, its `currentModel` pre-fills the model editor and is never a credential, and a failed update keeps the condition holding with its input retained (`ARC-001`).
 
 ### 3.3 Conversation Presentation Surface
 
@@ -211,6 +221,8 @@ The category comprises:
 | Connection-form intent | translates the user's declaration of a new provider connection into the frozen `ConfigureProviderRequest` — display name, capabilities, limits, version, and the credential entered by the user — and hands it to `ProviderConnectionService` (`DES-011` §3.1, §3.4). |
 | Endpoint collection (v1.1.0) | collects the provider's OpenAI-compatible endpoint with the connection declaration and records it through `ProviderConnectionService.updateEndpoint(_:for:)` (`DES-011` §3.9) — the address the runtime provider adapter binding resolves (`DES-013` §3.3, PRD-008). The endpoint is never a credential and is presented by this surface, but the credential boundary of the connection-form intent remains absolute (`ARC-001`, `ARC-005`). |
 | Endpoint-edit intent (UX audit U7) | translates the user's edit of an existing connection's endpoint — the retry/edit affordance that offers a way to edit instead of only Remove — through the frozen endpoint surface of `ProviderConnectionService` (`DES-011` §3.9): the endpoint editor is pre-filled with the recorded endpoint (resolved through `endpoint(for:)`), a malformed endpoint surfaces as the typed `ApplicationValidationError`, and a failed update keeps the editor open with its input retained. Only the endpoint is edited; the connection declaration and its stored credential are unchanged (`ARC-001`, `ARC-005`). |
+| Model collection (v1.2.0) | collects the provider's optional model name with the connection declaration — an empty model records none, so the provider falls back to the app-edge default — and records it through the frozen `ProviderConnectionService.configure(_:endpoint:model:)` (`DES-011` §3.10) alongside the endpoint. The model is connection configuration, never a credential, and is presented generically — "Model", not a provider-specific label (`PRODUCT_PRINCIPLES` — Provider Independence). |
+| Model-edit intent (v1.2.0) | translates the user's edit of an existing connection's model through the frozen model surface of `ProviderConnectionService` (`DES-011` §3.10): the model editor (a sibling of the endpoint editor) is pre-filled with the recorded model (resolved through `model(for:)`), an empty model surfaces as the typed `ApplicationValidationError`, and a failed update keeps the editor open with its input retained. Only the model is edited; the connection declaration and its stored credential are unchanged (`ARC-001`, `ARC-005`). |
 
 Normative statements:
 
@@ -220,6 +232,9 @@ Normative statements:
 - The configuration values MUST be typed through the frozen configuration vocabulary — `ConfigurationKey` and `ConfigurationLevel` (`DES-009` §3.6, `DES-011` §3.5); raw or untyped values are never presented.
 - The endpoint MUST be recorded through the frozen `ProviderConnectionService` endpoint surface (`DES-011` §3.9) and MUST NOT enter the connection declaration or any Domain aggregate; the transport address is connection configuration, never provider model (`DES-011` §3.9, `ARC-004`). A malformed endpoint is rejected by the service's boundary validation and presented as the typed `ApplicationValidationError` (`DES-011` §3.6).
 - A non-ready provider connection MUST offer a way to edit its endpoint instead of only Remove (UX audit U7): the endpoint editor MUST be pre-filled with the recorded endpoint, MUST edit only the endpoint — the connection declaration and its stored credential are unchanged — and a failed update MUST keep the editor open with its input retained, never silent (`ARC-001`).
+- The model MUST be recorded through the frozen `ProviderConnectionService` model surface (`DES-011` §3.10) and MUST NOT enter the connection declaration or any Domain aggregate; the model name is connection configuration, never provider model (`DES-011` §3.10, `ARC-004`). An empty or whitespace-only model is rejected by the service's boundary validation and presented as the typed `ApplicationValidationError` (`DES-011` §3.6); an empty model records none and falls back to the app-edge default (`DES-013` §3.3).
+- A provider connection MUST offer a way to edit its model beside Edit Endpoint (v1.2.0): the model editor MUST be pre-filled with the recorded model (resolved through `model(for:)`), MUST edit only the model — the connection declaration and its stored credential are unchanged — and a failed update MUST keep the editor open with its input retained, never silent (`ARC-001`).
+- The v1.2.0 view-layer signature changes are authorized by this revision: `ProviderConnectionFormView.onConfigure` is the `(ConfigureProviderRequest, String, String)` triple (request, endpoint, model), and `SettingsView.init` requires `onEditModel`, `onUpdateModel`, and `onCancelModelEdit`; both are confined to the SwiftUI view layer (§3.7), the only consumer is OmniaApp's `RootView`, and no non-view public surface changes in this revision (§6.3).
 - The failures the services surface — `ApplicationValidationError`, and the Domain `RepositoryError` and `CredentialStorageError` — MUST be presented as they are, never wrapped or redefined (`DES-011` §3.6, `DES-009` §3.9); no failure is silent (`ARC-001`).
 
 ### 3.5 Navigation Presentation Surface
@@ -258,7 +273,7 @@ The seam is the public initializer of every surface:
 |---|---|
 | Conversation list | `ConversationService` (`DES-011` §3.2) — including the v1.1.0 create-in-workspace operation and the workspace-membership list it renders; the workspace identity the list presents is session state supplied by the application edge alongside the service (`DES-011` §3.8). |
 | Conversation screen | `SendMessageUseCase` (`DES-011` §3.3). |
-| Settings | `ProviderConnectionService` and `ConfigurationService` (`DES-011` §3.4, §3.5) — including the v1.1.0 endpoint surface of `ProviderConnectionService` (`DES-011` §3.9). |
+| Settings | `ProviderConnectionService` and `ConfigurationService` (`DES-011` §3.4, §3.5) — including the v1.1.0 endpoint surface and the v1.2.0 model surface of `ProviderConnectionService` (`DES-011` §3.9, §3.10). |
 | Navigation | the conversation and settings surfaces; it hosts them, it does not construct their services. |
 
 Normative statements:
@@ -413,6 +428,16 @@ Order: the provider connection form's endpoint collection of §3.4 — the form 
 ### Phase 8 — Revision Verification
 
 The revision is verified against the same completion criteria as Phase 5: the new flows match §3.3 and §3.4 exactly; the v1.0.0 surface is unchanged; the platform-independent flow logic is testable on the Linux build environment; and no forbidden dependency is imported (`ARC-002`, `ARC-006`, `ARC-009`).
+
+The v1.2.0 revision phases extend the realization:
+
+### Phase 9 — Model Field and Edit Model Surface
+
+Order: the model surface of §3.4 — the provider connection form's optional Model field, the model-edit intent beside Edit Endpoint, the model editor (a sibling of the endpoint editor), and the `SettingsState.ModelEditing` condition of §3.2 — recording and resolving the model through the frozen `ProviderConnectionService` model surface (`DES-011` §3.10); the model-edit condition and the surface's configure-with-model and update-model behavior are tested on the Linux build environment.
+
+### Phase 10 — Revision Verification
+
+The revision is verified against the same completion criteria as Phase 5: the new flows match §3.2 and §3.4 exactly; the v1.0.0 and v1.1.0 surfaces are unchanged; the platform-independent flow logic is testable on the Linux build environment; the view-layer signature changes are confined to the SwiftUI layer and consumed only by OmniaApp's `RootView` (§3.7); and no forbidden dependency is imported (`ARC-002`, `ARC-006`, `ARC-009`).
 
 ## Related Documents
 

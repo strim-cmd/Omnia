@@ -64,6 +64,31 @@ public struct CompositionRoot: Sendable {
     /// connections.
     private let providerRepository: any ProviderRepository
 
+    /// The app-edge offered models of a provider: the recorded OpenAI-compatible
+    /// model (the OmniRoute combo, or any provider model name) when the provider
+    /// records one, falling back to the app-edge default model (DES-013 §3.3,
+    /// DES-011 §3.10).
+    ///
+    /// The same closure is delivered to provider selection and to the runtime
+    /// adapter binding, so selection and request routing always agree on which
+    /// models a provider offers (DES-013 §3.3). A configuration read failure
+    /// falls back to the app-edge default model — the same value the provider
+    /// offers when no model is recorded — matching the documented behavior of
+    /// DES-013 §3.3 (ARC-001).
+    static func preferredModels(
+        configurationService: ConfigurationService
+    ) -> @Sendable (ProviderIdentity) async -> [ModelReference] {
+        { identity in
+            if let model = try? await configurationService.value(
+                for: ProviderConnectionService.modelKey(for: identity),
+                at: .providerSettings
+            ) {
+                return [ModelReference(name: model)]
+            }
+            return [ModelReference(name: AppEdgeConstants.defaultModelName)]
+        }
+    }
+
     /// Creates the composed object graph, rooted at `storageRoot` when given,
     /// otherwise at the platform Application Support storage root of
     /// `StorageLayout` (DES-013 §3.2).
@@ -87,16 +112,14 @@ public struct CompositionRoot: Sendable {
         let credentialStorage = SecureCredentialStorage()
 
         let lifecycleService = ProviderLifecycleService()
-        let preferredModels: @Sendable (ProviderIdentity) async -> [ModelReference] = { _ in
-            [ModelReference(name: AppEdgeConstants.defaultModelName)]
-        }
-        let selectionService = ProviderSelectionService(
-            lifecycleService: lifecycleService,
-            preferredModels: preferredModels
-        )
         let configurationService = ConfigurationService(
             configurationRepository: configurationRepository,
             resolutionPolicy: ConfigurationResolutionPolicy()
+        )
+        let preferredModels = Self.preferredModels(configurationService: configurationService)
+        let selectionService = ProviderSelectionService(
+            lifecycleService: lifecycleService,
+            preferredModels: preferredModels
         )
         let binding = ProviderAdapterBinding(
             lifecycleService: lifecycleService,

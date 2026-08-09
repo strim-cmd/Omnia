@@ -51,16 +51,22 @@ private final class InMemoryConfigurationRepository: ConfigurationRepository, @u
 /// it is constructed with and returns canned responses, so the runtime binding
 /// is tested without a network (ARC-001, ARC-006).
 private final class FakeProviderAdapter: TextGenerationContract, ConversationContract, StreamingContract, @unchecked Sendable {
+    private let lock = NSLock()
+    private var recordedModels: [String] = []
+
     func generateText(from request: TextGenerationRequest) async throws -> TextGenerationResponse {
-        TextGenerationResponse(text: "generated reply")
+        lock.withLock { recordedModels.append(request.model.name) }
+        return TextGenerationResponse(text: "generated reply")
     }
 
     func sendMessage(_ request: ConversationRequest) async throws -> ConversationResponse {
-        ConversationResponse(message: Message(role: .assistant, content: "assistant reply"))
+        lock.withLock { recordedModels.append(request.model.name) }
+        return ConversationResponse(message: Message(role: .assistant, content: "assistant reply"))
     }
 
     func stream(_ request: StreamingRequest) async throws -> AsyncThrowingStream<StreamingUpdate, Error> {
-        AsyncThrowingStream { continuation in
+        lock.withLock { recordedModels.append(request.model.name) }
+        return AsyncThrowingStream { continuation in
             continuation.yield(
                 .completion(
                     identity: request.identity,
@@ -69,6 +75,10 @@ private final class FakeProviderAdapter: TextGenerationContract, ConversationCon
             )
             continuation.finish()
         }
+    }
+
+    var models: [String] {
+        lock.withLock { recordedModels }
     }
 }
 
@@ -91,6 +101,10 @@ private final class RecordingAdapterFactory: @unchecked Sendable {
 
     var calls: [(endpoint: URL, credential: CredentialReference)] {
         lock.withLock { recordedCalls }
+    }
+
+    var adapterModels: [String] {
+        adapter.models
     }
 }
 
@@ -238,6 +252,23 @@ final class CompositionRootTests: XCTestCase {
         XCTAssertEqual(model, modelReference)
     }
 
+    func testPrepareSelectsTheRecordedModelWhenTheProviderRecordsOne() async throws {
+        let composition = try makeComposition()
+        let combo = "omniroute:gpt-4o"
+        let connection = try await composition.providerConnectionService.configure(
+            makeConfigureRequest(),
+            endpoint: "https://api.example.com/v1",
+            model: combo
+        )
+        _ = try await composition.prepare()
+        let selection = await composition.selectionService.select(requiredCapability: .streaming)
+        guard case .selected(provider: let provider, model: let model) = selection else {
+            return XCTFail("Expected a selected provider")
+        }
+        XCTAssertEqual(provider, connection.identity)
+        XCTAssertEqual(model, ModelReference(name: combo))
+    }
+
     func testRepeatedPrepareKeepsProvidersReady() async throws {
         let composition = try makeComposition()
         let connection = try await composition.providerConnectionService.configure(
@@ -298,7 +329,9 @@ final class ProviderAdapterBindingTests: XCTestCase {
         providerIdentity: ProviderIdentity = ProviderIdentity(),
         isReady: Bool = true,
         endpoint: String? = "https://api.example.com/v1",
-        credentialReference: CredentialReference? = CredentialReference()
+        credentialReference: CredentialReference? = CredentialReference(),
+        model: String? = nil,
+        configDrivenPreferredModels: Bool = false
     ) async throws -> (binding: ProviderAdapterBinding, factory: RecordingAdapterFactory, identity: ProviderIdentity) {
         let lifecycle = ProviderLifecycleService()
         try await register(lifecycle, identity: providerIdentity, ready: isReady)
@@ -317,11 +350,24 @@ final class ProviderAdapterBindingTests: XCTestCase {
                 at: .providerSettings
             )
         }
+        if let model {
+            try await configurationService.store(
+                model,
+                for: ProviderConnectionService.modelKey(for: providerIdentity),
+                at: .providerSettings
+            )
+        }
         let factory = RecordingAdapterFactory()
+        let preferredModels: @Sendable (ProviderIdentity) async -> [ModelReference]
+        if configDrivenPreferredModels {
+            preferredModels = CompositionRoot.preferredModels(configurationService: configurationService)
+        } else {
+            preferredModels = { _ in [modelReference] }
+        }
         let binding = ProviderAdapterBinding(
             lifecycleService: lifecycle,
             configurationService: configurationService,
-            preferredModels: { _ in [modelReference] },
+            preferredModels: preferredModels,
             adapterFactory: { resolvedEndpoint, resolvedReference in
                 try await factory.make(endpoint: resolvedEndpoint, credential: resolvedReference)
             }
@@ -386,6 +432,151 @@ final class ProviderAdapterBindingTests: XCTestCase {
             [.completion(identity: request.identity, message: Message(role: .assistant, content: "streamed reply"))]
         )
         XCTAssertEqual(factory.calls.count, 1)
+    }
+
+    func testGenerateTextServesTheRecordedModelWhenTheProviderRecordsOne() async throws {
+        let combo = "omniroute:gpt-4o"
+        let (binding, factory, _) = try await makeBinding(model: combo)
+        let request = TextGenerationRequest(
+            identity: CapabilityRequestIdentity(),
+            prompt: "Hello",
+            model: modelReference
+        )
+        let response = try await binding.generateText(from: request)
+        XCTAssertEqual(response.text, "generated reply")
+        XCTAssertEqual(factory.calls.count, 1)
+        XCTAssertEqual(factory.adapterModels, [combo])
+    }
+
+    func testSendMessageServesTheRecordedModelWhenTheProviderRecordsOne() async throws {
+        let combo = "omniroute:gpt-4o"
+        let (binding, factory, _) = try await makeBinding(model: combo)
+        let request = ConversationRequest(
+            identity: CapabilityRequestIdentity(),
+            history: [Message(role: .user, content: "Hello")],
+            model: modelReference
+        )
+        let response = try await binding.sendMessage(request)
+        XCTAssertEqual(response.message, Message(role: .assistant, content: "assistant reply"))
+        XCTAssertEqual(factory.calls.count, 1)
+        XCTAssertEqual(factory.adapterModels, [combo])
+    }
+
+    func testStreamServesTheRecordedModelWhenTheProviderRecordsOne() async throws {
+        let combo = "omniroute:gpt-4o"
+        let (binding, factory, _) = try await makeBinding(model: combo)
+        let request = StreamingRequest(
+            identity: CapabilityRequestIdentity(),
+            history: [Message(role: .user, content: "Hello")],
+            model: modelReference
+        )
+        let stream = try await binding.stream(request)
+        var updates: [StreamingUpdate] = []
+        for try await update in stream {
+            updates.append(update)
+        }
+        XCTAssertEqual(updates.count, 1)
+        XCTAssertEqual(factory.calls.count, 1)
+        XCTAssertEqual(factory.adapterModels, [combo])
+    }
+
+    func testGenerateTextServesTheRequestModelWhenNoModelIsRecorded() async throws {
+        let (binding, factory, _) = try await makeBinding()
+        let request = TextGenerationRequest(
+            identity: CapabilityRequestIdentity(),
+            prompt: "Hello",
+            model: modelReference
+        )
+        _ = try await binding.generateText(from: request)
+        XCTAssertEqual(factory.adapterModels, [modelReference.name])
+    }
+
+    func testSendMessageServesTheRequestModelWhenNoModelIsRecorded() async throws {
+        let (binding, factory, _) = try await makeBinding()
+        let request = ConversationRequest(
+            identity: CapabilityRequestIdentity(),
+            history: [Message(role: .user, content: "Hello")],
+            model: modelReference
+        )
+        _ = try await binding.sendMessage(request)
+        XCTAssertEqual(factory.adapterModels, [modelReference.name])
+    }
+
+    func testStreamServesTheRequestModelWhenNoModelIsRecorded() async throws {
+        let (binding, factory, _) = try await makeBinding()
+        let request = StreamingRequest(
+            identity: CapabilityRequestIdentity(),
+            history: [Message(role: .user, content: "Hello")],
+            model: modelReference
+        )
+        let stream = try await binding.stream(request)
+        for try await _ in stream {}
+        XCTAssertEqual(factory.adapterModels, [modelReference.name])
+    }
+
+    func testGenerateTextServesTheRecordedModelWhenPreferredModelsAreConfigDriven() async throws {
+        let combo = "omniroute:gpt-4o"
+        let (binding, factory, _) = try await makeBinding(
+            model: combo,
+            configDrivenPreferredModels: true
+        )
+        let request = TextGenerationRequest(
+            identity: CapabilityRequestIdentity(),
+            prompt: "Hello",
+            model: ModelReference(name: combo)
+        )
+        let response = try await binding.generateText(from: request)
+        XCTAssertEqual(response.text, "generated reply")
+        XCTAssertEqual(factory.calls.count, 1)
+        XCTAssertEqual(factory.adapterModels, [combo])
+    }
+
+    func testStreamServesTheRecordedModelWhenPreferredModelsAreConfigDriven() async throws {
+        let combo = "omniroute:gpt-4o"
+        let (binding, factory, _) = try await makeBinding(
+            model: combo,
+            configDrivenPreferredModels: true
+        )
+        let request = StreamingRequest(
+            identity: CapabilityRequestIdentity(),
+            history: [Message(role: .user, content: "Hello")],
+            model: ModelReference(name: combo)
+        )
+        let stream = try await binding.stream(request)
+        var updates: [StreamingUpdate] = []
+        for try await update in stream {
+            updates.append(update)
+        }
+        XCTAssertEqual(updates.count, 1)
+        XCTAssertEqual(factory.calls.count, 1)
+        XCTAssertEqual(factory.adapterModels, [combo])
+    }
+
+    func testGenerateTextServesTheDefaultModelWhenNoModelIsRecordedAndPreferredModelsAreConfigDriven() async throws {
+        let (binding, factory, _) = try await makeBinding(configDrivenPreferredModels: true)
+        let request = TextGenerationRequest(
+            identity: CapabilityRequestIdentity(),
+            prompt: "Hello",
+            model: modelReference
+        )
+        _ = try await binding.generateText(from: request)
+        XCTAssertEqual(factory.calls.count, 1)
+        XCTAssertEqual(factory.adapterModels, [modelReference.name])
+    }
+
+    func testThrowsProviderUnavailableWhenRequestingTheDefaultFromAComboProviderWithConfigDrivenPreferredModels() async throws {
+        let (binding, _, _) = try await makeBinding(
+            model: "omniroute:gpt-4o",
+            configDrivenPreferredModels: true
+        )
+        let request = TextGenerationRequest(
+            identity: CapabilityRequestIdentity(),
+            prompt: "Hello",
+            model: modelReference
+        )
+        await assertThrowsProviderUnavailable {
+            _ = try await binding.generateText(from: request)
+        }
     }
 
     func testThrowsProviderUnavailableWhenNoProviderExists() async throws {

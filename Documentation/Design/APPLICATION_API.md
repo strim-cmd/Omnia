@@ -1,7 +1,7 @@
 ---
 title: OmniaApplication Public API Contract
 document_id: DES-011
-version: 1.1.0
+version: 1.2.0
 status: Ratified
 owner: Founder
 project: Omnia
@@ -10,7 +10,7 @@ authors:
 reviewers:
   - Chief Architect
 created: 2026-08-05
-last_updated: 2026-08-06
+last_updated: 2026-08-09
 related_documents:
   - Documentation/Product/Roadmap/APPLICATION_SPRINT_1_ROADMAP.md
   - Documentation/Product/Roadmap/MVP_V01_ROADMAP.md
@@ -57,6 +57,8 @@ This document specifies the initial public API inventory, the package responsibi
 This initial contract is frozen as **Application API Freeze v1**. From this revision, the public surface of §3 is part of the frozen contract; a change requires a specification revision, exactly as the prior API freezes do (`PROJECT_STATE.md`). It is the single source of truth for the implementation of the Application layer (PRD-006 Stage 1).
 
 This revision (v1.1.0) extends the contract with the minimal workspace application surface of §3.8 — `WorkspaceService` and `ConversationService.createConversation(in:)` — and the provider connection endpoint surface of §3.9 — `ProviderConnectionService.updateEndpoint(_:for:)` and `endpoint(for:)` — exactly as the MVP v0.1 Roadmap sequences it (`MVP_V01_ROADMAP.md`, PRD-008, The Integration Gap and Stage 1). The extension is additive and backward-compatible (§6.3); the existing public API of the frozen Application API Freeze v1 is unchanged. The new surfaces are frozen in §3.8 and §3.9 and are the single source of truth for the implementation of the revision (PRD-008, App Contract Freeze).
+
+This revision (v1.2.0) extends the contract with the provider connection model surface of §3.10 — `ProviderConnectionService.modelKey(for:)`, `updateModel(_:for:)`, `model(for:)`, and the `configure(_:endpoint:model:)` overload — the optional per-provider OpenAI-compatible model name (the OmniRoute combo, or any provider model name) that the app-edge selection and routing pass as the wire `model` (DES-013 §3.3, OMNIROUTE_INTEGRATION_PLAN.md). The extension is additive and backward-compatible (§6.3); the v1.1.0 `configure(_ request:)` and `remove(_:)` remain, with one documented behavior extension — `remove(_:)` also removes the recorded model key (§3.4). The new surface is frozen in §3.10 and is the single source of truth for the implementation of the revision.
 
 The specification governs the package alone. It defines no behavior of the Foundation, Domain, Infrastructure, Presentation, or application-shell layers; those are specified by their own documents.
 
@@ -311,6 +313,32 @@ Normative statements:
 - Configuration failures MUST surface as the Domain `RepositoryError`, never wrapped (§3.6, DES-009 §3.9).
 - The endpoint is not a credential; it may be presented by the settings surface, but the credential boundary of §3.4 remains absolute (ARC-001, ARC-005).
 
+### 3.10 Provider Connection Model Surface
+
+- **Purpose**: record and resolve the optional per-provider OpenAI-compatible model name of a provider connection — the model (for OmniRoute, a "combo") that the app-edge offered-models closure and the runtime provider adapter binding pass as the wire `model` of every chat-completions request (DES-013 §3.3). This is the v1.2.0 additive surface; it lets a user record the provider model (the OmniRoute combo, or any OpenAI-compatible provider model name) with the connection, and closes the loop so selection and request routing use the recorded model instead of the app-edge default alone (OMNIROUTE_INTEGRATION_PLAN.md).
+- **Intended consumers**: the Presentation layer (provider connection form and the Edit Model editor, DES-012 §3.4 v1.2.0) and the Composition Root (offered-models closure and adapter binding, DES-013 §3.3).
+- **Stability expectations**: stable. The model is connection configuration the user owns (ARC-005).
+- **Ownership**: Settings module (Application surface, ARC-007).
+
+The surface is realized by additions to the §3.4 `ProviderConnectionService`:
+
+| Method | Meaning |
+|---|---|
+| `modelKey(for identity: ProviderIdentity) -> ConfigurationKey<String>` | returns the documented provider-settings configuration key `providerModel.<identity.canonicalString>` under which the model is recorded — public because the Composition Root's runtime adapter binding reads the same key the settings surface writes (DES-004 — writers and readers never diverge). |
+| `updateModel(_ model: String, for identity: ProviderIdentity) async throws` | records the provider connection's model as a typed `String` configuration value at the provider-settings level, keyed by the provider's identity. |
+| `model(for identity: ProviderIdentity) async throws -> String?` | returns the recorded model, or `nil` when none is recorded. |
+| `configure(_ request: ConfigureProviderRequest, endpoint: String?, model: String?) async throws -> ProviderConnection` | additive overload of the §3.4 `configure(_ request:)` — validates the endpoint and, when given, the model before any write, then records both keyed by the fresh connection identity; `nil` model records no model, so the provider falls back to the app-edge default (DES-013 §3.3). The v1.0.0 `configure(_ request:)` remains unchanged. |
+
+Normative statements:
+
+- The model MUST be recorded as a typed `String` configuration value at the provider-settings level under a documented key derived from the provider identity, exactly as the endpoint is (§3.9, DES-009 §3.6); raw or untyped values are never stored (DES-004).
+- The model MUST be validated at the boundary — when given, a non-empty trimmed `String` — and an empty or whitespace-only model MUST be rejected with the typed application error of §3.6 before any storage (ARC-009); a `nil` model records nothing (ARC-001, DES-013 §3.3).
+- The model MUST NOT enter the `ProviderConnection` or `Provider` aggregate; the Domain provider model carries declared capabilities and metadata, never transport or model-name values (ARC-004, DES-009 §3.1). The model is connection configuration, exactly like the endpoint (§3.9).
+- The model MUST NOT enter the `ConfigureProviderRequest`; the credential boundary of §3.4 remains absolute, and the model is recorded separately from the request (ARC-001, ARC-005).
+- The service MUST NOT itself build a transport or an adapter; the model is resolved by the Composition Root when the offered-models closure or a request is built, in the layer that owns transport (DES-010 §3.9.3, DES-013 §3.3, ARC-004).
+- Configuration failures MUST surface as the Domain `RepositoryError`, never wrapped (§3.6, DES-009 §3.9).
+- `remove(_:)` (§3.4) MUST also remove the recorded model key, so stored data remains removable by the user (ARC-005).
+
 ## 4. Dependency Rules
 
 OmniaApplication occupies the Application position of the dependency graph (ARC-002, ADR-0002). Its dependency rules are absolute:
@@ -420,6 +448,12 @@ Order: `ProviderConnectionService.updateEndpoint(_:for:)` and `endpoint(for:)` o
 ### Phase 9 — Revision Verification
 
 The revision is verified against the same completion criteria as Phase 6: the new surfaces match §3.8 and §3.9 exactly; the v1.0.0 surface is unchanged; no forbidden dependency is imported; and the create-in-workspace flow is testable without a network (ARC-001, ARC-006).
+
+The v1.2.0 revision phase extends the realization:
+
+### Phase 10 — Provider Connection Model Surface
+
+Order: `ProviderConnectionService.modelKey(for:)`, `updateModel(_:for:)`, `model(for:)`, and the `configure(_:endpoint:model:)` overload of §3.10 — the provider-settings configuration surface the Composition Root's offered-models closure and runtime adapter binding resolve (DES-013 §3.3), plus the `remove(_:)` model-key cleanup of §3.4. Verified against the completion criteria of Phase 6: the new surface matches §3.10 exactly; the v1.0.0 and v1.1.0 surfaces are unchanged; no forbidden dependency is imported; and the flows are testable without a network (ARC-001, ARC-006).
 
 ## Related Documents
 

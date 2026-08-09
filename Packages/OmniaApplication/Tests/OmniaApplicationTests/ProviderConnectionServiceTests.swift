@@ -36,6 +36,12 @@ private func endpointKey(
     ConfigurationKey<String>("providerEndpoint.\(identity.canonicalString)")
 }
 
+private func modelKey(
+    for identity: ProviderIdentity
+) -> ConfigurationKey<String> {
+    ConfigurationKey<String>("providerModel.\(identity.canonicalString)")
+}
+
 private final class InMemoryProviderRepository: ProviderRepository, @unchecked Sendable {
     private let lock = NSLock()
     private var storage: [ProviderIdentity: Provider] = [:]
@@ -920,6 +926,156 @@ final class ProviderConnectionServiceTests: XCTestCase {
 
         let stored = try await configurationRepository.value(for: key, at: .providerSettings)
         XCTAssertNil(stored)
+    }
+
+    // MARK: Model
+
+    func testUpdateModel_RecordsTheModelAtProviderSettingsLevel() async throws {
+        let (_, _, configurationRepository, service) = makeServiceWithInMemoryDoubles()
+        let identity = ProviderIdentity()
+        try await service.updateModel("omniroute:gpt-4o", for: identity)
+
+        let stored = try await configurationRepository.value(
+            for: modelKey(for: identity),
+            at: .providerSettings
+        )
+        XCTAssertEqual(stored, "omniroute:gpt-4o")
+    }
+
+    func testUpdateModel_RecordsTheTrimmedModel() async throws {
+        let (_, _, configurationRepository, service) = makeServiceWithInMemoryDoubles()
+        let identity = ProviderIdentity()
+        try await service.updateModel("  omniroute:gpt-4o  ", for: identity)
+
+        let stored = try await configurationRepository.value(
+            for: modelKey(for: identity),
+            at: .providerSettings
+        )
+        XCTAssertEqual(stored, "omniroute:gpt-4o")
+    }
+
+    func testModel_ReturnsTheRecordedModel() async throws {
+        let (_, _, _, service) = makeServiceWithInMemoryDoubles()
+        let identity = ProviderIdentity()
+        try await service.updateModel("omniroute:gpt-4o", for: identity)
+
+        let model = try await service.model(for: identity)
+        XCTAssertEqual(model, "omniroute:gpt-4o")
+    }
+
+    func testModel_ReturnsNilWhenNoneIsRecorded() async throws {
+        let (_, _, _, service) = makeServiceWithInMemoryDoubles()
+        let model = try await service.model(for: ProviderIdentity())
+        XCTAssertNil(model)
+    }
+
+    func testUpdateModel_EmptyModelIsRejectedBeforeAnyWrite() async {
+        let (_, _, configurationRepository, service) = makeServiceWithInMemoryDoubles()
+        await assertThrowsValidationError(reason: "The model is empty.") {
+            try await service.updateModel("", for: ProviderIdentity())
+        }
+        XCTAssertEqual(configurationRepository.storeCallCount, 0)
+    }
+
+    func testUpdateModel_WhitespaceOnlyModelIsRejected() async {
+        let (_, _, _, service) = makeServiceWithInMemoryDoubles()
+        await assertThrowsValidationError(reason: "The model is empty.") {
+            try await service.updateModel("   ", for: ProviderIdentity())
+        }
+    }
+
+    func testUpdateModel_RecordFailureSurfacesAsRepositoryError() async {
+        let service = makeService(
+            providerRepository: InMemoryProviderRepository(),
+            credentialStorage: InMemoryCredentialStorage(),
+            configurationRepository: FailingConfigurationRepository()
+        )
+        await assertSurfacesRepositoryError {
+            try await service.updateModel("omniroute:gpt-4o", for: ProviderIdentity())
+        }
+    }
+
+    func testModel_ReadFailureSurfacesAsRepositoryError() async {
+        let service = makeService(
+            providerRepository: InMemoryProviderRepository(),
+            credentialStorage: InMemoryCredentialStorage(),
+            configurationRepository: FailingConfigurationRepository()
+        )
+        await assertSurfacesRepositoryError {
+            _ = try await service.model(for: ProviderIdentity())
+        }
+    }
+
+    func testRemove_RemovesTheRecordedModel() async throws {
+        let (_, _, configurationRepository, service) = makeServiceWithInMemoryDoubles()
+        let identity = ProviderIdentity()
+        try await service.updateModel("omniroute:gpt-4o", for: identity)
+        let key = modelKey(for: identity)
+        let recorded = try await configurationRepository.value(for: key, at: .providerSettings)
+        XCTAssertNotNil(recorded)
+
+        try await service.remove(identity)
+
+        let stored = try await configurationRepository.value(for: key, at: .providerSettings)
+        XCTAssertNil(stored)
+    }
+
+    func testConfigureWithEndpointAndModel_RecordsTheModelKeyedByConnectionIdentity() async throws {
+        let (_, _, _, service) = makeServiceWithInMemoryDoubles()
+        let connection = try await service.configure(
+            request(),
+            endpoint: "https://api.example.com/v1",
+            model: "omniroute:gpt-4o"
+        )
+
+        let model = try await service.model(for: connection.identity)
+        XCTAssertEqual(model, "omniroute:gpt-4o")
+    }
+
+    func testConfigureWithEndpointAndNilModel_RecordsNoModel() async throws {
+        let (_, _, _, service) = makeServiceWithInMemoryDoubles()
+        let connection = try await service.configure(
+            request(),
+            endpoint: "https://api.example.com/v1",
+            model: nil
+        )
+
+        let model = try await service.model(for: connection.identity)
+        XCTAssertNil(model)
+    }
+
+    func testConfigureWithEndpointAndEmptyModel_IsRejectedBeforeAnyWrite() async {
+        let (providerRepository, credentialStorage, configurationRepository, service) =
+            makeServiceWithInMemoryDoubles()
+        await assertThrowsValidationError(reason: "The model is empty.") {
+            _ = try await service.configure(
+                request(),
+                endpoint: "https://api.example.com/v1",
+                model: "   "
+            )
+        }
+        XCTAssertEqual(providerRepository.saveCallCount, 0)
+        XCTAssertEqual(credentialStorage.storeCallCount, 0)
+        XCTAssertEqual(configurationRepository.storeCallCount, 0)
+    }
+
+    func testConfigureWithEndpointAndModel_ModelRecordFailureSurfacesAsRepositoryError() async {
+        let providerRepository = InMemoryProviderRepository()
+        let credentialStorage = InMemoryCredentialStorage()
+        let service = makeService(
+            providerRepository: providerRepository,
+            credentialStorage: credentialStorage,
+            configurationRepository: FailingConfigurationRepository()
+        )
+        await assertSurfacesRepositoryError {
+            _ = try await service.configure(
+                request(),
+                endpoint: "https://api.example.com/v1",
+                model: "omniroute:gpt-4o"
+            )
+        }
+        XCTAssertEqual(providerRepository.saveCallCount, 1)
+        XCTAssertEqual(credentialStorage.storeCallCount, 1)
     }
 
     // MARK: Sendability

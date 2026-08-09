@@ -610,6 +610,163 @@ final class SettingsSurfaceTests: XCTestCase {
         }
     }
 
+    // MARK: Configure — model collection
+
+    func testConfigureWithEndpointAndModel_RecordsTheModelAtProviderSettingsLevel() async throws {
+        let surface = makeSurface(
+            providerRepository: InMemoryProviderRepository(),
+            credentialStorage: InMemoryCredentialStorage(),
+            configurationRepository: InMemoryConfigurationRepository()
+        )
+
+        let connection = try await surface.configure(
+            request(),
+            endpoint: "https://api.example.com/v1",
+            model: "omniroute:gpt-4o"
+        )
+
+        let recorded = try await surface.value(
+            for: ProviderConnectionService.modelKey(for: connection.identity),
+            at: .providerSettings
+        )
+        XCTAssertEqual(recorded, "omniroute:gpt-4o")
+    }
+
+    func testConfigureWithEndpointAndModel_NilModelRecordsNoModel() async throws {
+        let surface = makeSurface(
+            providerRepository: InMemoryProviderRepository(),
+            credentialStorage: InMemoryCredentialStorage(),
+            configurationRepository: InMemoryConfigurationRepository()
+        )
+
+        let connection = try await surface.configure(
+            request(),
+            endpoint: "https://api.example.com/v1",
+            model: nil
+        )
+
+        let model = try await surface.model(for: connection.identity)
+        XCTAssertNil(model)
+    }
+
+    func testConfigureWithEndpointAndModel_WhitespaceModelSurfacesAsApplicationValidationError() async throws {
+        let providerRepository = InMemoryProviderRepository()
+        let surface = makeSurface(
+            providerRepository: providerRepository,
+            credentialStorage: InMemoryCredentialStorage(),
+            configurationRepository: InMemoryConfigurationRepository()
+        )
+        do {
+            _ = try await surface.configure(
+                request(),
+                endpoint: "https://api.example.com/v1",
+                model: "   "
+            )
+            XCTFail("Expected ApplicationValidationError")
+        } catch let error as ApplicationValidationError {
+            XCTAssertEqual(error, .invalid(reason: "The model is empty."))
+        } catch {
+            XCTFail("Unexpected error: \(error)")
+        }
+
+        let state = try await surface.load()
+        XCTAssertTrue(state.connections.isEmpty)
+    }
+
+    // MARK: Model — update and read
+
+    func testModel_ReturnsNilWhenNoModelIsRecorded() async throws {
+        let surface = makeSurface(
+            providerRepository: InMemoryProviderRepository(),
+            credentialStorage: InMemoryCredentialStorage(),
+            configurationRepository: InMemoryConfigurationRepository()
+        )
+        let connection = try await surface.configure(request())
+        let model = try await surface.model(for: connection.identity)
+        XCTAssertNil(model)
+    }
+
+    func testUpdateModel_RecordsTheModelAtProviderSettingsLevel() async throws {
+        let surface = makeSurface(
+            providerRepository: InMemoryProviderRepository(),
+            credentialStorage: InMemoryCredentialStorage(),
+            configurationRepository: InMemoryConfigurationRepository()
+        )
+        let connection = try await surface.configure(request())
+
+        try await surface.updateModel("omniroute:gpt-4o", for: connection.identity)
+
+        let model = try await surface.model(for: connection.identity)
+        XCTAssertEqual(model, "omniroute:gpt-4o")
+    }
+
+    func testUpdateModel_TrimsWhitespaceAroundTheModel() async throws {
+        let surface = makeSurface(
+            providerRepository: InMemoryProviderRepository(),
+            credentialStorage: InMemoryCredentialStorage(),
+            configurationRepository: InMemoryConfigurationRepository()
+        )
+        let connection = try await surface.configure(request())
+
+        try await surface.updateModel("  omniroute:gpt-4o  ", for: connection.identity)
+
+        let model = try await surface.model(for: connection.identity)
+        XCTAssertEqual(model, "omniroute:gpt-4o")
+    }
+
+    func testUpdateModel_ReplacesThePreviouslyRecordedModel() async throws {
+        let surface = makeSurface(
+            providerRepository: InMemoryProviderRepository(),
+            credentialStorage: InMemoryCredentialStorage(),
+            configurationRepository: InMemoryConfigurationRepository()
+        )
+        let connection = try await surface.configure(request())
+
+        try await surface.updateModel("omniroute:gpt-4o", for: connection.identity)
+        try await surface.updateModel("omniroute:gpt-5", for: connection.identity)
+
+        let model = try await surface.model(for: connection.identity)
+        XCTAssertEqual(model, "omniroute:gpt-5")
+    }
+
+    func testUpdateModel_EmptyModelSurfacesAsApplicationValidationError() async throws {
+        let surface = makeSurface(
+            providerRepository: InMemoryProviderRepository(),
+            credentialStorage: InMemoryCredentialStorage(),
+            configurationRepository: InMemoryConfigurationRepository()
+        )
+        let connection = try await surface.configure(request())
+        try await surface.updateModel("omniroute:gpt-4o", for: connection.identity)
+
+        do {
+            try await surface.updateModel("", for: connection.identity)
+            XCTFail("Expected ApplicationValidationError")
+        } catch let error as ApplicationValidationError {
+            XCTAssertEqual(error, .invalid(reason: "The model is empty."))
+        } catch {
+            XCTFail("Unexpected error: \(error)")
+        }
+
+        let model = try await surface.model(for: connection.identity)
+        XCTAssertEqual(model, "omniroute:gpt-4o")
+    }
+
+    func testUpdateModel_RepositoryFailureSurfacesAsRepositoryError() async throws {
+        let surface = makeSurface(
+            providerRepository: InMemoryProviderRepository(),
+            credentialStorage: InMemoryCredentialStorage(),
+            configurationRepository: FailingConfigurationRepository()
+        )
+        do {
+            try await surface.updateModel("omniroute:gpt-4o", for: ProviderIdentity())
+            XCTFail("Expected RepositoryError")
+        } catch let error as RepositoryError {
+            XCTAssertEqual(error, .storageUnavailable)
+        } catch {
+            XCTFail("Unexpected error: \(error)")
+        }
+    }
+
     // MARK: Remove
 
     func testRemove_RemovesProviderCredentialAndReference() async throws {

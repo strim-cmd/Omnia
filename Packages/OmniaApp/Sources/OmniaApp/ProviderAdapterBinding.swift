@@ -11,13 +11,17 @@ import OmniaInfrastructure
 /// that serves it. On each call it resolves, among the ready providers known to
 /// the lifecycle service, the deterministic provider that offers the requested
 /// model — in the canonical identity order the selection policy applies (DES-009
-/// §3.2) — reads that provider's recorded endpoint and credential reference from
-/// the provider-settings configuration through the documented keys the settings
-/// surface writes (DES-011 §3.4, §3.9), and constructs, on demand, the
-/// `OpenAICompatibleProviderAdapter` bound to them (DES-010 §3.6). The provider
-/// is never bound at composition time; each request is served by an adapter
-/// constructed for the provider that serves its model, so a stored provider with
-/// no recorded endpoint or credential is never silently used (ARC-001).
+/// §3.2) — reads that provider's recorded endpoint, credential reference, and
+/// optional model from the provider-settings configuration through the
+/// documented keys the settings surface writes (DES-011 §3.4, §3.9, §3.10), and
+/// constructs, on demand, the `OpenAICompatibleProviderAdapter` bound to them
+/// (DES-010 §3.6). A provider that records an OpenAI-compatible model (the
+/// OmniRoute combo, or any provider model name) serves the request with that
+/// recorded model; a provider with no recorded model serves the requested model
+/// unchanged. The provider is never bound at composition time; each request is
+/// served by an adapter constructed for the provider that serves its model, so a
+/// stored provider with no recorded endpoint or credential is never silently
+/// used (ARC-001).
 ///
 /// The binding owns no business logic and no provider state (ARC-002, ARC-004):
 /// provider selection and lifecycle are the Domain's, the adapter is the
@@ -84,18 +88,24 @@ internal struct ProviderAdapterBinding: TextGenerationContract, ConversationCont
     }
 
     public func generateText(from request: TextGenerationRequest) async throws -> TextGenerationResponse {
-        let adapter = try await adapter(for: request.model)
-        return try await adapter.generateText(from: request)
+        let (adapter, model) = try await adapter(for: request.model)
+        return try await adapter.generateText(
+            from: TextGenerationRequest(identity: request.identity, prompt: request.prompt, model: model)
+        )
     }
 
     public func sendMessage(_ request: ConversationRequest) async throws -> ConversationResponse {
-        let adapter = try await adapter(for: request.model)
-        return try await adapter.sendMessage(request)
+        let (adapter, model) = try await adapter(for: request.model)
+        return try await adapter.sendMessage(
+            ConversationRequest(identity: request.identity, history: request.history, model: model)
+        )
     }
 
     public func stream(_ request: StreamingRequest) async throws -> AsyncThrowingStream<StreamingUpdate, Error> {
-        let adapter = try await adapter(for: request.model)
-        return try await adapter.stream(request)
+        let (adapter, model) = try await adapter(for: request.model)
+        return try await adapter.stream(
+            StreamingRequest(identity: request.identity, history: request.history, model: model)
+        )
     }
 
     /// Resolves the ready provider serving `model` and constructs the adapter
@@ -106,9 +116,17 @@ internal struct ProviderAdapterBinding: TextGenerationContract, ConversationCont
     /// §3.9), so restoring it as a `URL` here never fails for a recorded value;
     /// a provider without a recorded endpoint or credential reference cannot
     /// serve the request and surfaces `CapabilityError.providerUnavailable`.
+    ///
+    /// A provider that records an OpenAI-compatible model (the OmniRoute combo,
+    /// or any provider model name) serves the request with that recorded model;
+    /// a provider with no recorded model serves the requested model unchanged
+    /// (DES-011 §3.10, DES-013 §3.3).
     private func adapter(
         for model: ModelReference
-    ) async throws -> any TextGenerationContract & ConversationContract & StreamingContract {
+    ) async throws -> (
+        adapter: any TextGenerationContract & ConversationContract & StreamingContract,
+        model: ModelReference
+    ) {
         guard let identity = await readyProvidersOffering(model).first else {
             throw CapabilityError.providerUnavailable
         }
@@ -129,7 +147,22 @@ internal struct ProviderAdapterBinding: TextGenerationContract, ConversationCont
         else {
             throw CapabilityError.providerUnavailable
         }
-        return try await adapterFactory(url, reference)
+        let resolvedModel = try await self.model(for: identity) ?? model
+        return (try await adapterFactory(url, reference), resolvedModel)
+    }
+
+    /// The recorded OpenAI-compatible model of the ready provider with
+    /// `identity`, or `nil` when none is recorded (DES-011 §3.10).
+    private func model(for identity: ProviderIdentity) async throws -> ModelReference? {
+        guard
+            let name = try await configurationService.value(
+                for: ProviderConnectionService.modelKey(for: identity),
+                at: .providerSettings
+            )
+        else {
+            return nil
+        }
+        return ModelReference(name: name)
     }
 
     /// The ready providers offering `model`, in canonical identity order — the

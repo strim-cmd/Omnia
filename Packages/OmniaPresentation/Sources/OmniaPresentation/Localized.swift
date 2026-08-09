@@ -25,6 +25,7 @@ public enum Localized {
     public static var disabled: String { String(localized: "disabled") }
     public static var displayName: String { String(localized: "display_name") }
     public static var editEndpoint: String { String(localized: "edit_endpoint") }
+    public static var editModel: String { String(localized: "edit_model") }
     public static var embeddings: String { String(localized: "embeddings") }
     public static var endpoint: String { String(localized: "endpoint") }
     public static var enterWholeNumberOrEmpty: String { String(localized: "enter_whole_number_or_empty") }
@@ -38,6 +39,7 @@ public enum Localized {
     public static var maxRequestsPerMinute: String { String(localized: "max_requests_per_minute") }
     public static var message: String { String(localized: "message") }
     public static var minor: String { String(localized: "minor") }
+    public static var model: String { String(localized: "model") }
     public static var newConversation: String { String(localized: "new_conversation") }
     public static var noConversations: String { String(localized: "no_conversations") }
     public static var noConversationsDescription: String { String(localized: "no_conversations_description") }
@@ -62,6 +64,7 @@ public enum Localized {
     public static var retryInterruptedResponse: String { String(localized: "retry_interrupted_response") }
     public static var save: String { String(localized: "save") }
     public static var saveEndpoint: String { String(localized: "save_endpoint") }
+    public static var saveModel: String { String(localized: "save_model") }
     public static var saveProviderConnection: String { String(localized: "save_provider_connection") }
     public static var send: String { String(localized: "send") }
     public static var settings: String { String(localized: "settings") }
@@ -74,6 +77,9 @@ public enum Localized {
     public static var untitledConversation: String { String(localized: "untitled_conversation") }
     public static func updateEndpoint(_ provider: String) -> String {
         String(format: String(localized: "update_endpoint"), provider)
+    }
+    public static func updateModel(_ provider: String) -> String {
+        String(format: String(localized: "update_model"), provider)
     }
     public static var userMessage: String { String(localized: "user_message") }
     public static var validated: String { String(localized: "validated") }

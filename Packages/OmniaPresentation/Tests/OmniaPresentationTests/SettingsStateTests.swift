@@ -75,6 +75,58 @@ final class SettingsStateTests: XCTestCase {
         XCTAssertEqual(editing.currentEndpoint, "")
     }
 
+    // MARK: Model-edit condition
+
+    func testCreation_EditingModelDefaultsToNil() {
+        let state = SettingsState(connections: [])
+        XCTAssertNil(state.editingModel)
+    }
+
+    func testModelEditCondition_ReflectsTheModelEditFlow() {
+        let identity = ProviderIdentity()
+        let editingModel = SettingsState.ModelEditing(
+            identity: identity,
+            displayName: "Example Provider",
+            currentModel: "omniroute:gpt-4o"
+        )
+        let state = SettingsState(connections: [], editingModel: editingModel)
+        XCTAssertEqual(state.editingModel, editingModel)
+        XCTAssertEqual(state.editingModel?.identity, identity)
+        XCTAssertEqual(state.editingModel?.displayName, "Example Provider")
+        XCTAssertEqual(state.editingModel?.currentModel, "omniroute:gpt-4o")
+    }
+
+    func testModelEditCondition_CurrentModelDefaultsToEmptyWhenNoneIsRecorded() {
+        let editingModel = SettingsState.ModelEditing(
+            identity: ProviderIdentity(),
+            displayName: "Example Provider",
+            currentModel: ""
+        )
+        XCTAssertEqual(editingModel.currentModel, "")
+    }
+
+    func testEquality_DifferentModelEditConditionIsNotEqual() {
+        let editingModel = SettingsState.ModelEditing(
+            identity: ProviderIdentity(),
+            displayName: "Example Provider",
+            currentModel: "omniroute:gpt-4o"
+        )
+        let a = SettingsState(connections: [])
+        let b = SettingsState(connections: [], editingModel: editingModel)
+        XCTAssertNotEqual(a, b)
+    }
+
+    func testEquality_ModelEditingEqualToItself() {
+        let editingModel = SettingsState.ModelEditing(
+            identity: ProviderIdentity(),
+            displayName: "Example Provider",
+            currentModel: "omniroute:gpt-4o"
+        )
+        let a = SettingsState(connections: [], editingModel: editingModel)
+        let b = SettingsState(connections: [], editingModel: editingModel)
+        XCTAssertEqual(a, b)
+    }
+
     func testFailure_ApplicationValidationError() {
         let state = SettingsState(
             connections: [],

@@ -203,6 +203,9 @@ public struct RootView: View {
                 onEditProvider: editProvider,
                 onUpdateEndpoint: updateEndpoint,
                 onCancelEndpointEdit: cancelEndpointEdit,
+                onEditModel: editModel,
+                onUpdateModel: updateModel,
+                onCancelModelEdit: cancelModelEdit,
                 onResetConfiguration: resetConfiguration
             )
         } else {
@@ -515,14 +518,21 @@ public struct RootView: View {
         )
     }
 
-    /// Translates the configure intent: the composed request and the declared
-    /// endpoint are handed to the settings surface — the entered secret enters
-    /// only the frozen `ConfigureProviderRequest`, never any rendered state
-    /// (ARC-001, ARC-005) — and the settings state reloads.
-    private func configure(_ request: ConfigureProviderRequest, endpoint: String) {
+    /// Translates the configure intent: the composed request, the declared
+    /// endpoint, and the declared model are handed to the settings surface —
+    /// the entered secret enters only the frozen `ConfigureProviderRequest`,
+    /// never any rendered state (ARC-001, ARC-005) — and the settings state
+    /// reloads. An empty model records no model, so the provider falls back to
+    /// the app-edge default (DES-011 §3.10).
+    private func configure(_ request: ConfigureProviderRequest, endpoint: String, model: String) {
         Task { @MainActor in
             do {
-                _ = try await surface.settings.configure(request, endpoint: endpoint)
+                let trimmedModel = model.trimmingCharacters(in: .whitespacesAndNewlines)
+                _ = try await surface.settings.configure(
+                    request,
+                    endpoint: endpoint,
+                    model: trimmedModel.isEmpty ? nil : trimmedModel
+                )
                 await loadSettings()
             } catch {
                 settingsState = failingSettingsState(error)
@@ -606,6 +616,62 @@ public struct RootView: View {
         )
     }
 
+    /// Translates the model-edit intent: the connection's recorded model is
+    /// resolved through the settings surface and the model-edit condition of
+    /// the settings state is presented — the editor pre-filled with the
+    /// current model, mirroring the endpoint editor's retry/edit affordance.
+    /// The condition holds only the configured connection state and the
+    /// recorded model, never a credential (ARC-001, ARC-005).
+    private func editModel(_ item: ProviderConnectionListItem) {
+        Task { @MainActor in
+            do {
+                let model = try await surface.settings.model(for: item.identity)
+                guard let current = settingsState else { return }
+                settingsState = SettingsState(
+                    connections: current.connections,
+                    configuration: current.configuration,
+                    isComposing: false,
+                    editing: nil,
+                    editingModel: SettingsState.ModelEditing(
+                        identity: item.identity,
+                        displayName: item.displayName,
+                        currentModel: model ?? ""
+                    )
+                )
+            } catch {
+                settingsState = failingSettingsState(error)
+            }
+        }
+    }
+
+    /// Translates the model-update intent: the updated model is recorded
+    /// through the settings surface — validated at the service boundary before
+    /// any write (DES-011 §3.10, ARC-009) — and the settings state reloads, so
+    /// the model editor closes and the connection's recorded model reflects
+    /// the change.
+    private func updateModel(_ identity: ProviderIdentity, _ model: String) {
+        Task { @MainActor in
+            do {
+                try await surface.settings.updateModel(model, for: identity)
+                await loadSettings()
+            } catch {
+                settingsState = failingSettingsState(error)
+            }
+        }
+    }
+
+    /// Translates the cancel intent of the model editor.
+    private func cancelModelEdit() {
+        guard let current = settingsState else { return }
+        settingsState = SettingsState(
+            connections: current.connections,
+            configuration: current.configuration,
+            isComposing: false,
+            editing: nil,
+            editingModel: nil
+        )
+    }
+
     /// Translates the reset intent: the configuration value is removed at the
     /// user-owned workspace level, and the settings state reloads (DES-011
     /// §3.5).
@@ -627,6 +693,8 @@ public struct RootView: View {
     /// shown inside the form and no declaration is lost (UX audit U3). The
     /// endpoint-edit condition is preserved: a failed endpoint update keeps
     /// the endpoint editor presented with its input retained (UX audit U7).
+    /// The model-edit condition is preserved: a failed model update keeps the
+    /// model editor presented with its input retained.
     private func failingSettingsState(_ error: any Error) -> SettingsState {
         let failure: SettingsState.Failure = switch error {
         case let error as ApplicationValidationError: .application(error)
@@ -639,6 +707,7 @@ public struct RootView: View {
             configuration: settingsState?.configuration ?? [],
             isComposing: settingsState?.isComposing ?? false,
             editing: settingsState?.editing,
+            editingModel: settingsState?.editingModel,
             failure: failure
         )
     }

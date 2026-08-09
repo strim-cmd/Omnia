@@ -1,7 +1,7 @@
 ---
 title: OmniaApp Public API Contract
 document_id: DES-013
-version: 1.0.0
+version: 1.1.0
 status: Ratified
 owner: Founder
 project: Omnia
@@ -10,7 +10,7 @@ authors:
 reviewers:
   - Chief Architect
 created: 2026-08-06
-last_updated: 2026-08-06
+last_updated: 2026-08-09
 related_documents:
   - Documentation/Product/Roadmap/MVP_V01_ROADMAP.md
   - Documentation/Design/APPLICATION_API.md
@@ -55,9 +55,11 @@ OmniaApp is the application edge of Omnia — the sixth and final package the ar
 
 The Composition Root assembles the complete object graph: the concrete Infrastructure implementations — the four file repositories, the `SecureCredentialStorage` with the platform-appropriate backend, and the OpenAI-compatible provider adapter — are injected into the application services of `DES-011`, which are injected into the presentation surfaces of `DES-012`. The app shell and entry point launch on macOS, run the first-run bootstrap — resolving or creating the default workspace — and host `RootView` with the resolved workspace and configuration keys, so the milestone definition is proven end to end: the user configures a provider connection, creates a conversation, sends a message, watches the streaming response, and sees all state persist across launches (`PRD-008`, `ARC-001`, `ARC-005`).
 
-This document specifies the initial public API inventory, the package responsibility boundaries, the dependency rules, the design principles, the evolution rules, and the ordered sequence in which the contract is implemented. It is derived only from the MVP v0.1 Roadmap (`MVP_V01_ROADMAP.md`, PRD-008), the frozen Application API contract (`APPLICATION_API.md`, DES-011 v1.1.0), the frozen Presentation API contract (`PRESENTATION_API.md`, DES-012 v1.1.0), the frozen Domain and Infrastructure contracts (`DOMAIN_API.md`, DES-009; `INFRASTRUCTURE_API.md`, DES-010), the Product Charter (`PRODUCT_CHARTER.md`), the Product Principles (`PRODUCT_PRINCIPLES.md`), and the approved architecture (ARC-001, ARC-002, ARC-004, ARC-005, ARC-006, ARC-007, ARC-008, ARC-009, ADR-0001, ADR-0002). It introduces no concept that the roadmap and the architecture do not establish.
+This document specifies the initial public API inventory, the package responsibility boundaries, the dependency rules, the design principles, the evolution rules, and the ordered sequence in which the contract is implemented. It is derived only from the MVP v0.1 Roadmap (`MVP_V01_ROADMAP.md`, PRD-008), the frozen Application API contract (`APPLICATION_API.md`, DES-011 v1.2.0), the frozen Presentation API contract (`PRESENTATION_API.md`, DES-012 v1.2.0), the frozen Domain and Infrastructure contracts (`DOMAIN_API.md`, DES-009; `INFRASTRUCTURE_API.md`, DES-010), the Product Charter (`PRODUCT_CHARTER.md`), the Product Principles (`PRODUCT_PRINCIPLES.md`), and the approved architecture (ARC-001, ARC-002, ARC-004, ARC-005, ARC-006, ARC-007, ARC-008, ARC-009, ADR-0001, ADR-0002). It introduces no concept that the roadmap and the architecture do not establish.
 
 This initial contract is frozen as **App Contract Freeze v1**, ratified together with the additive revisions DES-011 v1.1.0 and DES-012 v1.1.0 (PRD-008, App Contract Freeze). From this revision, the public surface of §3 is part of the frozen contract; a change requires a specification revision, exactly as the prior API freezes do (`PROJECT_STATE.md`). It is the single source of truth for the implementation of the application edge (PRD-008 Stage 1).
+
+This revision (v1.1.0) extends the composition contract with the config-driven offered-models closure of §3.3: `CompositionRoot.preferredModels` reads the per-provider recorded model (the OmniRoute combo, or any OpenAI-compatible provider model name) at the `providerModel.<canonical>` key (`DES-011` §3.10) and returns it as the offered `ModelReference`, falling back to the app-edge default model when a provider records none (`OMNIROUTE_INTEGRATION_PLAN.md`). The same closure feeds both `ProviderSelectionService` and `ProviderAdapterBinding`, so selection and `readyProvidersOffering` agree on the per-provider model, and the recorded model is passed as the wire `model` of every OpenAI-compatible chat-completions request. The extension is additive and backward-compatible (§6.3); the `defaultModelName` constant remains as the fallback. The new composition behavior is frozen in §3.3 and is the single source of truth for the implementation of the revision.
 
 The specification governs the package alone. It defines no behavior of the Foundation, Domain, Application, Infrastructure, or Presentation layers; those are specified by their own documents.
 
@@ -112,8 +114,8 @@ The composition contract is the ordered construction of the graph:
 1. **Storage root** — the application-support storage root of §3.2.
 2. **Repositories** — `FileWorkspaceRepository(directory:)`, `FileConversationRepository(directory:)`, `FileProviderRepository(directory:)`, and `FileConfigurationRepository(directory:)`, one directory each (DES-010 §3.1).
 3. **Credential storage** — `SecureCredentialStorage()`, selecting the platform-appropriate backend (DES-010 §3.4).
-4. **Application services** — `WorkspaceService`, `ConversationService`, `ProviderConnectionService`, `ConfigurationService`, and `SendMessageUseCase` of DES-011 §3.2–§3.5, §3.8, §3.9, over the injected Domain contracts.
-5. **Runtime provider adapter binding** — the bound `OpenAICompatibleProviderAdapter` of §3.3, delivered as the capability contract the send-message use case consumes (DES-011 §3.3).
+4. **Application services** — `WorkspaceService`, `ConversationService`, `ProviderConnectionService`, `ConfigurationService`, and `SendMessageUseCase` of DES-011 §3.2–§3.5, §3.8, §3.9, §3.10, over the injected Domain contracts.
+5. **Runtime provider adapter binding** — the bound `OpenAICompatibleProviderAdapter` of §3.3, delivered as the capability contract the send-message use case consumes (DES-011 §3.3), and the config-driven offered-models closure `preferredModels` delivered to both `ProviderSelectionService` and the binding (DES-013 §3.3, DES-011 §3.10).
 6. **Presentation surfaces** — the conversation list, conversation screen, and settings surfaces over their frozen seams (DES-012 §3.6), composed into the navigation surface (DES-012 §3.5).
 7. **Root view** — `RootView(surface:workspace:configurationKeys:)` with the resolved workspace and the settings surface's configuration keys (DES-012 §3.5).
 
@@ -165,17 +167,19 @@ Normative statements:
 
 The mechanism:
 
-- The Composition Root reads, per configured provider connection, two typed configuration values at the provider-settings level (DES-009 §3.6): the stored credential reference — recorded by `ProviderConnectionService.configure(_:)` (DES-011 §3.4) — and the stored endpoint — recorded by `ProviderConnectionService.updateEndpoint(_:for:)` (DES-011 §3.9).
-- Each value is addressed by a documented, stable key derived from the provider identity's canonical string — a `ConfigurationKey<CredentialReference>` and a `ConfigurationKey<String>` at the provider-settings level — so the writer (the settings surface) and the reader (the Composition Root) never diverge (DES-011 §3.9, DES-004).
-- For the provider the user's selection resolves (DES-009 §3.2, DES-011 §3.3), the Composition Root constructs `OpenAICompatibleProviderAdapter(endpoint:credential:credentialStorage:)` — the endpoint parsed from the recorded URL string, the credential reference as stored — and delivers the adapter as the `StreamingContract`/`TextGenerationContract` the send-message use case consumes (DES-010 §3.6, DES-009 §3.11.3, DES-011 §3.3).
+- The Composition Root reads, per configured provider connection, three typed configuration values at the provider-settings level (DES-009 §3.6): the stored credential reference — recorded by `ProviderConnectionService.configure(_:)` (DES-011 §3.4) — the stored endpoint — recorded by `ProviderConnectionService.updateEndpoint(_:for:)` (DES-011 §3.9) — and the stored model — recorded by `ProviderConnectionService.configure(_:endpoint:model:)` or `updateModel(_:for:)` (DES-011 §3.10).
+- Each value is addressed by a documented, stable key derived from the provider identity's canonical string — a `ConfigurationKey<CredentialReference>` and `ConfigurationKey<String>` for the endpoint and the model at the provider-settings level — so the writer (the settings surface) and the reader (the Composition Root) never diverge (DES-011 §3.9, §3.10, DES-004).
+- The offered-models closure `preferredModels` (v1.1.0) reads the recorded model at `ProviderConnectionService.modelKey(for:)` and returns `[ModelReference(name: model)]` when a model is recorded, otherwise `[ModelReference(name: AppEdgeConstants.defaultModelName)]`; the same closure is delivered to both `ProviderSelectionService` and `ProviderAdapterBinding`, so selection and request routing agree on which models a provider offers (DES-013 §3.3, OMNIROUTE_INTEGRATION_PLAN.md). A configuration read failure falls back to the app-edge default model — the same value a provider with no recorded model offers (ARC-001).
+- For the provider the user's selection resolves (DES-009 §3.2, DES-011 §3.3), the Composition Root constructs `OpenAICompatibleProviderAdapter(endpoint:credential:credentialStorage:)` — the endpoint parsed from the recorded URL string, the credential reference as stored — and delivers the adapter as the `StreamingContract`/`TextGenerationContract` the send-message use case consumes (DES-010 §3.6, DES-009 §3.11.3, DES-011 §3.3). The request's `ModelReference` is the provider's recorded model when one is recorded, or the caller's requested model unchanged; `CapabilityMapping` writes that name as the wire `model` (DES-010 §3.9.2).
 - The adapter is constructed through its public initializer over the default transport (DES-010 §3.6); a configured connection with no recorded endpoint or no stored credential reference is not bindable and MUST surface the provider as unavailable through the Domain discovery channel — never a launch failure, never silent (DES-009 §3.2, DES-010 §3.9.3).
 
 Normative statements:
 
-- The binding MUST resolve the endpoint and the credential reference from the provider-settings configuration — the exact values the settings surfaces record (DES-011 §3.4, §3.9) — never from untyped, raw, or global values (DES-009 §3.6, DES-004).
+- The binding MUST resolve the endpoint, the credential reference, and the model from the provider-settings configuration — the exact values the settings surfaces record (DES-011 §3.4, §3.9, §3.10) — never from untyped, raw, or global values (DES-009 §3.6, DES-004).
+- The offered-models closure MUST read the recorded per-provider model through `ProviderConnectionService.modelKey(for:)` and fall back to the app-edge default model when a provider records none; the same closure MUST feed selection and the binding, so they cannot disagree on the offered models (DES-011 §3.10, ARC-001).
 - The adapter MUST be constructed through its public initializer over the default transport (DES-010 §3.6); the endpoint is the recorded URL string parsed at the boundary, and the credential is the stored reference — the raw secret is resolved only when a request is built, never in composition (DES-010 §3.9.3, `ARC-005`).
 - The delivered capability MUST be the Domain `StreamingContract`/`TextGenerationContract` the send-message use case declares (DES-011 §3.3); the Composition Root binds the contract, it never redefines it (ARC-002).
-- A provider whose binding inputs are incomplete MUST be reported unavailable through the Domain discovery channel — never a launch failure, never silent (DES-009 §3.2, DES-010 §3.9.3).
+- A provider whose binding inputs are incomplete MUST be reported unavailable through the Domain discovery channel — never a launch failure, never silent (DES-009 §3.2, DES-010 §3.9.3). A request for a model a provider no longer offers (because it records a different model) MUST fail explicitly as `CapabilityError.providerUnavailable`, so selection and routing stay consistent (ARC-001).
 - The adapter MUST be the only path from the application to a provider transport; no other layer builds or owns a transport (`ARC-004`, `ARC-006`).
 
 ### 3.4 First-Run Bootstrap
@@ -257,7 +261,7 @@ The following are evaluated and intentionally NOT part of the initial public API
 - third-party dependencies — native Apple APIs are preferred (PRODUCT_CHARTER, `.ai/standards/SWIFT.md`);
 - any dependency-injection framework — the Composition Root is hand-written (ARC-006);
 - new packages — the package set is fixed at six (ARC-009);
-- changes to the frozen DES-001..DES-012 contracts — DES-013 is the final contract of the freeze; the additive revisions DES-011 v1.1.0 and DES-012 v1.1.0 are the surfaces this contract composes, and a further change requires another specification revision (PRD-008, PROJECT_STATE.md).
+- changes to the frozen DES-001..DES-012 contracts — DES-013 is the final contract of the freeze; the additive revisions DES-011 v1.1.0, DES-011 v1.2.0, DES-012 v1.1.0, and DES-012 v1.2.0 are the surfaces this contract composes, and a further change requires another specification revision (PRD-008, PROJECT_STATE.md).
 
 A category excluded here is introduced only through the evolution rules of Section 6, never by convenience (ARC-008).
 
@@ -346,11 +350,17 @@ The full verification of the package against the completion criteria of the road
 
 No API beyond the categories of Section 3 enters the package in these phases. Each phase ends in a state that is a valid, documented, tested increment of the public contract. The implementation realizes exactly the frozen surface of §3; a deviation from that surface is a defect and is resolved by correcting the implementation, never by silently changing the surface (DES-004 §1).
 
+The v1.1.0 revision phase extends the realization:
+
+### Phase 5 — Config-Driven Offered Models
+
+Order: the offered-models closure of §3.3 — `CompositionRoot.preferredModels(configurationService:)` reads the per-provider recorded model through `ProviderConnectionService.modelKey(for:)` (`DES-011` §3.10) and returns `[ModelReference(name: model)]`, falling back to `AppEdgeConstants.defaultModelName` when a provider records none; the same closure is delivered to `ProviderSelectionService` and `ProviderAdapterBinding`, and `AppEdgeConstants.defaultModelName` is documented as the fallback. Verified against the completion criteria of Phase 4: the new closure matches §3.3 exactly; the v1.0.0 surface is unchanged; and the flows are testable without a network (ARC-001, ARC-006).
+
 ## Related Documents
 
 - `Documentation/Product/Roadmap/MVP_V01_ROADMAP.md` — the roadmap that sequences this contract and the App Contract Freeze.
-- `Documentation/Design/APPLICATION_API.md` — the frozen Application contract this package composes (DES-011 v1.1.0).
-- `Documentation/Design/PRESENTATION_API.md` — the frozen Presentation contract this package hosts (DES-012 v1.1.0).
+- `Documentation/Design/APPLICATION_API.md` — the frozen Application contract this package composes (DES-011 v1.2.0).
+- `Documentation/Design/PRESENTATION_API.md` — the frozen Presentation contract this package hosts (DES-012 v1.2.0).
 - `Documentation/Design/DOMAIN_API.md` — the frozen Domain contract whose implementations the Composition Root binds.
 - `Documentation/Design/INFRASTRUCTURE_API.md` — the frozen Infrastructure contract whose implementations the Composition Root injects.
 - `Documentation/Design/FOUNDATION_API.md` — the parent contract of the package this package depends on.

@@ -2,20 +2,20 @@ import OmniaApplication
 import OmniaFoundation
 
 /// The settings presentation surface: provider connections and configuration —
-/// configure, list, remove, and update the endpoint of provider connections
-/// over `ProviderConnectionService`, and present typed configuration over
-/// `ConfigurationService` as `SettingsState` (DES-012 §3.4, Settings module,
-/// ARC-007).
+/// configure, list, remove, update the endpoint and the model of provider
+/// connections over `ProviderConnectionService`, and present typed configuration
+/// over `ConfigurationService` as `SettingsState` (DES-012 §3.4, Settings
+/// module, ARC-007).
 ///
 /// The surface is the seam through which the frozen `ProviderConnectionService`
 /// of DES-011 §3.4 and the frozen `ConfigurationService` of DES-011 §3.5 are
 /// delivered to the settings surface (DES-012 §3.6, ARC-006). It receives them
 /// through its public initializer, translates user intent — declaring a new
-/// provider connection, removing one, updating the endpoint of one (DES-011
-/// §3.9, UX audit U7), and storing, reading, resolving, and removing typed
-/// configuration values — into use-case invocations, and it composes the
-/// ready-to-render settings state from the configured connections and the
-/// configuration values the services load (ARC-002, ADR-0001).
+/// provider connection, removing one, updating the endpoint and the model of
+/// one (DES-011 §3.9, §3.10, UX audit U7), and storing, reading, resolving, and
+/// removing typed configuration values — into use-case invocations, and it
+/// composes the ready-to-render settings state from the configured connections
+/// and the configuration values the services load (ARC-002, ADR-0001).
 ///
 /// It consumes only the frozen DES-011 settings surface and owns no business
 /// rules (ARC-002): the provider aggregate and its lifecycle are the Domain's,
@@ -121,6 +121,29 @@ public struct SettingsSurface: Sendable {
         try await connectionService.configure(request, endpoint: endpoint)
     }
 
+    /// Configures a new provider connection for `request`, records its
+    /// OpenAI-compatible endpoint, and records its optional model — the model
+    /// and endpoint collection of the connection form (DES-011 §3.9, §3.10,
+    /// PRESENTATION API §3.4).
+    ///
+    /// The connection is configured and the endpoint and model are recorded
+    /// through the service's surfaces, keyed by the fresh connection identity;
+    /// the endpoint and model never enter the `ConfigureProviderRequest` or
+    /// any rendered state (ARC-001, ARC-004, ARC-005). The endpoint is
+    /// validated at the service boundary before any write; a malformed
+    /// endpoint surfaces as the typed `ApplicationValidationError`. `nil`
+    /// records no model, so the provider falls back to the app-edge default;
+    /// a non-empty model is validated at the service boundary before any
+    /// write, and an empty model surfaces as the typed
+    /// `ApplicationValidationError` (DES-011 §3.6, DES-009 §3.9).
+    public func configure(
+        _ request: ConfigureProviderRequest,
+        endpoint: String,
+        model: String?
+    ) async throws -> ProviderConnection {
+        try await connectionService.configure(request, endpoint: endpoint, model: model)
+    }
+
     /// Removes the provider connection with `identity` and its stored credential
     /// (user ownership, ARC-005, DES-011 §3.4).
     ///
@@ -162,6 +185,37 @@ public struct SettingsSurface: Sendable {
         for identity: ProviderIdentity
     ) async throws -> String? {
         try await connectionService.endpoint(for: identity)
+    }
+
+    /// Updates the provider connection's OpenAI-compatible model — the
+    /// model-edit intent of the settings surface (DES-012 §3.4): the model is
+    /// recorded through the service's model surface, keyed by the provider
+    /// identity, replacing any previously recorded model (DES-011 §3.10).
+    ///
+    /// The model is connection configuration the user owns (ARC-005); it
+    /// never enters the `ProviderConnection` or `Provider` aggregate or any
+    /// rendered state (DES-011 §3.10, ARC-004). It is validated at the service
+    /// boundary before any write; an empty model surfaces as the typed
+    /// `ApplicationValidationError`, never wrapped (DES-011 §3.6, DES-009
+    /// §3.9).
+    public func updateModel(
+        _ model: String,
+        for identity: ProviderIdentity
+    ) async throws {
+        try await connectionService.updateModel(model, for: identity)
+    }
+
+    /// Returns the provider connection's recorded OpenAI-compatible model, or
+    /// `nil` when none is recorded — the value the model editor pre-fills
+    /// (DES-012 §3.4, DES-011 §3.10).
+    ///
+    /// The model is connection configuration the user owns (ARC-005);
+    /// failures surface as the Domain `RepositoryError`, never wrapped (DES-011
+    /// §3.6).
+    public func model(
+        for identity: ProviderIdentity
+    ) async throws -> String? {
+        try await connectionService.model(for: identity)
     }
 
     /// Stores `value` for `key` at `level`, replacing any previously stored

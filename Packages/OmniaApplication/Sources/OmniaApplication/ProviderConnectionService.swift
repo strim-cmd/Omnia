@@ -1,8 +1,9 @@
 import OmniaDomain
 
 /// The provider connection application service: configure, list, remove, and
-/// record the OpenAI-compatible endpoint of provider connections — the
-/// provider flows of the Settings module (DES-011 §3.4, §3.9).
+/// record the OpenAI-compatible endpoint and optional model of provider
+/// connections — the provider flows of the Settings module (DES-011 §3.4,
+/// §3.9, §3.10).
 ///
 /// The service orchestrates the frozen `ProviderRepository`, the
 /// `CredentialStorageProtocol`, and the `ConfigurationRepository` for the
@@ -96,6 +97,35 @@ public struct ProviderConnectionService: Sendable {
         return connection
     }
 
+    /// Configures a new provider connection for `request`, records its
+    /// OpenAI-compatible endpoint, and records its optional model — the model
+    /// and endpoint collection of the connection form (DES-011 §3.9, §3.10,
+    /// PRESENTATION API §3.4).
+    ///
+    /// The endpoint is validated with the same rule as
+    /// `updateEndpoint(_:for:)`, and `model` — when given — is validated with
+    /// the same rule as `updateModel(_:for:)`, both before any domain operation
+    /// (ARC-009); the validated endpoint and model are then recorded through
+    /// `updateEndpoint(_:for:)` and `updateModel(_:for:)`, keyed by the fresh
+    /// connection identity. `nil` records no model, so the provider falls back
+    /// to the app-edge default. The endpoint and model never enter the
+    /// `ConfigureProviderRequest` or any Domain aggregate (DES-011 §3.9, §3.10,
+    /// ARC-004).
+    public func configure(
+        _ request: ConfigureProviderRequest,
+        endpoint: String,
+        model: String?
+    ) async throws -> ProviderConnection {
+        _ = try Self.validatedEndpoint(endpoint)
+        let validatedModel = try model.map(Self.validatedModel)
+        let connection = try await configure(request)
+        try await updateEndpoint(endpoint, for: connection.identity)
+        if let validatedModel {
+            try await updateModel(validatedModel, for: connection.identity)
+        }
+        return connection
+    }
+
     /// Returns the configured providers in identity order (DES-011 §3.4).
     public func allProviders() async throws -> [Provider] {
         try await providerRepository.allProviders().sorted {
@@ -108,8 +138,8 @@ public struct ProviderConnectionService: Sendable {
     ///
     /// The recorded credential reference is read from the provider-settings
     /// configuration, the stored credential is removed, the provider connection
-    /// is deleted, and the recorded reference and endpoint are removed. Removing
-    /// a provider that is not stored is not an error; the operation is
+    /// is deleted, and the recorded reference, endpoint, and model are removed.
+    /// Removing a provider that is not stored is not an error; the operation is
     /// idempotent (DES-009 §3.5).
     public func remove(_ identity: ProviderIdentity) async throws {
         let key = Self.credentialReferenceKey(for: identity)
@@ -119,6 +149,7 @@ public struct ProviderConnectionService: Sendable {
         try await providerRepository.delete(identity)
         try await configurationRepository.remove(key, at: .providerSettings)
         try await configurationRepository.remove(Self.endpointKey(for: identity), at: .providerSettings)
+        try await configurationRepository.remove(Self.modelKey(for: identity), at: .providerSettings)
     }
 
     /// The provider-settings configuration key that records the credential
@@ -147,6 +178,19 @@ public struct ProviderConnectionService: Sendable {
         ConfigurationKey<String>("providerEndpoint.\(identity.canonicalString)")
     }
 
+    /// The provider-settings configuration key that records the OpenAI-compatible
+    /// model (the OmniRoute combo, or any provider model name) of a provider
+    /// connection, scoped by the provider identity — the documented key the
+    /// settings surface writes and the Composition Root's runtime adapter
+    /// binding reads, so the writer and the reader never diverge (DES-011
+    /// §3.10, DES-013 §3.3, DES-004). A provider with no recorded model serves
+    /// the app-edge default model.
+    public static func modelKey(
+        for identity: ProviderIdentity
+    ) -> ConfigurationKey<String> {
+        ConfigurationKey<String>("providerModel.\(identity.canonicalString)")
+    }
+
     /// Records the provider connection's OpenAI-compatible endpoint as a typed
     /// configuration value at the provider-settings level, keyed by the provider
     /// identity (DES-011 §3.9).
@@ -167,6 +211,41 @@ public struct ProviderConnectionService: Sendable {
         try await configurationRepository.store(
             trimmed,
             for: Self.endpointKey(for: identity),
+            at: .providerSettings
+        )
+    }
+
+    /// Records the provider connection's OpenAI-compatible model as a typed
+    /// configuration value at the provider-settings level, keyed by the provider
+    /// identity (DES-011 §3.10).
+    ///
+    /// The model is validated at the boundary before any storage (ARC-009): a
+    /// non-empty trimmed string is required, and an empty model is rejected with
+    /// the typed application error of DES-011 §3.6. The model is connection
+    /// configuration the user owns (ARC-005); it never enters the
+    /// `ProviderConnection` or `Provider` aggregate (DES-009 §3.1), and the
+    /// service never builds a transport or an adapter — the model is resolved by
+    /// the Composition Root when a request is built, in the layer that owns
+    /// transport (DES-010 §3.9.3, DES-013 §3.3, ARC-004).
+    public func updateModel(
+        _ model: String,
+        for identity: ProviderIdentity
+    ) async throws {
+        let trimmed = try Self.validatedModel(model)
+        try await configurationRepository.store(
+            trimmed,
+            for: Self.modelKey(for: identity),
+            at: .providerSettings
+        )
+    }
+
+    /// Returns the recorded OpenAI-compatible model of the provider connection
+    /// with `identity`, or `nil` when none is recorded (DES-011 §3.10).
+    public func model(
+        for identity: ProviderIdentity
+    ) async throws -> String? {
+        try await configurationRepository.value(
+            for: Self.modelKey(for: identity),
             at: .providerSettings
         )
     }
@@ -192,6 +271,19 @@ public struct ProviderConnectionService: Sendable {
             throw ApplicationValidationError.invalid(
                 reason: "The endpoint must be an absolute http or https URL."
             )
+        }
+        return trimmed
+    }
+
+    /// Validates a model at the boundary (ARC-009, DES-011 §3.10): the trimmed
+    /// string must be non-empty, returned for storage; an empty model is
+    /// rejected with the typed application error of DES-011 §3.6. The same rule
+    /// guards `updateModel(_:for:)` and the model-collecting
+    /// `configure(_:endpoint:model:)`.
+    private static func validatedModel(_ model: String) throws -> String {
+        let trimmed = model.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else {
+            throw ApplicationValidationError.invalid(reason: "The model is empty.")
         }
         return trimmed
     }

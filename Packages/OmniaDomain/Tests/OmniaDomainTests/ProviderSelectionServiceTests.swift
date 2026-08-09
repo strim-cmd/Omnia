@@ -82,6 +82,19 @@ final class ProviderSelectionServiceTests: XCTestCase {
         )
     }
 
+    func testSelect_SelectsTheRecordedComboWhenItIsTheOnlyOfferedModel() async throws {
+        let combo = ModelReference(name: "omniroute:gpt-4o")
+        let (service, _, identities) = await makeService(modelsByProvider: [
+            canonicalSmallest: [combo],
+            canonicalLargest: [],
+        ])
+        let comboProvider = try XCTUnwrap(identities[canonicalSmallest])
+
+        let result = await service.select(requiredCapability: .textGeneration)
+
+        XCTAssertEqual(result, .selected(provider: comboProvider, model: combo))
+    }
+
     func testSelect_FailureWhenNothingReadyCanDeliver() async throws {
         let (service, _, identities) = await makeService(
             modelsByProvider: [
