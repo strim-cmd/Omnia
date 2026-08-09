@@ -36,6 +36,35 @@ reproducible release pipeline.
 - Release pipeline green on macOS 13 / iOS 16 deployment floor with unsigned
   IPA packaging (#148).
 
+## [0.5.2] - 2026-08-09
+
+Public repository release readiness. No product behavior or API changes.
+
+### Added
+
+- MIT license (`LICENSE`).
+- Public repository security audit and release-readiness reports
+  (`Documentation/Development/PUBLIC_REPOSITORY_SECURITY_AUDIT.md`,
+  `PUBLIC_REPOSITORY_RELEASE_READINESS.md`, `PUBLIC_RELEASE_FINAL_CHECK.md`).
+- README sections for project status, building and testing, and licensing.
+- `.gitignore` entries for signing credentials and provisioning profiles.
+- iOS build metadata (`INFOPLIST_KEY_UIApplicationSceneManifest_Generation`) so
+  the SwiftUI entry point launches on device.
+- `#if canImport(SwiftUI)` guard so the design-token color API builds on Linux.
+
+### Changed
+
+- The release pipeline's iOS signing and export steps now run only when the
+  corresponding distribution credentials are configured; a credential-free run
+  still builds and packages unsigned artifacts.
+- Internal and private development references removed or genericized across the
+  documentation, issue templates, and source comments.
+
+### Fixed
+
+- Removed an unused `import OmniaTheme` so the conversation screen builds on
+  Linux.
+
 ## [Unreleased]
 
 UX audit (issue #154) — core-flow correctness, accessibility, validation,
