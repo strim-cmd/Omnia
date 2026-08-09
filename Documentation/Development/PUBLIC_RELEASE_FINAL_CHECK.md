@@ -79,11 +79,12 @@ the Swift package suite ran in the `swift:6.0` Linux container.
   iOS). SwiftUI views are `canImport(SwiftUI)`-guarded with `#if os(iOS)` /
   `#if canImport(UIKit)` branches. The Composition Root is platform-neutral.
   No macOS-only API is reachable from the iOS app.
-- **Runtime correctness fix applied.** The iOS target lacked
-  `UIApplicationSceneManifest`; a SwiftUI `@main` app requires it to launch
-  ("cannot construct the app ... missing UIApplicationSceneManifest").
-  Added `INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES` to the iOS
-  target Debug and Release configurations (`project.pbxproj`).
+- **iOS build regression found and reverted.** The previously recommended
+  `INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES` was disproven by
+  CI: the v0.5.1 pipeline built and packaged the iOS target without it, and the
+  key caused the iOS build to fail (xcodebuild exit 70) on the v0.5.2 run. A
+  SwiftUI `@main` app does not require a scene manifest in Info.plist; the key
+  was removed in v0.5.3 (`project.pbxproj`).
 - **Tests.** Standard suite green on the Linux build environment: **1057 tests,
   0 failures** (OmniaFoundation 136, OmniaDomain 319, OmniaApplication 177,
   OmniaInfrastructure 187, OmniaPresentation 199, OmniaApp 39).
