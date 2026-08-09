@@ -33,8 +33,8 @@ related_documents:
   - Documentation/Architecture/ADR/ADR-0001-architectural-style.md
   - Documentation/Architecture/ADR/ADR-0002-dependency-direction.md
   - Documentation/Design/APPLICATION_API.md
-  - .ai/standards/UI.md
-  - .ai/context/PROJECT_STATE.md
+  - project UI standards
+  - project state
 
 supersedes: []
 
@@ -78,7 +78,7 @@ The sprint is complete when the contract is frozen, the conversation and setting
 ### Stage 1 — Presentation API Specification and Freeze
 
 1. Write `Documentation/Design/PRESENTATION_API.md` (DES-012) at v1.0.0, following the DES-011 document structure, specifying the Presentation layer's public surface: the navigation structure and presentation flow, the conversation presentation surface (conversation list: create, select, delete; the conversation screen presenting the streaming send-message flow incrementally, with Markdown rendering and code highlighting), the settings presentation surface (provider connections: configure, list, remove, with the credential boundary; configuration), the presentation value types and presentation state, the seam through which the application services of `DES-011` are delivered (`ARC-006`), and the build and verification boundary between the platform-independent presentation logic and the Apple-platform SwiftUI view layer. The Markdown rendering and code highlighting mechanism MUST be resolved and recorded per the Clarification subsection below (native Apple APIs only; no third-party packages).
-2. Review the document with the Documentation workflow (`.ai/prompts/workflows/documentation.md`) and the documentation review checklist (`.ai/checklists/documentation-review.md`), and verify it against `ARC-001`, `ARC-002`, `ARC-004`, `ARC-005`, `ARC-006`, `ARC-007`, `ARC-008`, `ARC-009`, `ADR-0001`/`ADR-0002`, the frozen `DES-011` v1.0.0, and the UI standard (`.ai/standards/UI.md`).
+2. Review the document with the Documentation workflow and the documentation review checklist, and verify it against `ARC-001`, `ARC-002`, `ARC-004`, `ARC-005`, `ARC-006`, `ARC-007`, `ARC-008`, `ARC-009`, `ADR-0001`/`ADR-0002`, the frozen `DES-011` v1.0.0, and the UI standard.
 3. Record the freeze. From that point, DES-012 v1.0.0 is part of the frozen contract; a further change requires another specification revision, exactly as the prior API freezes do (`PROJECT_STATE.md`).
 
 Milestone: **Presentation API Freeze** — ratified; `DES-012` v1.0.0 status is Ratified and the freeze is recorded in `PROJECT_STATE.md`.
@@ -93,7 +93,7 @@ Verify the OmniaPresentation package against the frozen contract and the layer d
 
 ## Requirements
 
-The requirements derive from the layer responsibilities of `ARC-009`, the dependency-injection rules of `ARC-006`, the module structure of `ARC-007`, the presentation style of `ADR-0001`, the UI standard (`.ai/standards/UI.md`), the product scope of `PRODUCT_CHARTER`, and the frozen application surface of `DES-011` v1.0.0. The Presentation defines no contracts and owns no business rules; it renders state and translates user intent (`ARC-002`, `ARC-009`, `ADR-0001`).
+The requirements derive from the layer responsibilities of `ARC-009`, the dependency-injection rules of `ARC-006`, the module structure of `ARC-007`, the presentation style of `ADR-0001`, the UI standard (`project UI standards`), the product scope of `PRODUCT_CHARTER`, and the frozen application surface of `DES-011` v1.0.0. The Presentation defines no contracts and owns no business rules; it renders state and translates user intent (`ARC-002`, `ARC-009`, `ADR-0001`).
 
 ### The Presentation Surface
 
@@ -106,7 +106,7 @@ The contract defines the public surface of OmniaPresentation for the flows in sc
 ### Native Experience
 
 - SwiftUI views and the Observation framework, with Navigation; platform conventions for iOS, iPadOS, and macOS (`ADR-0001`).
-- Follow the Apple Human Interface Guidelines; prefer native SwiftUI components over custom ones (`.ai/standards/UI.md`, `PRODUCT_CHARTER`).
+- Follow the Apple Human Interface Guidelines; prefer native SwiftUI components over custom ones (`project UI standards`, `PRODUCT_CHARTER`).
 - Accessibility: VoiceOver, Dynamic Type, keyboard navigation where appropriate, high contrast, and reduced motion (`PRODUCT_CHARTER`, `UI.md`).
 - Localization: user-visible strings are localized; never hardcoded in view code (`UI.md`).
 
@@ -218,5 +218,5 @@ The following are explicitly out of scope for Presentation Sprint 1:
 - `Documentation/Architecture/ADR/ADR-0001-architectural-style.md`
 - `Documentation/Architecture/ADR/ADR-0002-dependency-direction.md`
 - `Documentation/Design/APPLICATION_API.md`
-- `.ai/standards/UI.md`
-- `.ai/context/PROJECT_STATE.md`
+- `project UI standards`
+- `project state`

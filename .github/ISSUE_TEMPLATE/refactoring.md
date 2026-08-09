@@ -25,7 +25,3 @@ How correctness is proven: which tests cover the existing behavior.
 - [ ] Existing tests pass and, where valuable, regression tests are added.
 
 ## Related Documents
-
-- Swift standard: `.ai/standards/SWIFT.md`
-- Testing standard: `.ai/standards/TESTING.md`
-- Implementation workflow: `.ai/prompts/workflows/implementation.md`

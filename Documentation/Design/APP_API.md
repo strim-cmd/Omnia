@@ -32,7 +32,7 @@ related_documents:
   - Documentation/Architecture/ADR/ADR-0002-dependency-direction.md
   - Documentation/Product/PRODUCT_CHARTER.md
   - Documentation/Product/PRODUCT_PRINCIPLES.md
-  - .ai/context/PROJECT_STATE.md
+  - project state
 supersedes: []
 tags:
   - design
@@ -91,7 +91,7 @@ The following MUST NEVER enter the package (`ARC-002`, `ARC-006`, `ARC-009`, ADR
 - networking, transport, persistence, and credential operations performed by the shell — the Composition Root assembles the implementations that perform them; it never performs them itself (ARC-002, ARC-006);
 - provider-specific code and provider APIs (ARC-004);
 - any dependency-injection framework — the Composition Root is hand-written (`ARC-006`, PRD-008 §Non-Goals);
-- third-party packages — native Apple APIs are preferred (`PRODUCT_CHARTER`, `.ai/standards/SWIFT.md`);
+- third-party packages — native Apple APIs are preferred (`PRODUCT_CHARTER`, `project Swift standards`);
 - code with no architectural home (ARC-002).
 
 A type that acquires a business-rule, orchestration, contract, UI, infrastructure, or provider meaning is a boundary violation and is re-homed to the layer that owns that concern (DES-001 §2).
@@ -241,7 +241,7 @@ The boundary has two sides:
 | Surface | Position | Verification |
 |---|---|---|
 | Composition Root and bootstrap logic | platform-independent; constructs the graph and resolves the default workspace over the frozen services | builds and is tested on the Linux build environment; deterministic, black-box tests of the public surface (DES-004 §5) |
-| Executable entry point | the SwiftUI `@main` App; Apple-platform only | isolated behind platform availability via conditional compilation; not exercised by the Linux test environment; verified by review against `.ai/standards/UI.md` |
+| Executable entry point | the SwiftUI `@main` App; Apple-platform only | isolated behind platform availability via conditional compilation; not exercised by the Linux test environment; verified by review against `project UI standards` |
 
 Normative statements:
 
@@ -258,7 +258,7 @@ The following are evaluated and intentionally NOT part of the initial public API
 - platform packaging and distribution — signing, notarization, sandbox entitlements, and the app bundle are outside this contract;
 - multi-window support and the document-based lifecycle — the MVP is single-window (PRD-008);
 - background synchronization, iCloud, and cloud features;
-- third-party dependencies — native Apple APIs are preferred (PRODUCT_CHARTER, `.ai/standards/SWIFT.md`);
+- third-party dependencies — native Apple APIs are preferred (PRODUCT_CHARTER, `project Swift standards`);
 - any dependency-injection framework — the Composition Root is hand-written (ARC-006);
 - new packages — the package set is fixed at six (ARC-009);
 - changes to the frozen DES-001..DES-012 contracts — DES-013 is the final contract of the freeze; the additive revisions DES-011 v1.1.0, DES-011 v1.2.0, DES-012 v1.1.0, and DES-012 v1.2.0 are the surfaces this contract composes, and a further change requires another specification revision (PRD-008, PROJECT_STATE.md).
@@ -273,7 +273,7 @@ OmniaApp occupies the application-edge position of the dependency graph (ARC-002
 - OmniaApp MUST be the only package whose outgoing edges reach every other package; the Composition Root is the only place concrete Infrastructure implementations are referenced (ARC-006).
 - No package MAY depend on OmniaApp — the shell is the top; depending on it would make every package depend on the composition of everything (ARC-006, ARC-009).
 - OmniaApp MAY depend on the Swift Standard Library and the Apple platform frameworks the executable entry point requires — SwiftUI and Foundation — but Apple-only code MUST be isolated behind platform availability (§3.6).
-- OmniaApp MUST NOT depend on third-party packages. Native Apple APIs are preferred (PRODUCT_CHARTER, `.ai/standards/SWIFT.md`).
+- OmniaApp MUST NOT depend on third-party packages. Native Apple APIs are preferred (PRODUCT_CHARTER, `project Swift standards`).
 - The dependency graph MUST contain no cycle (ARC-002, ARC-007).
 - Every dependency MUST be declared in the package manifest; hidden dependencies are forbidden (ARC-008).
 
@@ -378,4 +378,4 @@ Order: the offered-models closure of §3.3 — `CompositionRoot.preferredModels(
 - `Documentation/Architecture/ADR/ADR-0002-dependency-direction.md`
 - `Documentation/Product/PRODUCT_CHARTER.md`
 - `Documentation/Product/PRODUCT_PRINCIPLES.md`
-- `.ai/context/PROJECT_STATE.md`
+- `project state`

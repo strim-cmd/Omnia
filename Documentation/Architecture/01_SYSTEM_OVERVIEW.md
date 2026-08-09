@@ -26,7 +26,7 @@ related_documents:
   - Documentation/Architecture/ADR/ADR-0002-dependency-direction.md
   - Documentation/Product/PRODUCT_CHARTER.md
   - Documentation/Product/PRODUCT_PRINCIPLES.md
-  - .ai/AI_CONSTITUTION.md
+  - the project constitution
 
 supersedes: []
 
@@ -503,4 +503,4 @@ A change that cannot be expressed within this architecture is proposed as an ADR
 - `Documentation/Architecture/ADR/ADR-0002-dependency-direction.md`
 - `Documentation/Product/PRODUCT_CHARTER.md`
 - `Documentation/Product/PRODUCT_PRINCIPLES.md`
-- `.ai/AI_CONSTITUTION.md`
+- `the project constitution`

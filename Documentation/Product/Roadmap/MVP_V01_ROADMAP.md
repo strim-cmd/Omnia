@@ -40,7 +40,7 @@ related_documents:
   - Documentation/Architecture/ADR/ADR-0002-dependency-direction.md
   - Documentation/Design/APPLICATION_API.md
   - Documentation/Design/PRESENTATION_API.md
-  - .ai/context/PROJECT_STATE.md
+  - project state
 
 supersedes: []
 
@@ -99,7 +99,7 @@ The milestone is complete when the contract is frozen, the revisions are impleme
 1. Write `Documentation/Design/APP_API.md` (DES-013) at v1.0.0, following the DES-011/DES-012 document structure, specifying OmniaApp's public surface: the Composition Root (`ARC-006`) and the exact object graph it assembles — the four file repositories and the credential storage, the application services, the runtime provider adapter binding, and the presentation surfaces; the storage layout (one directory per repository, rooted in the platform Application Support directory, `ARC-005`); the app shell, entry point, and lifecycle (launch → bootstrap → navigation surface → window); and the first-run bootstrap — resolve-or-create the default workspace. The Linux-testability boundary follows the OmniaInfrastructure platform-backend precedent: the Composition Root and bootstrap logic are platform-independent and testable on the Linux build; the executable entry point is isolated behind platform availability.
 2. Write the **additive revision** DES-011 v1.1.0: the minimal workspace application surface — `WorkspaceService` (create a workspace, load by identity, attach a conversation/provider to membership over the frozen `WorkspaceRepository` and the aggregate's `adding(conversation:)`/`adding(provider:)` methods) and `ConversationService.createConversation(in:)` (create and attach atomically). v1.0.0 surfaces remain unchanged; the revision is additive only (`ARC-008`).
 3. Write the **additive revision** DES-012 v1.1.0: the conversation-list create flow (`ConversationListSurface.create(in:)`) over the revised `ConversationService`, so a created conversation is attached to the presented workspace. v1.0.0 surfaces remain unchanged.
-4. Review the documents with the Documentation workflow (`.ai/prompts/workflows/documentation.md`) and the documentation review checklist (`.ai/checklists/documentation-review.md`), and verify them against `ARC-004`, `ARC-005`, `ARC-006`, `ARC-007`, `ARC-008`, `ARC-009`, `ADR-0001`/`ADR-0002`, the frozen DES-001..DES-012 contract, and the UI standard (`.ai/standards/UI.md`).
+4. Review the documents with the Documentation workflow and the documentation review checklist, and verify them against `ARC-004`, `ARC-005`, `ARC-006`, `ARC-007`, `ARC-008`, `ARC-009`, `ADR-0001`/`ADR-0002`, the frozen DES-001..DES-012 contract, and the UI standard.
 5. Record the freeze. From that point, DES-013 v1.0.0, DES-011 v1.1.0, and DES-012 v1.1.0 are part of the frozen contract; a further change requires another specification revision, exactly as the prior API freezes do (`PROJECT_STATE.md`).
 
 Milestone: **App Contract Freeze** — ratified; DES-013 v1.0.0, DES-011 v1.1.0, and DES-012 v1.1.0 statuses are Ratified and the freeze is recorded in `PROJECT_STATE.md`.
@@ -225,4 +225,4 @@ The following are explicitly out of scope for MVP v0.1:
 - `Documentation/Architecture/ADR/ADR-0002-dependency-direction.md`
 - `Documentation/Design/APPLICATION_API.md`
 - `Documentation/Design/PRESENTATION_API.md`
-- `.ai/context/PROJECT_STATE.md`
+- `project state`

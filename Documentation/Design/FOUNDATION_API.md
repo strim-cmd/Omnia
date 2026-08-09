@@ -17,7 +17,7 @@ related_documents:
   - Documentation/Architecture/09_PACKAGE_STRUCTURE.md
   - Documentation/Product/PRODUCT_CHARTER.md
   - Documentation/Product/PRODUCT_PRINCIPLES.md
-  - .ai/standards/SWIFT.md
+  - project Swift standards
 supersedes: []
 tags:
   - design

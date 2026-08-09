@@ -34,7 +34,7 @@ related_documents:
   - Documentation/Architecture/ADR/ADR-0002-dependency-direction.md
   - Documentation/Design/FOUNDATION_API.md
   - Documentation/Design/DOMAIN_API.md
-  - .ai/context/PROJECT_STATE.md
+  - project state
 
 supersedes: []
 
@@ -76,7 +76,7 @@ The sprint is complete when the frozen contract is fully implemented, the packag
 ### Stage 1 — Domain API Specification and Freeze
 
 1. Draft the OmniaDomain public API contract specification (`Documentation/Design/DOMAIN_API.md`, DES-009), covering: the capability contract and the provider model; the typed configuration protocol; the credential storage protocol; the repository protocols for stored aggregates; the entities, value objects, domain services, and policies defined in this roadmap.
-2. Review the specification with the Documentation workflow (`.ai/prompts/workflows/documentation.md`) and the documentation review checklist (`.ai/checklists/documentation-review.md`), and verify it against `ARC-002`, `ARC-004`, `ARC-005`, `ARC-007`, `ARC-009`, and `ADR-0001`/`ADR-0002`.
+2. Review the specification with the Documentation workflow and the documentation review checklist, and verify it against `ARC-002`, `ARC-004`, `ARC-005`, `ARC-007`, `ARC-009`, and `ADR-0001`/`ADR-0002`.
 3. Record the freeze. From that point, a change to the public contract requires a specification revision, exactly as the Foundation API Freeze v1 does (`PROJECT_STATE.md`).
 
 Milestone: **Domain API Freeze v1** — ratified on 2026-08-03; `DES-009` status is Ratified and the freeze is recorded in `PROJECT_STATE.md`.
@@ -259,4 +259,4 @@ The following are explicitly out of scope for Domain Sprint 1:
 - `Documentation/Architecture/ADR/ADR-0001-architectural-style.md`
 - `Documentation/Architecture/ADR/ADR-0002-dependency-direction.md`
 - `Documentation/Design/FOUNDATION_API.md`
-- `.ai/context/PROJECT_STATE.md`
+- `project state`

@@ -8,7 +8,7 @@ project: Omnia
 related_documents:
   - Documentation/Design/PRESENTATION_API.md
   - Documentation/Design/APP_API.md
-  - .ai/standards/UI.md
+  - project UI standards
   - Documentation/Product/PRODUCT_CHARTER.md
 ---
 
@@ -24,7 +24,7 @@ Record the findings of the UX audit requested in issue #154: review the current 
 - The application shells: `OmniaAppExecutable` (macOS) and `OmniaiOSApp` (iOS), and the platform-independent launch surface (`AppLaunch`, `FirstRunBootstrap`).
 - The presentation state models (`ConversationListState`, `ConversationScreenState`, `SettingsState`, `NavigationState`) and the surfaces that produce them (`ConversationListSurface`, `ConversationScreenSurface`, `SettingsSurface`).
 - The app targets' build settings relevant to UI (`App/Omnia.xcodeproj`).
-- Evaluation criteria: `.ai/standards/UI.md`, the Apple Human Interface Guidelines, and the frozen contracts DES-012 / DES-013, with the architecture constraints ARC-001 (failures never silent), ARC-002, ARC-005, ARC-006, ARC-007, ARC-009, ADR-0001.
+- Evaluation criteria: `project UI standards`, the Apple Human Interface Guidelines, and the frozen contracts DES-012 / DES-013, with the architecture constraints ARC-001 (failures never silent), ARC-002, ARC-005, ARC-006, ARC-007, ARC-009, ADR-0001.
 
 ## Non-Goals
 
@@ -193,7 +193,7 @@ Severity: **P0** = blocks a core flow / data loss / security; **P1** = significa
 #### V2 — Duplicated per-view styling; no design tokens (P2)
 
 - **File/symbol:** `failureBanner` in three views, empty states in two views, toolbar labels in all views.
-- **Current behavior:** Identical banner/empty-state markup is re-declared per view (`.ai/standards/UI.md` §Design System is Draft; tokens are not yet applied).
+- **Current behavior:** Identical banner/empty-state markup is re-declared per view (`project UI standards` §Design System is Draft; tokens are not yet applied).
 - **Why it is a UX problem:** Drift risk; visual inconsistency evolves as views change independently.
 - **Recommended fix:** Introduce shared presentation components (e.g. `ErrorBanner`, `EmptyStateView`) or token-backed styling when the design system moves past Draft.
 - **Acceptance criteria:** Banner/empty-state styling is shared or tokenized; no per-view divergence.
@@ -283,7 +283,7 @@ Each maps to a template and the correct single `type:*`/`layer:*`/`priority:*` l
 
 ## Implementation Status
 
-Phase 1 of the [prioritized implementation order](#prioritized-implementation-order-for-the-next-ux-sprint) is implemented (2026-08-07), and all Phase 2 items — **U5** (confirmation for destructive actions), **U8** (configure-form validation and keyboards), **U4** (draft preservation), **A3** (consistent bubble accessibility), **A4** (streaming announcements and responding indicator), **U6** (loading state distinct from empty state), **U7** (retry/continue for interrupted responses; provider endpoint edit), **V1** (semantic colors, contrast, Dynamic Type), **V2** (shared banner/empty-state components), **V3** (iOS orientation declaration), **V4** (launch-failure copy), **U9** (multi-line composer), **V5** (conversation-list root title), and **S3** (navigation-stack modeling decision) — are implemented (2026-08-07 to 2026-08-08). The provider-selection feature of the second audit iteration — **UX audit iteration V2** (2026-08-08) — is also implemented below. Each item cites the file/symbol changed and how the acceptance criteria are met. The SwiftUI view layer is Apple-platform code isolated behind `canImport(SwiftUI)` and is not exercised by the Linux test environment (DES-012 §3.7); the changes were parse-checked and reviewed against `.ai/standards/UI.md` on the Linux build environment, and a macOS physical launch verification remains pending per DES-013 §3.6.
+Phase 1 of the [prioritized implementation order](#prioritized-implementation-order-for-the-next-ux-sprint) is implemented (2026-08-07), and all Phase 2 items — **U5** (confirmation for destructive actions), **U8** (configure-form validation and keyboards), **U4** (draft preservation), **A3** (consistent bubble accessibility), **A4** (streaming announcements and responding indicator), **U6** (loading state distinct from empty state), **U7** (retry/continue for interrupted responses; provider endpoint edit), **V1** (semantic colors, contrast, Dynamic Type), **V2** (shared banner/empty-state components), **V3** (iOS orientation declaration), **V4** (launch-failure copy), **U9** (multi-line composer), **V5** (conversation-list root title), and **S3** (navigation-stack modeling decision) — are implemented (2026-08-07 to 2026-08-08). The provider-selection feature of the second audit iteration — **UX audit iteration V2** (2026-08-08) — is also implemented below. Each item cites the file/symbol changed and how the acceptance criteria are met. The SwiftUI view layer is Apple-platform code isolated behind `canImport(SwiftUI)` and is not exercised by the Linux test environment (DES-012 §3.7); the changes were parse-checked and reviewed against `project UI standards` on the Linux build environment, and a macOS physical launch verification remains pending per DES-013 §3.6.
 
 ### Phase 1 — Implemented
 
@@ -334,7 +334,7 @@ A second UX audit iteration implemented the provider-selection feature (issue #1
 | Send and the selection policy | Implemented | `RootView.send` carries the explicit selection into the next `SendMessageRequest` as the frozen `userSelection` (`DES-011` §3.1), which the selection policy of DES-009 §3.2 honors when it is selectable — a non-selectable selection is skipped and the automatic selection applies, which the screen announces rather than silently dropping the explicit choice (ARC-001). The selection is composed onto every rendered conversation state through `replacingProviderSelection(_:)`, so the selector survives streaming updates, draft changes, and the terminal-failure reload. |
 | Selector states | Implemented | `ConversationScreenView.swift` presents the composed selection: a small loading indicator while the provider connections have not loaded; the empty state — "No providers configured. Add a provider to send messages." with an Open Settings action routing to the settings surface — when no connection is configured; the error banner when the connections could not be loaded; and the native pull-down `Menu` selector when connections are present, listing Automatic first and each provider connection — a not-ready connection presented disabled with its lifecycle state, since the frozen policy cannot serve it. A selected provider connection that is not available renders the warning banner "…is not available. Messages will use the automatic selection." — the explicit choice is never silently dropped (DES-009 §3.2, ARC-001). |
 | Composition and tests | Implemented | `composed(providers:settingsFailure:selected:)` normalizes a selection not among the presented connections to no selection, preserves a selected-but-unavailable connection so the screen can announce it, and presents the settings failure only when no connection is presented — the connections themselves outrank the failure, and no failure is silent (ARC-001, DES-011 §3.6). The selection state is covered by new Linux tests in `ProviderSelectionTests.swift` (creation, empty, selected item, availability, composition — including preserving an unavailable selection — and equality); the full Linux regression suite stays green — OmniaFoundation 136, OmniaDomain 318, OmniaInfrastructure 187, OmniaApplication 164, OmniaPresentation 185, OmniaApp 22. |
-| Platform consistency | Implemented | The selector is one native SwiftUI `Menu` with the same behavior on iOS, iPadOS, and macOS (ADR-0001): full keyboard access and VoiceOver on both platforms — the picker's accessibility label announces the current selection — Dynamic Type scales the rows, and `ProviderStateLabel` is the shared lifecycle-state copy the selector and the settings rows both use (`.ai/standards/UI.md`). |
+| Platform consistency | Implemented | The selector is one native SwiftUI `Menu` with the same behavior on iOS, iPadOS, and macOS (ADR-0001): full keyboard access and VoiceOver on both platforms — the picker's accessibility label announces the current selection — Dynamic Type scales the rows, and `ProviderStateLabel` is the shared lifecycle-state copy the selector and the settings rows both use (`project UI standards`). |
 
 ### Phase 2 and Phase 3 — Pending
 
@@ -343,7 +343,7 @@ Item 17 (Phase 2) and items 18–21 (Phase 3) of the prioritized implementation 
 ## Related Documents
 
 - Product Charter: `Documentation/Product/PRODUCT_CHARTER.md`
-- UI Standard: `.ai/standards/UI.md`
+- UI Standard: `project UI standards`
 - Presentation contract: `Documentation/Design/PRESENTATION_API.md` (DES-012)
 - App contract: `Documentation/Design/APP_API.md` (DES-013)
 - Architecture: `Documentation/Architecture/` (ARC-001, ARC-002, ARC-005, ARC-006, ARC-007, ARC-009, ADR-0001)

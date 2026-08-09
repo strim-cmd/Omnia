@@ -19,7 +19,7 @@ related_documents:
   - Documentation/Product/Roadmap/MVP_V01_ROADMAP.md
   - Documentation/Design/APP_API.md
   - Documentation/Development/Retrospectives/APPLICATION_SPRINT_1_CLOSURE_REPORT.md
-  - .ai/context/PROJECT_STATE.md
+  - project state
   - README.md
 
 supersedes: []
@@ -42,7 +42,7 @@ Document the completion of MVP v0.1 as the integration milestone (milestone #10)
 
 ## Scope
 
-This report covers MVP v0.1 (milestone #10, GitHub issues #120-#125) as recorded in `.ai/context/PROJECT_STATE.md`, the git history of `feature/repository-foundation`, the merged pull requests (#126-#131 and the Stage 3 PR), and the frozen App contract (`APP_API.md`, DES-013 v1.0.0, with the additive revisions DES-011 v1.1.0 and DES-012 v1.1.0) and the sprint roadmap (`MVP_V01_ROADMAP.md`, PRD-008).
+This report covers MVP v0.1 (milestone #10, GitHub issues #120-#125) as recorded in `project state`, the git history of `feature/repository-foundation`, the merged pull requests (#126-#131 and the Stage 3 PR), and the frozen App contract (`APP_API.md`, DES-013 v1.0.0, with the additive revisions DES-011 v1.1.0 and DES-012 v1.1.0) and the sprint roadmap (`MVP_V01_ROADMAP.md`, PRD-008).
 
 It does not cover the Foundation, Domain, Infrastructure, Application, or Presentation sprints except where their precedents are referenced. It does not cover the next milestone, which is not yet planned. It does not implement any improvement it lists.
 
@@ -56,7 +56,7 @@ It does not cover the Foundation, Domain, Infrastructure, Application, or Presen
 ## Non-Goals
 
 - No re-verification of the milestone's technical work; the milestone was certified by the verification stage (issue #125).
-- No changes to the frozen API contracts, the architecture documents, the sprint roadmap, or the engineering-process documents (`.ai/`).
+- No changes to the frozen API contracts, the architecture documents, the sprint roadmap, or the engineering-process documents (`the AI engineering framework`).
 - No implementation of CI, tooling, or process improvements listed as observations.
 - No macOS launch: the executable entry point is Apple-platform code verified by review against the frozen DES-013 §3.6 boundary and by the Linux-verified platform-independent surface (issue #124); the end-to-end macOS launch is a pending platform-specific verification (Section 8).
 
@@ -139,7 +139,7 @@ The package suites grew monotonically across the stages and stayed green at ever
 
 Stage 3 (issue #125) ran the full unit-test pass on the Linux build environment across all six packages: OmniaFoundation 136, OmniaDomain 318, OmniaInfrastructure 183, OmniaApplication 151, OmniaPresentation 121, **OmniaApp 22 — 931 tests, 0 failures and 0 warnings**, and the root workspace package builds.
 
-The Engineering Platform Validation Suite (VAL-000) passes **7/7** (reference resolution, registry integrity, version and identifier consistency, document structure, absence of placeholders, style artifacts, absence of contradictions), run through `.ai/scripts/validate-platform.sh`.
+The Engineering Platform Validation Suite (VAL-000) passes **7/7** (reference resolution, registry integrity, version and identifier consistency, document structure, absence of placeholders, style artifacts, absence of contradictions), run through `the platform-validation script`.
 
 The tests are deterministic: no network, no sleeps, no global state; they use in-memory and failing repository doubles matching the Domain test pattern, and they run on the Linux build in Docker (`swift:6.0`), the only build environment available on the development host.
 
@@ -205,5 +205,5 @@ Evidence-backed observations, each resolving against the repository record:
 - `Documentation/Product/Roadmap/MVP_V01_ROADMAP.md` (PRD-008) — the milestone planning artifact and completion criteria.
 - `Documentation/Design/APP_API.md` (DES-013 v1.0.0) and the additive revisions DES-011 v1.1.0 / DES-012 v1.1.0 — the frozen contract implemented this milestone.
 - `Documentation/Development/Retrospectives/APPLICATION_SPRINT_1_CLOSURE_REPORT.md` (RETRO-004) — the closure-report precedent.
-- `.ai/context/PROJECT_STATE.md` — the authoritative phase-by-phase record of the milestone.
+- `project state` — the authoritative phase-by-phase record of the milestone.
 - `README.md` — the repository entry point; its Project Status section references the milestone.

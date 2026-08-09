@@ -1,6 +1,6 @@
 // Omnia shared build configuration.
 // Applies to every configuration and target via Debug.xcconfig and Release.xcconfig.
-// Versioning follows the release workflow (.ai/prompts/workflows/release.md): SemVer,
+// Versioning follows the release workflow (the release workflow): SemVer,
 // CHANGELOG.md (Keep a Changelog), and version tags. MARKETING_VERSION and
 // CURRENT_PROJECT_VERSION here are the single source of truth for the app version, so
 // the app version and the tagged release version never diverge.

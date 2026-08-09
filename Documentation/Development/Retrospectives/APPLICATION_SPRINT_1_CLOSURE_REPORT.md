@@ -19,7 +19,7 @@ related_documents:
   - Documentation/Product/Roadmap/APPLICATION_SPRINT_1_ROADMAP.md
   - Documentation/Design/APPLICATION_API.md
   - Documentation/Development/Retrospectives/INFRASTRUCTURE_SPRINT_1_RETROSPECTIVE.md
-  - .ai/context/PROJECT_STATE.md
+  - project state
   - README.md
 
 supersedes: []
@@ -42,7 +42,7 @@ Document the completion of Application Sprint 1 as an architectural milestone be
 
 ## Scope
 
-This report covers Application Sprint 1 (milestone #8, GitHub issues #90-#96, merged PRs #97-#103) as recorded in `.ai/context/PROJECT_STATE.md`, the git history of `feature/repository-foundation`, the merged pull requests, the frozen `APPLICATION_API.md` (DES-011 v1.0.0), and the sprint roadmap (`APPLICATION_SPRINT_1_ROADMAP.md`, PRD-006).
+This report covers Application Sprint 1 (milestone #8, GitHub issues #90-#96, merged PRs #97-#103) as recorded in `project state`, the git history of `feature/repository-foundation`, the merged pull requests, the frozen `APPLICATION_API.md` (DES-011 v1.0.0), and the sprint roadmap (`APPLICATION_SPRINT_1_ROADMAP.md`, PRD-006).
 
 It does not cover the Foundation, Domain, or Infrastructure sprints except where their precedents are referenced. It does not cover Presentation Sprint 1, which is not yet planned. It does not implement any improvement it lists.
 
@@ -56,7 +56,7 @@ It does not cover the Foundation, Domain, or Infrastructure sprints except where
 ## Non-Goals
 
 - No re-verification of the sprint's technical work; the sprint was certified by the package verification stage (issue #96).
-- No changes to the frozen API contracts, the architecture documents, the sprint roadmap, or the engineering-process documents (`.ai/`).
+- No changes to the frozen API contracts, the architecture documents, the sprint roadmap, or the engineering-process documents (`the AI engineering framework`).
 - No implementation of CI, tooling, or process improvements listed as observations.
 
 ## 1. Sprint Objective
@@ -189,5 +189,5 @@ Evidence-backed observations, each resolving against the repository record:
 - `Documentation/Product/Roadmap/APPLICATION_SPRINT_1_ROADMAP.md` (PRD-006) — the sprint planning artifact and completion criteria.
 - `Documentation/Design/APPLICATION_API.md` (DES-011 v1.0.0) — the frozen contract implemented this sprint.
 - `Documentation/Development/Retrospectives/INFRASTRUCTURE_SPRINT_1_RETROSPECTIVE.md` (RETRO-001) — the precedent retrospective and its documented recurring problems.
-- `.ai/context/PROJECT_STATE.md` — the authoritative phase-by-phase record of the sprint.
+- `project state` — the authoritative phase-by-phase record of the sprint.
 - `README.md` — the repository entry point; its Project Status section references the sprint.

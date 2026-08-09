@@ -13,7 +13,7 @@ related_documents:
   - Documentation/Design/APPLICATION_API.md
   - Documentation/Design/PRESENTATION_API.md
   - Documentation/Design/APP_API.md
-  - .ai/context/PROJECT_STATE.md
+  - project state
 ---
 
 # OmniRoute Integration Plan
@@ -206,7 +206,7 @@ The change is deliberately **not OmniRoute-specific**:
 - **ConversationScreenView** provider selector: unchanged in behavior; the model
   display may optionally show the combo name as secondary text.
 - **Localized.swift**: new keys for "Model", "Model / Combo", "Edit Model".
-- Follow `.ai/standards/UI.md` (iOS 15/macOS 12 availability, validation message
+- Follow `project UI standards` (iOS 15/macOS 12 availability, validation message
   pattern, no provider-specific text).
 
 ## 9. Tests

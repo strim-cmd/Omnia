@@ -194,7 +194,7 @@ interpretation of the plan; it is called out here for review.
   `testEquality_DifferentModelEditConditionIsNotEqual`,
   `testEquality_ModelEditingEqualToItself`.
 
-## Test Results (Linux suite, swift:6.0, `zen_banach`)
+## Test Results (Linux suite, swift:6.0, `the Linux CI container`)
 
 | Package | Executed | Failures |
 |---|---|---|
@@ -279,7 +279,7 @@ interpretation of the plan; it is called out here for review.
    authorized view-layer signature changes, and the DES-013 §3.3 config-driven
    `preferredModels` are revised in the same change as the code, per the
    frozen-contract change process.
-2. **Review of the SwiftUI layer** against `.ai/standards/UI.md` on an Apple
+2. **Review of the SwiftUI layer** against `project UI standards` on an Apple
    platform (the new `ProviderModelEditorView`, the Model field, the Edit Model
    context-menu action, and the RootView threading).
 3. **Follow-up (Option B):** live model listing via `GET {endpoint}/models` as a

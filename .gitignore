@@ -8,7 +8,7 @@ xcuserdata/
 # macOS
 .DS_Store
 
-# Local docker test workspace (bind-mounted into the zen_banach container)
+# Local docker test workspace (bind-mounted into the Linux test container)
 .scratch/
 
 # Environment and secret files

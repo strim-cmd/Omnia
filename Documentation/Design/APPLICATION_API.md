@@ -30,7 +30,7 @@ related_documents:
   - Documentation/Architecture/ADR/ADR-0002-dependency-direction.md
   - Documentation/Product/PRODUCT_CHARTER.md
   - Documentation/Product/PRODUCT_PRINCIPLES.md
-  - .ai/context/PROJECT_STATE.md
+  - project state
 supersedes: []
 tags:
   - design
@@ -475,4 +475,4 @@ Order: `ProviderConnectionService.modelKey(for:)`, `updateModel(_:for:)`, `model
 - `Documentation/Architecture/ADR/ADR-0002-dependency-direction.md`
 - `Documentation/Product/PRODUCT_CHARTER.md`
 - `Documentation/Product/PRODUCT_PRINCIPLES.md`
-- `.ai/context/PROJECT_STATE.md`
+- `project state`

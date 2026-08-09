@@ -26,7 +26,7 @@ related_documents:
   - Documentation/Architecture/ADR/ADR-0002-dependency-direction.md
   - Documentation/Product/PRODUCT_CHARTER.md
   - Documentation/Product/PRODUCT_PRINCIPLES.md
-  - .ai/AI_CONSTITUTION.md
+  - the project constitution
 
 supersedes: []
 
@@ -370,4 +370,4 @@ Where a future ADR changes a rule stated here, the ADR wins for that rule and th
 - `Documentation/Architecture/ADR/ADR-0002-dependency-direction.md`
 - `Documentation/Product/PRODUCT_CHARTER.md`
 - `Documentation/Product/PRODUCT_PRINCIPLES.md`
-- `.ai/AI_CONSTITUTION.md`
+- `the project constitution`

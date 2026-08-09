@@ -17,10 +17,10 @@ last_updated: 2026-08-04
 
 related_documents:
   - Documentation/Development/Retrospectives/INFRASTRUCTURE_SPRINT_1_RETROSPECTIVE.md
-  - .ai/specifications/WORKFLOW_ORCHESTRATOR_SPECIFICATION.md
-  - .ai/orchestrator/REGISTRY.md
-  - .ai/AI_CONSTITUTION.md
-  - .ai/context/PROJECT_STATE.md
+  - the workflow-orchestrator specification
+  - the orchestrator registry
+  - the project constitution
+  - project state
 
 supersedes: []
 
@@ -30,6 +30,8 @@ tags:
   - validation
   - retrospective
 ---
+
+> **Internal engineering-process record.** This document belongs to the project's private engineering-process framework, which is intentionally not included in the public repository. It is retained here for the project's historical record.
 
 # EP-001 Follow-up: Workflow Orchestrator Validation (EP-002)
 
@@ -72,7 +74,7 @@ The user expressed only intent: `Complete Issue EP-002.` No process was specifie
 
 ### Validated: Repository-Derived State
 
-Project state was read from `.ai/context/PROJECT_STATE.md`; task-specific state was read from the GitHub issue and pull requests via `gh`. The authoritative task definition was issue #45, not any session context. The orchestrator documents created by EP-002 (registry, specification, orchestrator README) became part of the repository's single source of engineering process truth, confirming the architecture's requirement that `.ai` remain authoritative.
+Project state was read from `project state`; task-specific state was read from the GitHub issue and pull requests via `gh`. The authoritative task definition was issue #45, not any session context. The orchestrator documents created by EP-002 (registry, specification, orchestrator README) became part of the repository's single source of engineering process truth, confirming the architecture's requirement that `the AI engineering framework` remain authoritative.
 
 ### Validated: Decision Gates
 
@@ -114,7 +116,7 @@ The outcome confirms the EP-001 retrospective's conclusion: user intent stays co
 ## Related Documents
 
 - `Documentation/Development/Retrospectives/INFRASTRUCTURE_SPRINT_1_RETROSPECTIVE.md` (RETRO-001) — the retrospective this follow-up closes.
-- `.ai/specifications/WORKFLOW_ORCHESTRATOR_SPECIFICATION.md` (ORCH-000) — the architecture whose properties are validated here.
-- `.ai/orchestrator/REGISTRY.md` (ORCH-REG-001) — the dispatch table used by the EP-002 execution.
-- `.ai/AI_CONSTITUTION.md` (CONST-001) — the governing rules, including the Workflow Orchestrator section.
-- `.ai/context/PROJECT_STATE.md` — the authoritative project-state record updated throughout EP-002.
+- `the workflow-orchestrator specification` (ORCH-000) — the architecture whose properties are validated here.
+- `the orchestrator registry` (ORCH-REG-001) — the dispatch table used by the EP-002 execution.
+- `the project constitution` (CONST-001) — the governing rules, including the Workflow Orchestrator section.
+- `project state` — the authoritative project-state record updated throughout EP-002.

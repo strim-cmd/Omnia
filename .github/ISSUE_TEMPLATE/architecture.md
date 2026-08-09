@@ -33,6 +33,3 @@ The problem this solves and why the current architecture cannot express it.
 ## Related Documents
 
 - Architecture: `Documentation/Architecture/` (ARC-001..ARC-009, ADRs)
-- Design workflow: `.ai/prompts/workflows/design.md`
-- RFC task: `.ai/prompts/tasks/create-rfc.md`
-- ADR template: `.ai/prompts/templates/ADR.md`

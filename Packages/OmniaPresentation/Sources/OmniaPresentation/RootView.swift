@@ -21,7 +21,7 @@ import SwiftUI
 ///
 /// The view is Apple-platform code, isolated behind platform availability; it
 /// is not exercised by the Linux test environment (§3.7) and is verified by
-/// review against `.ai/standards/UI.md`. It requires NavigationStack (iOS 16,
+/// review against `project UI standards`. It requires NavigationStack (iOS 16,
 /// macOS 13); the hosted screens are available from iOS 15 / macOS 12.
 @available(iOS 16.0, macOS 13.0, *)
 public struct RootView: View {

@@ -31,7 +31,7 @@ related_documents:
   - Documentation/Design/APP_API.md
   - Documentation/Design/APPLICATION_API.md
   - Documentation/Design/PRESENTATION_API.md
-  - .ai/context/PROJECT_STATE.md
+  - project state
 
 supersedes: []
 
@@ -94,7 +94,7 @@ The milestone is complete when the workspace builds the two thin hosts, the rele
 Create the Xcode project/workspace and wire the packages into it.
 
 1. Create `Omnia.xcworkspace` and the app project, adding the six Swift Packages as local package references (mirroring the root aggregator's dependency graph, `ARC-009`); the app targets link the `OmniaApp` and `OmniaPresentation` products only, matching the verified import set of the executable (OmniaApp, OmniaPresentation, SwiftUI).
-2. Create the build targets and schemes: shared schemes for the macOS host and the iOS host, Debug/Release configurations, bundle identifiers, and `MARKETING_VERSION`/build numbering aligned with the release workflow (`.ai/prompts/workflows/release.md`, Semantic Versioning).
+2. Create the build targets and schemes: shared schemes for the macOS host and the iOS host, Debug/Release configurations, bundle identifiers, and `MARKETING_VERSION`/build numbering aligned with the release workflow (`the release workflow`, Semantic Versioning).
 3. Record the one package-manifest change the integration requires: the OmniaApp package's `platforms:` gains `.iOS(.v16)` (the library target must build for iOS; the five packages that declare no `platforms:` are already iOS-buildable by construction). This is a build-configuration change only — no Swift source, no API, and no availability of the macOS surface changes — and it is the **only** permitted change to any `Packages/` manifest or source.
 4. Verify the workspace opens without warnings and both app targets build against the packages with `xcodebuild` from the command line; the standard Linux build/test pipeline remains green at every step (regression gate).
 
@@ -114,7 +114,7 @@ Implement the reproducible release pipeline and the signing/distribution workflo
 1. **GitHub Actions release pipeline** — a workflow on a macOS runner: checkout, run the standard test suite, build the two app targets with `xcodebuild`, archive, sign, notarize (macOS), and package (notarized zip and/or DMG; exported IPA for iOS), uploading the artifacts. Signing and notarization steps are gated on the presence of the CI secrets so the pipeline is reproducible and credential-free when secrets are absent.
 2. **Code signing and notarization strategy** — development signing (automatic, local) for development and sideloaded builds; distribution signing (Developer ID Application + hardened runtime + notarization via `notarytool` for macOS; Apple Development and App Store/TestFlight or ad-hoc for iOS); certificates, profiles, and App Store Connect credentials held only as GitHub Actions secrets, never committed (SECURITY.md).
 3. **iOS distribution preparation** — `xcodebuild archive` + `-exportArchive` producing a reproducible IPA for the App Store (TestFlight) and ad-hoc/development (sideloading) export methods; the TestFlight upload path is defined and executed when the Apple Developer account is provisioned (an environment-dependent step recorded like the macOS launch verification).
-4. **Versioning and release** — the pipeline and the release workflow produce a tagged, changelogged release per `.ai/prompts/workflows/release.md`; the first distributable build is the Beta v0.5 (v0.5.0) candidate.
+4. **Versioning and release** — the pipeline and the release workflow produce a tagged, changelogged release per `the release workflow`; the first distributable build is the Beta v0.5 (v0.5.0) candidate.
 
 ### Stage 4 — Milestone Verification and Closure
 
@@ -127,7 +127,7 @@ Verify the milestone against the frozen architecture and close it.
 
 ## Requirements
 
-The requirements derive from the milestone definition — "a distributable signed Apple application with a repeatable release process" — and from the layer responsibilities and assembly rules of `ARC-006`, `ARC-007`, and `ARC-009`, the storage and security architecture of `ARC-005`, the frozen OmniaApp contract (DES-013), the release workflow (`.ai/prompts/workflows/release.md`), and the Security standard (`.ai/standards/SECURITY.md`). Release Engineering Sprint 1 adds no product surface: it makes the verified application distributable.
+The requirements derive from the milestone definition — "a distributable signed Apple application with a repeatable release process" — and from the layer responsibilities and assembly rules of `ARC-006`, `ARC-007`, and `ARC-009`, the storage and security architecture of `ARC-005`, the frozen OmniaApp contract (DES-013), the release workflow (`the release workflow`), and the Security standard (`the security standard`). Release Engineering Sprint 1 adds no product surface: it makes the verified application distributable.
 
 ### The Distribution Topology
 
@@ -163,7 +163,7 @@ flowchart TB
 ### Build Targets, Schemes, and Configurations
 
 - Two app targets (macOS host, iOS host) with shared schemes, Debug/Release configurations, and build settings reproducible with `xcodebuild` from the command line (no Xcode GUI step required).
-- Bundle identifiers and `MARKETING_VERSION`/build numbers follow the release workflow: Semantic Versioning, `CHANGELOG.md` (Keep a Changelog), and version tags (`.ai/prompts/workflows/release.md`); the app version and the tagged release version never diverge.
+- Bundle identifiers and `MARKETING_VERSION`/build numbers follow the release workflow: Semantic Versioning, `CHANGELOG.md` (Keep a Changelog), and version tags (`the release workflow`); the app version and the tagged release version never diverge.
 - The standard Linux build/test pipeline is unaffected by the workspace; it remains the verification mechanism for all business logic (DES-013 §3.6).
 
 ### The Release Pipeline
@@ -199,7 +199,7 @@ The following are hard requirements, verified in Stage 4:
 ### Build and Verification Boundary
 
 - The business logic and the platform-independent launch surface (Composition Root, storage layout, bootstrap, binding, `AppLaunch`) are verified by the standard Linux build/test pipeline, unchanged (DES-013 §3.6).
-- The host shells are Apple-platform code verified by build on the macOS runner, by review against the DES-013 §3.5 shell contract and `.ai/standards/UI.md`, and by the macOS launch that executes the pending end-to-end verification (issue #125 AC5).
+- The host shells are Apple-platform code verified by build on the macOS runner, by review against the DES-013 §3.5 shell contract and `project UI standards`, and by the macOS launch that executes the pending end-to-end verification (issue #125 AC5).
 - The release pipeline is verified by its run on the macOS runner producing the signed, notarized, packaged artifacts.
 
 ### Implementation Order
@@ -274,7 +274,7 @@ The following are explicitly out of scope for Release Engineering Sprint 1:
 - `Documentation/Design/APP_API.md`
 - `Documentation/Design/APPLICATION_API.md`
 - `Documentation/Design/PRESENTATION_API.md`
-- `.ai/context/PROJECT_STATE.md`
-- `.ai/prompts/workflows/release.md`
-- `.ai/standards/SECURITY.md`
-- `.ai/standards/SWIFT.md`
+- `project state`
+- `the release workflow`
+- `the security standard`
+- `project Swift standards`

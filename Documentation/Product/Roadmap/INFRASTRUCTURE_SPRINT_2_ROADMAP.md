@@ -34,7 +34,7 @@ related_documents:
   - Documentation/Architecture/ADR/ADR-0002-dependency-direction.md
   - Documentation/Design/DOMAIN_API.md
   - Documentation/Design/INFRASTRUCTURE_API.md
-  - .ai/context/PROJECT_STATE.md
+  - project state
 
 supersedes: []
 
@@ -78,7 +78,7 @@ The sprint is complete when the revision is ratified, the three concrete capabil
 ### Stage 1 — Infrastructure Capability Specification and Freeze
 
 1. Revise `Documentation/Design/INFRASTRUCTURE_API.md` (DES-010) from v1.0.0 to v1.1.0, adding the adapter's concrete capability surface of the Requirements section: the three call methods, the mapping between the Domain capability types and the internal DTOs, the error-translation rules, and the streaming lifecycle.
-2. Review the revision with the Documentation workflow (`.ai/prompts/workflows/documentation.md`) and the documentation review checklist (`.ai/checklists/documentation-review.md`), and verify it against `ARC-002`, `ARC-004`, `ARC-005`, `ARC-006`, `ARC-008`, `ARC-009`, `ADR-0001`/`ADR-0002`, the extended `DES-009` v0.3.0, and the existing frozen `DES-010`.
+2. Review the revision with the Documentation workflow and the documentation review checklist, and verify it against `ARC-002`, `ARC-004`, `ARC-005`, `ARC-006`, `ARC-008`, `ARC-009`, `ADR-0001`/`ADR-0002`, the extended `DES-009` v0.3.0, and the existing frozen `DES-010`.
 3. Record the freeze. From that point, the revision is part of the frozen contract; a further change requires another specification revision, exactly as Infrastructure API Freeze v1 does (`PROJECT_STATE.md`).
 
 Milestone: **Infrastructure Capability Freeze** — ratified on 2026-08-05; `DES-010` v1.1.0 status is Ratified and the revision is recorded in `PROJECT_STATE.md`.
@@ -220,4 +220,4 @@ The following are explicitly out of scope for Infrastructure Sprint 2:
 - `Documentation/Architecture/ADR/ADR-0002-dependency-direction.md`
 - `Documentation/Design/DOMAIN_API.md`
 - `Documentation/Design/INFRASTRUCTURE_API.md`
-- `.ai/context/PROJECT_STATE.md`
+- `project state`

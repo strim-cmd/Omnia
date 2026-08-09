@@ -37,6 +37,59 @@ Your conversations.
 
 ---
 
+## Repository Contents
+
+The repository is a Swift 6 workspace with a strict layered architecture
+(`Package.swift` plus six local packages under `Packages/`):
+
+| Package | Layer | Responsibility |
+|---|---|---|
+| `OmniaFoundation` | Foundation | Primitives shared by all layers |
+| `OmniaDomain` | Domain | Capabilities, models, and business rules |
+| `OmniaInfrastructure` | Infrastructure | Storage, transports, credential handling |
+| `OmniaApplication` | Application | Use cases and application services |
+| `OmniaPresentation` | Presentation | SwiftUI views and platform-independent state |
+| `OmniaApp` | App | Composition root, app shell, and entry points |
+
+The native app targets live in `App/`: the Xcode workspace (`Omnia.xcworkspace`)
+with the macOS host (`Omnia`) and the iOS/iPadOS host (`OmniaiOS`).
+
+## Building & Testing
+
+Omnia is written in Swift 6 and targets macOS 13+ and iOS 16+.
+
+- **Tests.** The standard test suite runs with the Swift Package Manager:
+
+  ```bash
+  swift test                                     # root package (all six packages)
+  cd Packages/OmniaDomain && swift test          # an individual package
+  ```
+
+  Tests are deterministic (no network, no sleeps, no global state). The SwiftUI
+  view layer is Apple-platform code isolated behind `canImport(SwiftUI)` and is
+  not exercised by the Linux test environment; it is verified by review and by
+  Apple-platform builds.
+
+- **Apple builds.** Open `Omnia.xcworkspace` in Xcode and run the `Omnia`
+  (macOS) or `OmniaiOS` scheme, or build on the command line:
+
+  ```bash
+  xcodebuild -workspace Omnia.xcworkspace -scheme Omnia -configuration Release \
+    -destination 'platform=macOS' build
+  xcodebuild -workspace Omnia.xcworkspace -scheme OmniaiOS -configuration Release \
+    -destination 'generic/platform=iOS' build
+  ```
+
+- **Linux.** The Linux build and test suite runs in a `swift:6.0` Docker
+  container — the standard test environment when no Apple toolchain is
+  available on the development host.
+
+> **Note:** the private `.ai/` directory (the project's internal AI
+> engineering-process framework) is intentionally not included in the public
+> repository. It is not required to build, test, or use Omnia.
+
+---
+
 ## Philosophy
 
 Omnia is built around four simple principles.
@@ -155,11 +208,18 @@ Current milestone:
 
 > ✅ MVP v0.1 — complete (DES-013 v1.0.0, DES-011 v1.1.0, DES-012 v1.1.0 ratified; issues #120-#125 closed; the runnable macOS app with the Composition Root, app shell, and lifecycle delivered)
 
-Current sprint:
+Latest release:
 
-> 🔜 Release Engineering Sprint 1 — planned (milestone #15; roadmap [PRD-009](Documentation/Product/Roadmap/RELEASE_ENGINEERING_SPRINT_1_ROADMAP.md); issues #133-#140 created)
+> ✅ v0.5.0 (2026-08-07) — the first distributable build: native macOS and iOS apps with streaming conversations, provider connections, and a reproducible release pipeline (see [CHANGELOG.md](CHANGELOG.md)).
 
-The OmniaFoundation, OmniaDomain, OmniaInfrastructure, OmniaApplication, and OmniaPresentation packages are implemented against their frozen contracts (DES-001..DES-012), and MVP v0.1 integrated them into a runnable application: the OmniaApp package (the sixth package, ARC-009) delivers the Composition Root — the single Infrastructure reference point assembling the object graph — the storage layout (one directory per repository under the platform Application Support root, credentials never in directories, ARC-005), the runtime provider adapter binding, the first-run bootstrap (resolve-or-create the default workspace), and the macOS app shell, entry point, and lifecycle hosting `RootView` with the resolved workspace and configuration keys (DES-013 v1.0.0). The milestone closed the create-membership integration gap through the additive revisions DES-011 v1.1.0 (workspace application surface) and DES-012 v1.1.0 (conversation create flow). The full integrated branch is green on the Linux build environment — 931 tests across all six packages, 0 failures and 0 warnings (OmniaFoundation 136, OmniaDomain 318, OmniaInfrastructure 183, OmniaApplication 151, OmniaPresentation 121, OmniaApp 22), the root package builds, and the Engineering Platform Validation Suite passes 7/7. The end-to-end macOS launch confirming the milestone definition (configure, create, send, stream, persist, relaunch) is a pending platform-specific verification to be executed on a real Apple machine (DES-013 §3.6).
+Recent work:
+
+> ✅ UX audit (#154) and UI redesign — WCAG AA bubble contrast, Dynamic Type, retry/continue for interrupted responses, and the `OmniaTheme` design-token system.
+> ✅ OmniRoute integration — per-provider model/combo recording and routing through the generic OpenAI-compatible provider surface.
+
+Current state:
+
+> The integrated branch is green on the Linux build environment — 1057 tests across all six packages, 0 failures (OmniaFoundation 136, OmniaDomain 319, OmniaApplication 177, OmniaInfrastructure 187, OmniaPresentation 199, OmniaApp 39). The SwiftUI view layer is Apple-platform code isolated behind `canImport(SwiftUI)` and is verified by review and by Apple-platform builds; a physical macOS/iOS launch verification remains a pending platform-specific step (DES-013 §3.6).
 
 ---
 
@@ -208,6 +268,8 @@ SECURITY.md
 ## License
 
 MIT License
+
+Distributed under the [MIT License](LICENSE).
 
 ---
 

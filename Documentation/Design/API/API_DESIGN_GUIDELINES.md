@@ -19,8 +19,8 @@ related_documents:
   - Documentation/Architecture/08_PACKAGE_MODEL.md
   - Documentation/Architecture/09_PACKAGE_STRUCTURE.md
   - Documentation/Development/DocumentationStandard.md
-  - .ai/standards/SWIFT.md
-  - .ai/standards/TESTING.md
+  - project Swift standards
+  - project testing standards
 supersedes: []
 tags:
   - design
@@ -158,5 +158,5 @@ The following is the Definition of Done for every public API specification. A sp
 - `Documentation/Architecture/08_PACKAGE_MODEL.md` — package boundaries, stability, and lifecycle.
 - `Documentation/Architecture/09_PACKAGE_STRUCTURE.md` — package topology and responsibilities.
 - `Documentation/Development/DocumentationStandard.md` — the general documentation standard this standard specializes.
-- `.ai/standards/SWIFT.md` — the coding standard that governs implementation.
-- `.ai/standards/TESTING.md` — the testing standard that governs implementation.
+- `project Swift standards` — the coding standard that governs implementation.
+- `project testing standards` — the testing standard that governs implementation.

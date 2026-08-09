@@ -34,7 +34,7 @@ related_documents:
   - Documentation/Architecture/ADR/ADR-0002-dependency-direction.md
   - Documentation/Design/DOMAIN_API.md
   - Documentation/Design/INFRASTRUCTURE_API.md
-  - .ai/context/PROJECT_STATE.md
+  - project state
 
 supersedes: []
 
@@ -78,7 +78,7 @@ The sprint is complete when the extension is ratified and implemented, the exist
 ### Stage 1 — Domain Capability Contract Extension Specification and Freeze
 
 1. Revise `Documentation/Design/DOMAIN_API.md` (DES-009) from v0.2.0 to v0.3.0, adding the capability contract extension of the Requirements section: the capability request, response, and streaming value objects; the capability errors; and the concrete methods on the three realized capability contracts.
-2. Review the revision with the Documentation workflow (`.ai/prompts/workflows/documentation.md`) and the documentation review checklist (`.ai/checklists/documentation-review.md`), and verify it against `ARC-002`, `ARC-004`, `ARC-007`, `ARC-008`, `ARC-009`, `ADR-0001`/`ADR-0002`, and the existing frozen `DES-009`.
+2. Review the revision with the Documentation workflow and the documentation review checklist, and verify it against `ARC-002`, `ARC-004`, `ARC-007`, `ARC-008`, `ARC-009`, `ADR-0001`/`ADR-0002`, and the existing frozen `DES-009`.
 3. Record the freeze. From that point, the extension is part of the frozen contract and a further change requires another specification revision, exactly as Domain API Freeze v1 does (`PROJECT_STATE.md`).
 
 Milestone: **Domain Capability Contract Extension Freeze** — ratified on 2026-08-05; `DES-009` v0.3.0 status is Ratified and the revision is recorded in `PROJECT_STATE.md`.
@@ -216,4 +216,4 @@ The following are explicitly out of scope for Domain Sprint 2:
 - `Documentation/Architecture/ADR/ADR-0002-dependency-direction.md`
 - `Documentation/Design/DOMAIN_API.md`
 - `Documentation/Design/INFRASTRUCTURE_API.md`
-- `.ai/context/PROJECT_STATE.md`
+- `project state`

@@ -31,8 +31,8 @@ related_documents:
   - Documentation/Architecture/ADR/ADR-0002-dependency-direction.md
   - Documentation/Product/PRODUCT_CHARTER.md
   - Documentation/Product/PRODUCT_PRINCIPLES.md
-  - .ai/standards/UI.md
-  - .ai/context/PROJECT_STATE.md
+  - project UI standards
+  - project state
 supersedes: []
 tags:
   - design
@@ -54,7 +54,7 @@ OmniaPresentation is the Presentation layer package of Omnia: the user interface
 
 The Presentation layer renders state and owns presentation-only concerns: layout, animation, accessibility, and localization (`ARC-002`). It receives the application services it renders and owns its own presentation objects (`ARC-006`); the style is SwiftUI, the Observation framework, and Navigation, with no business logic (`ADR-0001`). Its purpose is not to orchestrate flows — the Application does that — but to present the ready-to-render state the services produce and to hand user intent back as use-case invocations (`ARC-001`, `ARC-007`).
 
-This document specifies the initial public API inventory, the package responsibility boundaries, the dependency rules, the design principles, the evolution rules, and the ordered sequence in which the contract is implemented. It is derived only from the Presentation Sprint 1 Roadmap (`PRESENTATION_SPRINT_1_ROADMAP.md`, PRD-007), the MVP v0.1 Roadmap (`MVP_V01_ROADMAP.md`, PRD-008) for the v1.1.0 revision surfaces, the milestone #9 scope — the navigation structure and the conversation and settings presentation surfaces, rendering the verified application services and the streaming send-message flow — the frozen Application API contract (`APPLICATION_API.md`, DES-011 v1.1.0), the frozen Domain API contract (`DOMAIN_API.md`, DES-009 v0.3.0), the Product Charter (`PRODUCT_CHARTER.md`), the Product Principles (`PRODUCT_PRINCIPLES.md`), the UI standard (`.ai/standards/UI.md`), and the approved architecture (ARC-001, ARC-002, ARC-004, ARC-005, ARC-006, ARC-007, ARC-008, ARC-009, ADR-0001, ADR-0002). It introduces no concept that the roadmap and the architecture do not establish.
+This document specifies the initial public API inventory, the package responsibility boundaries, the dependency rules, the design principles, the evolution rules, and the ordered sequence in which the contract is implemented. It is derived only from the Presentation Sprint 1 Roadmap (`PRESENTATION_SPRINT_1_ROADMAP.md`, PRD-007), the MVP v0.1 Roadmap (`MVP_V01_ROADMAP.md`, PRD-008) for the v1.1.0 revision surfaces, the milestone #9 scope — the navigation structure and the conversation and settings presentation surfaces, rendering the verified application services and the streaming send-message flow — the frozen Application API contract (`APPLICATION_API.md`, DES-011 v1.1.0), the frozen Domain API contract (`DOMAIN_API.md`, DES-009 v0.3.0), the Product Charter (`PRODUCT_CHARTER.md`), the Product Principles (`PRODUCT_PRINCIPLES.md`), the UI standard (`project UI standards`), and the approved architecture (ARC-001, ARC-002, ARC-004, ARC-005, ARC-006, ARC-007, ARC-008, ARC-009, ADR-0001, ADR-0002). It introduces no concept that the roadmap and the architecture do not establish.
 
 This initial contract is frozen as **Presentation API Freeze v1**. From this revision, the public surface of §3 is part of the frozen contract; a change requires a specification revision, exactly as the prior API freezes do (`PROJECT_STATE.md`). It is the single source of truth for the implementation of the Presentation layer (PRD-007 Stage 1), including the resolved Markdown rendering and code highlighting mechanism (§3.3).
 
@@ -75,7 +75,7 @@ OmniaPresentation owns the Presentation-layer content of the modules it realizes
 - the settings presentation surface — provider connections and configuration (the Settings module, `ARC-009`);
 - the presentation value types, presentation state, and the navigation model that the surfaces render;
 - the seam through which the application services of `DES-011` are delivered to the surfaces (`ARC-006`);
-- layout, animation, accessibility, and localization of the surfaces (`.ai/standards/UI.md`).
+- layout, animation, accessibility, and localization of the surfaces (`project UI standards`).
 
 The package renders the frozen `DES-011` application surface; it defines no contract and owns no business rule (`ARC-002`, `ADR-0001`).
 
@@ -91,7 +91,7 @@ The following MUST NEVER enter the package (`ARC-002`, `ARC-009`, ADR-0001, ADR-
 - the Composition Root, the application shell, the entry point, the lifecycle, or any dependency-injection mechanism — owned by OmniaApp (`ARC-006`, `ARC-009`);
 - credential material in any form — the secret is never rendered, stored, or logged; only the configured state is presented (`ARC-001`, `ARC-005`);
 - the workspace presentation surface — workspace application services are a future application sprint (`DES-011` §3.7);
-- third-party packages — native Apple APIs are preferred (`.ai/standards/SWIFT.md`, `PRODUCT_CHARTER`);
+- third-party packages — native Apple APIs are preferred (`project Swift standards`, `PRODUCT_CHARTER`);
 - code with no architectural home (`ARC-002`).
 
 A type that acquires a business-rule, infrastructure, provider, composition, or credential meaning is a boundary violation and is re-homed to the layer that owns that concern (`DES-001` §2).
@@ -189,7 +189,7 @@ Normative statements:
 
 #### 3.3.1 Markdown Rendering and Code Highlighting
 
-Assistant message content is Markdown and is rendered with code highlighting — an in-scope product requirement (`PRODUCT_CHARTER` — Product Goals, In Scope). The mechanism is bounded by two non-goals that are product invariants: **no third-party packages** (native Apple APIs are preferred, `PRODUCT_CHARTER`, `.ai/standards/SWIFT.md`) and **no provider-specific UI** (`PRODUCT_PRINCIPLES` — Provider Independence). The mechanism recorded here is the single source of truth for implementation (`PRESENTATION_SPRINT_1_ROADMAP.md` §Clarification); a deviation from it is a defect.
+Assistant message content is Markdown and is rendered with code highlighting — an in-scope product requirement (`PRODUCT_CHARTER` — Product Goals, In Scope). The mechanism is bounded by two non-goals that are product invariants: **no third-party packages** (native Apple APIs are preferred, `PRODUCT_CHARTER`, `project Swift standards`) and **no provider-specific UI** (`PRODUCT_PRINCIPLES` — Provider Independence). The mechanism recorded here is the single source of truth for implementation (`PRESENTATION_SPRINT_1_ROADMAP.md` §Clarification); a deviation from it is a defect.
 
 The mechanism:
 
@@ -250,7 +250,7 @@ The category comprises:
 |---|---|
 | Navigation model | the `NavigationState` of §3.2: the set of destinations — the conversation list, the conversation screen, and the settings surface — and the current route. |
 | Presentation flow | the flow between the destinations per platform conventions: the conversation list opens a conversation and reaches the settings surface (`ADR-0001`, `ARC-001` Workspace). |
-| Platform navigation | the platform-native navigation container — Navigation on iOS, iPadOS, and macOS (`ADR-0001`) — hosting the surfaces and matching platform conventions (`.ai/standards/UI.md`). |
+| Platform navigation | the platform-native navigation container — Navigation on iOS, iPadOS, and macOS (`ADR-0001`) — hosting the surfaces and matching platform conventions (`project UI standards`). |
 
 Normative statements:
 
@@ -295,7 +295,7 @@ The boundary has two sides:
 | Surface | Position | Verification |
 |---|---|---|
 | Platform-independent presentation logic | the value types of §3.1, the presentation state of §3.2, the navigation model of §3.5, and the content derivation of §3.3.1 (including `MarkdownContent` segmentation). | builds and is tested on the Linux build environment; deterministic, black-box tests of the public surface (`DES-004` §5). |
-| Apple-platform view layer | SwiftUI views, Observation, navigation containers, and the `AttributedString`/TextKit Markdown rendering of §3.3.1. | isolated behind platform availability via conditional compilation; not exercised by the Linux test environment; verified by review against `.ai/standards/UI.md`. |
+| Apple-platform view layer | SwiftUI views, Observation, navigation containers, and the `AttributedString`/TextKit Markdown rendering of §3.3.1. | isolated behind platform availability via conditional compilation; not exercised by the Linux test environment; verified by review against `project UI standards`. |
 
 Normative statements:
 
@@ -312,7 +312,7 @@ The following are evaluated and intentionally NOT part of the initial public API
 - business logic and business rules — they belong to the Domain and Application layers (ADR-0001);
 - provider-specific UI — the interface never changes per provider (`PRODUCT_PRINCIPLES` — Provider Independence);
 - language-aware syntax coloring for code blocks — it requires a third-party library, excluded by the no-third-party-packages non-goal; it is introduced only through a specification revision or ADR (`PRESENTATION_SPRINT_1_ROADMAP.md` §Clarification);
-- third-party packages — native Apple APIs are preferred (`PRODUCT_CHARTER`, `.ai/standards/SWIFT.md`);
+- third-party packages — native Apple APIs are preferred (`PRODUCT_CHARTER`, `project Swift standards`);
 - any new package — the package set is fixed at six (`ARC-009`);
 - any dependency-injection framework — explicitly excluded by the architecture (`ARC-006`);
 - changes to the frozen `DES-001`..`DES-011` contracts — `DES-012` is the only new contract of the sprint (`PRESENTATION_SPRINT_1_ROADMAP.md` §Non-Goals).
@@ -328,7 +328,7 @@ OmniaPresentation occupies the Presentation position of the dependency graph (`A
 - OmniaPresentation MAY depend on the Swift Standard Library.
 - OmniaPresentation MAY use OmniaFoundation primitives with no platform coupling (`ARC-009`): the `Identifier` primitive for identity (`DES-002`) and the error abstraction where a presentation value needs a typed status.
 - OmniaPresentation MUST NOT depend on Apple platform frameworks in a way that couples the package to a single platform: the platform-independent presentation logic builds and tests on the Linux build environment, and the SwiftUI view layer is isolated behind platform availability (§3.7).
-- OmniaPresentation MUST NOT depend on third-party packages. Native Apple APIs are preferred (`.ai/standards/SWIFT.md`, `PRODUCT_CHARTER`).
+- OmniaPresentation MUST NOT depend on third-party packages. Native Apple APIs are preferred (`project Swift standards`, `PRODUCT_CHARTER`).
 - OmniaPresentation MUST NOT depend on any package of another layer, and MUST NOT reference Domain, Infrastructure, or OmniaApp (`ARC-002`, ADR-0002).
 - OmniaPresentation MUST NOT reference any concrete Infrastructure implementation — provider adapters, network clients, storage engines, serializers, or keychain services. The surfaces receive the `DES-011` services they need and never reach for their implementations (`ARC-006`).
 - Every dependency MUST be declared in the package manifest; hidden dependencies are forbidden (`ARC-008`).
@@ -344,11 +344,11 @@ Every public API in OmniaPresentation MUST satisfy the following principles. A p
 - **The Presentation renders state; it never defines.** Every public surface consumes an application service; the package defines no contract and owns no business rule (`ARC-002`, ADR-0001).
 - **No business rules.** Business rules belong to the Domain and Application layers only (ADR-0001); the rules the Domain and Application own are never redefined here.
 - **Concrete implementations injected, never referenced.** The surfaces receive their `DES-011` collaborators from the Composition Root and never construct or reach for an implementation (`ARC-006`).
-- **No UI logic outside the view layer.** The platform-independent surface carries value types, state, and content derivation; the SwiftUI view layer owns layout, animation, accessibility, and localization (§3.7, `.ai/standards/UI.md`).
-- **Native experience.** SwiftUI views with the Observation framework and Navigation (`ADR-0001`); native SwiftUI components preferred over custom ones, following the Apple Human Interface Guidelines (`.ai/standards/UI.md`, `PRODUCT_CHARTER`); accessibility (VoiceOver, Dynamic Type, keyboard navigation where appropriate, high contrast, reduced motion) and localization are product requirements (`ARC-001`, `UI.md`); user-visible strings are localized and never hardcoded in view code (`UI.md`).
+- **No UI logic outside the view layer.** The platform-independent surface carries value types, state, and content derivation; the SwiftUI view layer owns layout, animation, accessibility, and localization (§3.7, `project UI standards`).
+- **Native experience.** SwiftUI views with the Observation framework and Navigation (`ADR-0001`); native SwiftUI components preferred over custom ones, following the Apple Human Interface Guidelines (`project UI standards`, `PRODUCT_CHARTER`); accessibility (VoiceOver, Dynamic Type, keyboard navigation where appropriate, high contrast, reduced motion) and localization are product requirements (`ARC-001`, `UI.md`); user-visible strings are localized and never hardcoded in view code (`UI.md`).
 - **Credential isolation.** The secret is never rendered, stored, or logged; only the configured state is presented (`ARC-001`, `ARC-004`, `ARC-005`).
 - **No provider-specific UI.** The interface never changes per provider (`PRODUCT_PRINCIPLES` — Provider Independence).
-- **Typed, explicit errors.** Failures are represented by the typed errors the services surface and are never silently swallowed (`ARC-001`, `.ai/standards/SWIFT.md`); the presentation presents them as they are, never wrapped.
+- **Typed, explicit errors.** Failures are represented by the typed errors the services surface and are never silently swallowed (`ARC-001`, `project Swift standards`); the presentation presents them as they are, never wrapped.
 - **Deterministic behavior.** Content derivation and presentation state are deterministic and testable without a platform (`ARC-001`, §3.7).
 - **Precise naming.** Naming follows the architectural naming guidelines of `ARC-003`: the suffix of a name states the nature of the element.
 
@@ -411,7 +411,7 @@ Order: the navigation structure of §3.5 — the navigation model, the presentat
 
 ### Phase 5 — Package Verification
 
-The full verification of the package against the completion criteria of the roadmap: every type covered by deterministic, black-box unit tests on the Linux build environment (`DES-004` §5); the dependency graph limited to OmniaApplication and OmniaFoundation and acyclic; no forbidden dependency imported (no business logic, no networking, no persistence, no provider code, no Infrastructure or Domain reference); the public surface matching the frozen §3 exactly; the platform-independent presentation logic testable on the Linux build environment and the SwiftUI view layer isolated behind platform availability; the view layer verified by review against `.ai/standards/UI.md` (`ARC-002`, `ARC-004`, `ARC-006`, `ARC-009`, ADR-0001).
+The full verification of the package against the completion criteria of the roadmap: every type covered by deterministic, black-box unit tests on the Linux build environment (`DES-004` §5); the dependency graph limited to OmniaApplication and OmniaFoundation and acyclic; no forbidden dependency imported (no business logic, no networking, no persistence, no provider code, no Infrastructure or Domain reference); the public surface matching the frozen §3 exactly; the platform-independent presentation logic testable on the Linux build environment and the SwiftUI view layer isolated behind platform availability; the view layer verified by review against `project UI standards` (`ARC-002`, `ARC-004`, `ARC-006`, `ARC-009`, ADR-0001).
 
 No API beyond the categories of Section 3 enters the package in these phases. Each phase ends in a state that is a valid, documented, tested increment of the public contract. The implementation realizes exactly the frozen surface of §3; a deviation from that surface is a defect and is resolved by correcting the implementation, never by silently changing the surface (`DES-004` §1).
 
@@ -460,5 +460,5 @@ The revision is verified against the same completion criteria as Phase 5: the ne
 - `Documentation/Architecture/ADR/ADR-0002-dependency-direction.md`
 - `Documentation/Product/PRODUCT_CHARTER.md`
 - `Documentation/Product/PRODUCT_PRINCIPLES.md`
-- `.ai/standards/UI.md`
-- `.ai/context/PROJECT_STATE.md`
+- `project UI standards`
+- `project state`

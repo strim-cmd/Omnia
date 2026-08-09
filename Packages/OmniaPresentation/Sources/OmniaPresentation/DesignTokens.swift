@@ -1,3 +1,4 @@
+#if canImport(SwiftUI)
 import SwiftUI
 
 public enum OmniaTheme {
@@ -32,3 +33,4 @@ public enum OmniaTheme {
         public static let bubble = Color.black.opacity(0.1)
     }
 }
+#endif

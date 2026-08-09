@@ -100,7 +100,7 @@ Domain value (ARC-004), exactly like the endpoint.
   `stream` with that model as the wire `model` (recorded on the fake adapter).
 - A provider with no recorded model serves the caller's requested model unchanged.
 
-### Suite results (Linux, `swift:6.0`, `zen_banach`)
+### Suite results (Linux, `swift:6.0`, `the Linux CI container`)
 
 | Package | Tests | Failures |
 |---|---|---|

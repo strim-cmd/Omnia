@@ -24,7 +24,3 @@ Sections to add, update, or remove, and the documents affected.
 - [ ] Related documents stay in sync (PRODUCT_PRINCIPLES — Documentation First).
 
 ## Related Documents
-
-- Documentation standard: `.ai/standards/DOCUMENTATION.md`
-- Documentation workflow: `.ai/prompts/workflows/documentation.md`
-- Documentation task: `.ai/prompts/tasks/create-document.md`

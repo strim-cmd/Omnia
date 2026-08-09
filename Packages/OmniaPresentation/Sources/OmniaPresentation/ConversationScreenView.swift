@@ -10,8 +10,6 @@ import UIKit
 import AppKit
 #endif
 
-import OmniaTheme
-
 /// The SwiftUI rendering of the conversation screen (DES-012 §3.3): the
 /// message history, the streaming condition — the content deltas rendered
 /// incrementally as they arrive without blocking the interface, the assembled
@@ -22,7 +20,7 @@ import OmniaTheme
 ///
 /// The view is Apple-platform code, isolated behind platform availability; it
 /// is not exercised by the Linux test environment (§3.7) and is verified by
-/// review against `.ai/standards/UI.md`.
+/// review against `project UI standards`.
 @available(iOS 15.0, macOS 12.0, *)
 public struct ConversationScreenView: View {
     /// The ready-to-render screen state.

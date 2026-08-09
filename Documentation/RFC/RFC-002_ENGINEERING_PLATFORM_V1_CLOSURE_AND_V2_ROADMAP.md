@@ -8,13 +8,13 @@ project: Omnia
 created: 2026-08-04
 last_updated: 2026-08-04
 related_documents:
-  - .ai/VERSION.md
-  - .ai/AI_CONSTITUTION.md
-  - .ai/orchestrator/REGISTRY.md
-  - .ai/specifications/WORKFLOW_ORCHESTRATOR_SPECIFICATION.md
-  - .ai/specifications/COMMAND_INTERFACE_SPECIFICATION.md
-  - .ai/specifications/PLATFORM_VALIDATION_SPECIFICATION.md
-  - .ai/specifications/PIPELINE_SPECIFICATION.md
+  - the platform version record
+  - the project constitution
+  - the orchestrator registry
+  - the workflow-orchestrator specification
+  - the command-interface specification
+  - the platform-validation specification
+  - the pipeline specification
   - Documentation/Development/Retrospectives/INFRASTRUCTURE_SPRINT_1_RETROSPECTIVE.md
   - Documentation/Development/Retrospectives/EP_001_FOLLOWUP_WORKFLOW_ORCHESTRATOR_VALIDATION.md
   - Documentation/Development/Retrospectives/EP_005_EXECUTION_PATH_VALIDATION.md
@@ -26,6 +26,8 @@ tags:
   - engineering-platform
   - roadmap
 ---
+
+> **Internal engineering-process record.** This document belongs to the project's private engineering-process framework, which is intentionally not included in the public repository. It is retained here for the project's historical record.
 
 # Request for Comments — Engineering Platform v1 Closure and v2 Roadmap
 

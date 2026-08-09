@@ -17,12 +17,12 @@ last_updated: 2026-08-04
 
 related_documents:
   - Documentation/Development/Retrospectives/EP_001_FOLLOWUP_WORKFLOW_ORCHESTRATOR_VALIDATION.md
-  - .ai/specifications/WORKFLOW_ORCHESTRATOR_SPECIFICATION.md
-  - .ai/specifications/COMMAND_INTERFACE_SPECIFICATION.md
-  - .ai/specifications/PLATFORM_VALIDATION_SPECIFICATION.md
-  - .ai/orchestrator/REGISTRY.md
-  - .ai/AI_CONSTITUTION.md
-  - .ai/context/PROJECT_STATE.md
+  - the workflow-orchestrator specification
+  - the command-interface specification
+  - the platform-validation specification
+  - the orchestrator registry
+  - the project constitution
+  - project state
   - Documentation/RFC/RFC-001_VALIDATION_SUITE_AUTOMATION.md
 
 supersedes: []
@@ -33,6 +33,8 @@ tags:
   - validation
   - retrospective
 ---
+
+> **Internal engineering-process record.** This document belongs to the project's private engineering-process framework, which is intentionally not included in the public repository. It is retained here for the project's historical record.
 
 # EP-005: Workflow Orchestrator Execution Path Validation
 
@@ -65,7 +67,7 @@ It does not cover product, architecture, or design foundations, and it does not 
 
 ### Validated: RFC Gate
 
-The EP-005 scope surfaced a genuine architecture decision: whether the Engineering Platform Validation Suite (VAL-000) should run as an automated script. Per Phase 2 step 4 of ORCH-000, the agent ran the Design workflow (`.ai/prompts/workflows/design.md`) and created RFC-001 before proceeding. The RFC was presented for human ratification and paused until a decision was recorded. The Founder ratified RFC-001 as an exercise: Accepted, with the script implementation deferred to the Engineering Platform v2 backlog. This confirms the RFC gate behavior: a task requiring an architecture or product-direction change triggers the Design workflow and an RFC, and execution pauses until the human decides.
+The EP-005 scope surfaced a genuine architecture decision: whether the Engineering Platform Validation Suite (VAL-000) should run as an automated script. Per Phase 2 step 4 of ORCH-000, the agent ran the Design workflow and created RFC-001 before proceeding. The RFC was presented for human ratification and paused until a decision was recorded. The Founder ratified RFC-001 as an exercise: Accepted, with the script implementation deferred to the Engineering Platform v2 backlog. This confirms the RFC gate behavior: a task requiring an architecture or product-direction change triggers the Design workflow and an RFC, and execution pauses until the human decides.
 
 ### Validated: Command-Pattern Rejection
 
@@ -73,7 +75,7 @@ A controlled non-registry command (`Deploy to Production`) was issued. Per Phase
 
 ### Validated: Blocking Gate
 
-A controlled defect — a broken file reference in a platform document — was introduced during implementation. The review workflow (`.ai/prompts/workflows/review.md` with `.ai/checklists/code-review.md`) classified the broken reference as blocking. Per Phase 4 of ORCH-000, the agent fixed the blocking issue automatically without asking the user, re-ran verification (the Validation Suite), and repeated the review until no blocking issues remained. The review then passed clean. This confirms the blocking gate behavior: blocking issues are fixed automatically and the fix-and-re-verify loop repeats until the review is clean.
+A controlled defect — a broken file reference in a platform document — was introduced during implementation. The review workflow (`the review workflow` with `the code review checklist`) classified the broken reference as blocking. Per Phase 4 of ORCH-000, the agent fixed the blocking issue automatically without asking the user, re-ran verification (the Validation Suite), and repeated the review until no blocking issues remained. The review then passed clean. This confirms the blocking gate behavior: blocking issues are fixed automatically and the fix-and-re-verify loop repeats until the review is clean.
 
 ## Non-Goals
 
@@ -88,10 +90,10 @@ EP-005 exercised the three previously untested Workflow Orchestrator execution p
 ## Related Documents
 
 - `Documentation/Development/Retrospectives/EP_001_FOLLOWUP_WORKFLOW_ORCHESTRATOR_VALIDATION.md` (RETRO-002) — the follow-up that classified the three paths as unvalidated.
-- `.ai/specifications/WORKFLOW_ORCHESTRATOR_SPECIFICATION.md` (ORCH-000) — the architecture whose properties are validated here.
-- `.ai/specifications/COMMAND_INTERFACE_SPECIFICATION.md` (CMD-000) — the command interface whose rejection behavior is exercised here.
-- `.ai/specifications/PLATFORM_VALIDATION_SPECIFICATION.md` (VAL-000) — the Validation Suite used to re-verify after the blocking fix.
-- `.ai/orchestrator/REGISTRY.md` (ORCH-REG-001) — the dispatch table used for command resolution.
-- `.ai/AI_CONSTITUTION.md` (CONST-001) — the governing rules.
-- `.ai/context/PROJECT_STATE.md` — the authoritative project-state record.
+- `the workflow-orchestrator specification` (ORCH-000) — the architecture whose properties are validated here.
+- `the command-interface specification` (CMD-000) — the command interface whose rejection behavior is exercised here.
+- `the platform-validation specification` (VAL-000) — the Validation Suite used to re-verify after the blocking fix.
+- `the orchestrator registry` (ORCH-REG-001) — the dispatch table used for command resolution.
+- `the project constitution` (CONST-001) — the governing rules.
+- `project state` — the authoritative project-state record.
 - `Documentation/RFC/RFC-001_VALIDATION_SUITE_AUTOMATION.md` (RFC-001) — the RFC created by the RFC-gate exercise.

@@ -17,7 +17,7 @@ related_documents:
   - Documentation/Design/DOMAIN_API.md
   - Documentation/Design/INFRASTRUCTURE_API.md
   - Documentation/Design/APP_API.md
-  - .ai/standards/UI.md
+  - project UI standards
 ---
 
 # OmniRoute Integration — Final Review
@@ -39,7 +39,7 @@ layer (`CompositionRoot`, `ProviderAdapterBinding`, `AppEdgeConstants`,
 SwiftUI view layer was reviewed from source against DES-012 §3.7; it is not
 compiled on Linux by design.
 
-Verified against the current tree, in the `zen_banach` (swift:6.0) container:
+Verified against the current tree, in the `the Linux CI container` (swift:6.0) container:
 
 - Full suite re-run (after the v0.2.0 follow-up changes below): **Foundation 136,
   Domain 319, Application 177, Infrastructure 187, Presentation 199, App 39,
@@ -190,7 +190,7 @@ current tree.
    best-effort picker behind manual entry (requires a DES-010 revision).
 2. **Follow-up** — migrate the pre-existing hardcoded form/editor strings to
    `Localized`.
-3. **Follow-up** — review of the SwiftUI layer against `.ai/standards/UI.md` on an
+3. **Follow-up** — review of the SwiftUI layer against `project UI standards` on an
    Apple platform (per DES-012 §3.7, cannot be exercised on Linux).
 
 ## Final State

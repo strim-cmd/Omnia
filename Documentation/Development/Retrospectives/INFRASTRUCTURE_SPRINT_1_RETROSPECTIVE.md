@@ -18,8 +18,8 @@ last_updated: 2026-08-04
 related_documents:
   - Documentation/Product/Roadmap/INFRASTRUCTURE_SPRINT_1_ROADMAP.md
   - Documentation/Design/INFRASTRUCTURE_API.md
-  - .ai/context/PROJECT_STATE.md
-  - .ai/AI_CONSTITUTION.md
+  - project state
+  - the project constitution
   - README.md
 
 supersedes: []
@@ -41,7 +41,7 @@ Capture the outcome of Infrastructure Sprint 1 so the next sprints and the Engin
 
 ## Scope
 
-This retrospective covers Infrastructure Sprint 1 (milestone #6, GitHub issues #22-#31, merged PRs #32-#42) as recorded in `.ai/context/PROJECT_STATE.md`, the git history of `feature/repository-foundation`, the GitHub pull requests and reviews, and the outcome bullets of the sprint phases.
+This retrospective covers Infrastructure Sprint 1 (milestone #6, GitHub issues #22-#31, merged PRs #32-#42) as recorded in `project state`, the git history of `feature/repository-foundation`, the GitHub pull requests and reviews, and the outcome bullets of the sprint phases.
 
 It does not cover the Foundation or Domain sprints except where their precedents are referenced. It does not implement any of the improvements it lists.
 
@@ -55,7 +55,7 @@ It does not cover the Foundation or Domain sprints except where their precedents
 ## Non-Goals
 
 - No re-verification of the sprint's technical work; the sprint was certified by the package verification phase (#31).
-- No changes to engineering-process documents (`.ai/`), the roadmap, or the frozen API contracts.
+- No changes to engineering-process documents (`the AI engineering framework`), the roadmap, or the frozen API contracts.
 - No implementation of CI, tooling scripts, or review-process changes listed in the backlog.
 
 ## Sprint Snapshot
@@ -106,7 +106,7 @@ It does not cover the Foundation or Domain sprints except where their precedents
 
 ## Tooling Observations
 
-- **No native build on the host.** The development host is Windows; there is no Swift toolchain, so every build and test ran in Docker (`swift:6.0`) with the volume mount workaround `MSYS_NO_PATHCONV=1` and `//c/...` paths. There is no CI, so every verification was a manual Docker run; the workspace `.build` cache made incremental runs viable.
+- **No native build on the host.** There is no local Swift toolchain on the development host, so every build and test ran in Docker (`swift:6.0`) with a volume-mount workaround for the host path layout. There is no CI, so every verification was a manual Docker run; the workspace `.build` cache made incremental runs viable.
 - **`gh api graphql` quoting is fragile.** Multiline queries passed inline to `gh api graphql` broke on the Windows shell; writing the query to a JSON file and passing `--input` worked reliably.
 - **Project board status has no `gh` native command.** `gh issue view --json projectItems` returns a `null` item id; moving a project item to Done required a raw GraphQL mutation with the project id, field id, and option id.
 - **`gh pr create` error is misleading.** Creating a PR for an unpushed branch fails with "Head sha can't be blank, Base sha can't be blank"; the error does not mention that the branch must be pushed first.
@@ -223,7 +223,7 @@ This principle becomes the foundation of Engineering Platform v2.
 
 - `Documentation/Product/Roadmap/INFRASTRUCTURE_SPRINT_1_ROADMAP.md` — the sprint planning artifact and completion criteria.
 - `Documentation/Design/INFRASTRUCTURE_API.md` (DES-010) — the frozen contract implemented this sprint.
-- `.ai/context/PROJECT_STATE.md` — the authoritative phase-by-phase record of the sprint.
-- `.ai/AI_CONSTITUTION.md` (CONST-001) — the governing engineering process, including the interactive execution mode introduced during the sprint.
+- `project state` — the authoritative phase-by-phase record of the sprint.
+- `the project constitution` (CONST-001) — the governing engineering process, including the interactive execution mode introduced during the sprint.
 - `README.md` — the repository entry point; its Roadmap and Project Status sections reference this sprint.
 - `Documentation/Development/Retrospectives/EP_001_FOLLOWUP_WORKFLOW_ORCHESTRATOR_VALIDATION.md` (RETRO-002) — the follow-up that records how EP-002 (Workflow Orchestrator) validated this retrospective's predictions.

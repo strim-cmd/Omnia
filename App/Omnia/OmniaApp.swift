@@ -34,7 +34,7 @@ import SwiftUI
 ///
 /// The launch lifecycle adds no persistence beyond the services': every
 /// operation persists through the services and repositories (ARC-005). The
-/// entry point is verified by review against `.ai/standards/UI.md`.
+/// entry point is verified by review against `project UI standards`.
 @main
 struct OmniaMacOSApp: App {
     /// The composed application, once the launch sequence completes.
@@ -90,7 +90,7 @@ struct OmniaMacOSApp: App {
 /// mapped to concise user-facing copy — never the raw error detail (ARC-001,
 /// ARC-005, UX audit V4) — with a retry of the launch.
 ///
-/// The view is native SwiftUI (`.ai/standards/UI.md`); user-visible strings
+/// The view is native SwiftUI (`project UI standards`); user-visible strings
 /// follow the view-layer precedent of the presentation package.
 private struct LaunchFailureView: View {
     let message: String

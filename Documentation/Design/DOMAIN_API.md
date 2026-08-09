@@ -31,7 +31,7 @@ related_documents:
   - Documentation/Architecture/ADR/ADR-0002-dependency-direction.md
   - Documentation/Product/PRODUCT_CHARTER.md
   - Documentation/Product/PRODUCT_PRINCIPLES.md
-  - .ai/context/PROJECT_STATE.md
+  - project state
 supersedes: []
 tags:
   - design
@@ -488,4 +488,4 @@ No API beyond the categories of Section 3 enters the package in these phases. Ea
 - `Documentation/Architecture/ADR/ADR-0002-dependency-direction.md`
 - `Documentation/Product/PRODUCT_CHARTER.md`
 - `Documentation/Product/PRODUCT_PRINCIPLES.md`
-- `.ai/context/PROJECT_STATE.md`
+- `project state`

@@ -17,8 +17,8 @@ related_documents:
   - Documentation/Architecture/07_MODULE_STRUCTURE.md
   - Documentation/Architecture/08_PACKAGE_MODEL.md
   - Documentation/Architecture/09_PACKAGE_STRUCTURE.md
-  - .ai/standards/SWIFT.md
-  - .ai/standards/TESTING.md
+  - project Swift standards
+  - project testing standards
 supersedes: []
 tags:
   - design
@@ -156,5 +156,5 @@ The core contract remains the single shared boundary; implementations extend it 
 - `Documentation/Architecture/07_MODULE_STRUCTURE.md` — the modules whose policies, aggregates, and records carry time.
 - `Documentation/Architecture/08_PACKAGE_MODEL.md` — the package model, stability, and boundary rules.
 - `Documentation/Architecture/09_PACKAGE_STRUCTURE.md` — OmniaFoundation's responsibilities and dependencies.
-- `.ai/standards/SWIFT.md` — concurrency and value-semantics rules.
-- `.ai/standards/TESTING.md` — deterministic, independent tests.
+- `project Swift standards` — concurrency and value-semantics rules.
+- `project testing standards` — deterministic, independent tests.

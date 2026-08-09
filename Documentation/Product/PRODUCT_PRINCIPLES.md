@@ -19,7 +19,7 @@ last_updated: 2026-08-02
 related_documents:
   - Documentation/Product/VISION.md
   - Documentation/Product/PRODUCT_CHARTER.md
-  - .ai/AI_CONSTITUTION.md
+  - the project constitution
 
 supersedes: []
 
@@ -542,4 +542,4 @@ The feature behaves predictably, including under failure. Errors are handled exp
 
 - `Documentation/Product/VISION.md` — the long-term aspiration.
 - `Documentation/Product/PRODUCT_CHARTER.md` — the authoritative product specification.
-- `.ai/AI_CONSTITUTION.md` — the governing rules for AI agents.
+- `the project constitution` — the governing rules for AI agents.

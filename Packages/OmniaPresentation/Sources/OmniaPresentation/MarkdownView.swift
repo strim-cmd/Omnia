@@ -14,7 +14,7 @@ import SwiftUI
 ///
 /// The view is Apple-platform code, isolated behind platform availability; it
 /// is not exercised by the Linux test environment (§3.7) and is verified by
-/// review against `.ai/standards/UI.md`.
+/// review against `project UI standards`.
 @available(iOS 15.0, macOS 12.0, *)
 public struct MarkdownView: View {
     /// The markdown content to render.

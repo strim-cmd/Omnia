@@ -16,7 +16,7 @@ related_documents:
   - Documentation/Design/DOMAIN_API.md
   - Documentation/Design/INFRASTRUCTURE_API.md
   - Documentation/Design/APP_API.md
-  - .ai/standards/UI.md
+  - project UI standards
 ---
 
 # OmniRoute Integration — Step 3 Review

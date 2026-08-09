@@ -20,7 +20,7 @@ related_documents:
   - Documentation/Architecture/ADR/ADR-0001-architectural-style.md
   - Documentation/Product/PRODUCT_CHARTER.md
   - Documentation/Product/PRODUCT_PRINCIPLES.md
-  - .ai/standards/SWIFT.md
+  - project Swift standards
 
 supersedes: []
 
@@ -245,6 +245,6 @@ These rules are verified during code review today. They may later be enforced au
 
 ## Related Documents
 
-- `.ai/standards/SWIFT.md`
+- `project Swift standards`
 - `Documentation/Product/PRODUCT_CHARTER.md`
 - `Documentation/Product/PRODUCT_PRINCIPLES.md`

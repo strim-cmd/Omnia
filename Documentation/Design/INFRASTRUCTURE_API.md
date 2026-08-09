@@ -26,7 +26,7 @@ related_documents:
   - Documentation/Architecture/ADR/ADR-0002-dependency-direction.md
   - Documentation/Product/PRODUCT_CHARTER.md
   - Documentation/Product/PRODUCT_PRINCIPLES.md
-  - .ai/context/PROJECT_STATE.md
+  - project state
 supersedes: []
 tags:
   - design
@@ -383,4 +383,4 @@ The initial phases (Phase 1 through Phase 7) realize the contract of the frozen 
 - `Documentation/Architecture/ADR/ADR-0002-dependency-direction.md`
 - `Documentation/Product/PRODUCT_CHARTER.md`
 - `Documentation/Product/PRODUCT_PRINCIPLES.md`
-- `.ai/context/PROJECT_STATE.md`
+- `project state`

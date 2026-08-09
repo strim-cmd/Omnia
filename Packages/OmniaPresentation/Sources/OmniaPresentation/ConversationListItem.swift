@@ -42,7 +42,7 @@ public struct ConversationListItem: Equatable, Sendable {
     /// conversation has no user message, collapsed to a single line; the
     /// display preview is the most recent message collapsed to a single line,
     /// or `nil` for an empty conversation. The view layer provides any
-    /// localized fallback title (`.ai/standards/UI.md`).
+    /// localized fallback title (`project UI standards`).
     public init(conversation: Conversation) {
         let titleMessage = conversation.history.first(where: { $0.role == .user })
             ?? conversation.history.first(where: { $0.role == .assistant })

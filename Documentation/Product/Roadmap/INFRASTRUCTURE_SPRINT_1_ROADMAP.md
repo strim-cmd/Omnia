@@ -34,7 +34,7 @@ related_documents:
   - Documentation/Architecture/ADR/ADR-0001-architectural-style.md
   - Documentation/Architecture/ADR/ADR-0002-dependency-direction.md
   - Documentation/Design/DOMAIN_API.md
-  - .ai/context/PROJECT_STATE.md
+  - project state
 
 supersedes: []
 
@@ -76,7 +76,7 @@ The sprint is complete when the frozen contract is fully implemented, the packag
 ### Stage 1 — Infrastructure API Specification and Freeze
 
 1. Draft the OmniaInfrastructure public API contract specification (`Documentation/Design/INFRASTRUCTURE_API.md`, DES-010), covering the concrete implementations exposed for composition by the Composition Root (`ARC-009`): the storage engine and repository implementations, the aggregate serializers, the secure credential storage, the provider transport and the OpenAI-compatible client, and the provider adapters.
-2. Review the specification with the Documentation workflow (`.ai/prompts/workflows/documentation.md`) and the documentation review checklist (`.ai/checklists/documentation-review.md`), and verify it against `ARC-002`, `ARC-004`, `ARC-005`, `ARC-006`, `ARC-008`, `ARC-009`, `ADR-0001`/`ADR-0002`, and the frozen `DES-009`.
+2. Review the specification with the Documentation workflow and the documentation review checklist, and verify it against `ARC-002`, `ARC-004`, `ARC-005`, `ARC-006`, `ARC-008`, `ARC-009`, `ADR-0001`/`ADR-0002`, and the frozen `DES-009`.
 3. Record the freeze. From that point, a change to the public contract requires a specification revision, exactly as the Domain API Freeze v1 does (`PROJECT_STATE.md`).
 
 Milestone: **Infrastructure API Freeze v1** — `DES-010` status is Ratified and the freeze is recorded in `PROJECT_STATE.md`.
@@ -231,4 +231,4 @@ The following are explicitly out of scope for Infrastructure Sprint 1:
 - `Documentation/Architecture/ADR/ADR-0001-architectural-style.md`
 - `Documentation/Architecture/ADR/ADR-0002-dependency-direction.md`
 - `Documentation/Design/DOMAIN_API.md`
-- `.ai/context/PROJECT_STATE.md`
+- `project state`

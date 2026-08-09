@@ -34,7 +34,7 @@ related_documents:
   - Documentation/Design/DOMAIN_API.md
   - Documentation/Design/INFRASTRUCTURE_API.md
   - Documentation/Design/APPLICATION_API.md
-  - .ai/context/PROJECT_STATE.md
+  - project state
 
 supersedes: []
 
@@ -78,7 +78,7 @@ The sprint is complete when the contract is frozen, the conversation, send-messa
 ### Stage 1 — Application API Specification and Freeze
 
 1. Write `Documentation/Design/APPLICATION_API.md` (DES-011) at v1.0.0, following the DES-009/DES-010 document structure, specifying the Application layer's public surface: the conversation surface (create, load/select, list by workspace membership, delete conversations, message history, and the send-message flow), the provider connection surface (configure, list, remove connections; credentials by reference), the configuration surface (typed settings with per-level resolution), the application value objects and error taxonomy, and the input-validation rules.
-2. Review the document with the Documentation workflow (`.ai/prompts/workflows/documentation.md`) and the documentation review checklist (`.ai/checklists/documentation-review.md`), and verify it against `ARC-002`, `ARC-004`, `ARC-006`, `ARC-007`, `ARC-009`, `ADR-0001`/`ADR-0002`, the frozen `DES-009` v0.3.0, and the frozen `DES-010` v1.1.0.
+2. Review the document with the Documentation workflow and the documentation review checklist, and verify it against `ARC-002`, `ARC-004`, `ARC-006`, `ARC-007`, `ARC-009`, `ADR-0001`/`ADR-0002`, the frozen `DES-009` v0.3.0, and the frozen `DES-010` v1.1.0.
 3. Record the freeze. From that point, DES-011 v1.0.0 is part of the frozen contract; a further change requires another specification revision, exactly as the prior API freezes do (`PROJECT_STATE.md`).
 
 Milestone: **Application API Freeze** — ratified on 2026-08-05; `DES-011` v1.0.0 status is Ratified and the freeze is recorded in `PROJECT_STATE.md`.
@@ -197,4 +197,4 @@ The following are explicitly out of scope for Application Sprint 1:
 - `Documentation/Design/DOMAIN_API.md`
 - `Documentation/Design/INFRASTRUCTURE_API.md`
 - `Documentation/Design/APPLICATION_API.md`
-- `.ai/context/PROJECT_STATE.md`
+- `project state`

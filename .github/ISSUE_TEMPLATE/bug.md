@@ -29,5 +29,4 @@ What is affected and how severely.
 
 ## Related Documents
 
-- Standards: `.ai/standards/`
 - Architecture: `Documentation/Architecture/`

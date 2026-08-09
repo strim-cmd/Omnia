@@ -29,4 +29,3 @@ What the feature does, what it changes, and what it does not do (non-goals).
 - Product Principles: `Documentation/Product/PRODUCT_PRINCIPLES.md`
 - Architecture: `Documentation/Architecture/`
 - Roadmap: `Documentation/Product/Roadmap/`
-- AI Engineering Framework: `.ai/README.md`
