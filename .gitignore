@@ -7,3 +7,6 @@ xcuserdata/
 
 # macOS
 .DS_Store
+
+# Local docker test workspace (bind-mounted into the zen_banach container)
+.scratch/
