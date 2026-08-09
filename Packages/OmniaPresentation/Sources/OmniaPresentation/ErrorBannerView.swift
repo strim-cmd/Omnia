@@ -16,10 +16,10 @@ struct ErrorBannerView: View {
         Label(message, systemImage: systemImage)
             .font(.subheadline)
             .foregroundStyle(.white)
-            .padding(10)
+            .padding(12)
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(backgroundColor)
-            .clipShape(RoundedRectangle(cornerRadius: 8))
+            .clipShape(RoundedRectangle(cornerRadius: 12))
             .padding(.horizontal)
             .accessibilityLabel(Text(message))
     }

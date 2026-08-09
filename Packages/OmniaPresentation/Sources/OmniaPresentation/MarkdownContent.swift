@@ -32,6 +32,19 @@ public struct MarkdownContent: Equatable, Sendable {
         self.segments = segments
     }
 
+    /// The plain-text reading of the markdown content: strips inline markdown
+    /// segments as the `MarkdownView` renders them (UX audit A3).
+    public var accessibilityText: String {
+        segments.compactMap { segment in
+            switch segment {
+            case .text(let text):
+                return text
+            case .codeBlock(let content):
+                return content
+            }
+        }.joined(separator: " ")
+    }
+
     /// Creates markdown content by deterministically segmenting `markdown`
     /// into prose text segments and fenced code-block segments (§3.3.1).
     ///

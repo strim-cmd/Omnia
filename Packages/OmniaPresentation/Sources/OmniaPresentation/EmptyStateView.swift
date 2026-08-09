@@ -13,9 +13,10 @@ struct EmptyStateView: View {
     let systemImage: String
 
     var body: some View {
-        VStack(spacing: 8) {
+        VStack(spacing: 12) {
             Image(systemName: systemImage)
                 .font(.largeTitle)
+                .symbolRenderingMode(.hierarchical)
                 .foregroundStyle(.secondary)
             Text(title)
                 .font(.headline)

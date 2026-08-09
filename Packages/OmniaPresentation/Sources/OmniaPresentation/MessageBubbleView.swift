@@ -24,21 +24,32 @@ struct MessageBubbleView: View {
         }
         .padding(14)
         .background(
-            message.role == .user 
-                ? Color.accentColor.gradient
-                : Material.thin.opacity(0.8).asAnyView()
+            message.role == .user
+                ? AnyShapeStyle(Color.accentColor.gradient)
+                : AnyShapeStyle(Material.thin.opacity(0.8))
         )
         .foregroundColor(message.role == .user ? .white : .primary)
         .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
         .shadow(color: Color.black.opacity(0.08), radius: 3, x: 0, y: 1)
         .accessibilityElement(children: .combine)
-        .accessibilityLabel(Text("\(roleLabel)\(caption != nil ? ", \(caption!)" : ""), \(message.content?.accessibilityText ?? "")"))
+        .accessibilityLabel(Text(accessibilityLabel))
     }
-}
 
-extension View {
-    func asAnyView() -> AnyView {
-        AnyView(self)
+    /// The bubble label composed of the role, the interruption status when
+    /// present, and the content, so VoiceOver reads the bubble as one logical
+    /// element (UX audit A3).
+    private var accessibilityLabel: String {
+        var parts = [roleLabel]
+        if let caption {
+            parts.append(caption)
+        }
+        if let content = message.content {
+            let text = content.accessibilityText
+            if !text.isEmpty {
+                parts.append(text)
+            }
+        }
+        return parts.joined(separator: ", ")
     }
 }
 

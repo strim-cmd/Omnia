@@ -51,7 +51,7 @@ public struct MarkdownView: View {
                     .textSelection(.enabled)
                     .padding(16)
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(Color(uiColor: .secondarySystemGroupedBackground))
+                    .background(codeBlockBackgroundColor)
                     .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
                     .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).stroke(Color.secondary.opacity(0.2), lineWidth: 1))
             }
@@ -60,6 +60,18 @@ public struct MarkdownView: View {
 
     private func attributed(_ text: String) -> AttributedString {
         (try? AttributedString(markdown: text)) ?? AttributedString(text)
+    }
+
+    /// The code-block background, resolved per platform: the grouped
+    /// background of the system on iOS, the text background on macOS.
+    private var codeBlockBackgroundColor: Color {
+        #if canImport(UIKit)
+        return Color(uiColor: .secondarySystemGroupedBackground)
+        #elseif canImport(AppKit)
+        return Color(nsColor: .textBackgroundColor)
+        #else
+        return Color.gray.opacity(0.1)
+        #endif
     }
 }
 
