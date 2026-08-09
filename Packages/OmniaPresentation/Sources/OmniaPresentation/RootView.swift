@@ -191,6 +191,7 @@ public struct RootView: View {
         )
     }
 
+    @ViewBuilder
     private var settingsScreen: some View {
         if let settingsState {
             SettingsView(

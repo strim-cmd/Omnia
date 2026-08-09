@@ -49,7 +49,7 @@ public enum Localized {
     public static var preparing: String { String(localized: "preparing") }
     public static var providerConnections: String { String(localized: "provider_connections") }
     public static func providerSelectionCurrent(_ provider: String) -> String {
-        String(localized: "provider_selection_current", arguments: [provider])
+        String(format: String(localized: "provider_selection_current"), provider)
     }
     public static var ready: String { String(localized: "ready") }
     public static var reasoning: String { String(localized: "reasoning") }
@@ -73,20 +73,20 @@ public enum Localized {
     public static var unavailable: String { String(localized: "unavailable") }
     public static var untitledConversation: String { String(localized: "untitled_conversation") }
     public static func updateEndpoint(_ provider: String) -> String {
-        String(localized: "update_endpoint", arguments: [provider])
+        String(format: String(localized: "update_endpoint"), provider)
     }
     public static var userMessage: String { String(localized: "user_message") }
     public static var validated: String { String(localized: "validated") }
     public static var version: String { String(localized: "version") }
     public static var vision: String { String(localized: "vision") }
     public static func providerUnavailable(_ provider: String) -> String {
-        String(localized: "provider_unavailable", arguments: [provider])
+        String(format: String(localized: "provider_unavailable"), provider)
     }
     public static func providerStateCount(_ count: Int) -> String {
-        String(localized: "provider_state_count", arguments: [count])
+        String(format: String(localized: "provider_state_count"), count)
     }
     public static func providerStateCountRange(_ start: Int, _ end: Int) -> String {
-        String(localized: "provider_state_count_range", arguments: [start, end])
+        String(format: String(localized: "provider_state_count_range"), start, end)
     }
 }
 
