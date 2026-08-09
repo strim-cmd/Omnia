@@ -106,11 +106,15 @@ public struct ConversationScreenView: View {
                     }
                 )
                 .onPreferenceChange(ScrollViewportSize.self) { size in
-                    viewportHeight = size.height
+                    MainActor.assumeIsolated {
+                        viewportHeight = size.height
+                    }
                 }
                 .onPreferenceChange(BottomMarkerPosition.self) { position in
-                    guard viewportHeight > 0 else { return }
-                    isNearBottom = position <= viewportHeight
+                    MainActor.assumeIsolated {
+                        guard viewportHeight > 0 else { return }
+                        isNearBottom = position <= viewportHeight
+                    }
                 }
                 .onChange(of: autoScrollAnchor) { _ in
                     scrollToLatest(proxy)
@@ -242,7 +246,7 @@ public struct ConversationScreenView: View {
                 Button(action: submit) {
                     Image(systemName: "arrow.up.circle.fill")
                         .font(.system(size: 36))
-                        .foregroundStyle(trimmedDraft.isEmpty ? .secondary : .accentColor)
+                        .foregroundStyle(trimmedDraft.isEmpty ? Color.secondary : Color.accentColor)
                 }
                 .disabled(trimmedDraft.isEmpty)
                 .accessibilityLabel(Text(Localized.send))
@@ -518,7 +522,7 @@ public struct ConversationScreenView: View {
 /// viewport, so the newest content is in view while it does not exceed the
 /// viewport height (UX audit U2).
 private struct BottomMarkerPosition: PreferenceKey {
-    static var defaultValue: CGFloat = .greatestFiniteMagnitude
+    static var defaultValue: CGFloat { .greatestFiniteMagnitude }
     static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
         value = min(value, nextValue())
     }
@@ -527,7 +531,7 @@ private struct BottomMarkerPosition: PreferenceKey {
 /// The preference carrying the scroll viewport size, measured from the scroll
 /// view's frame; drives the near-bottom determination (UX audit U2).
 private struct ScrollViewportSize: PreferenceKey {
-    static var defaultValue: CGSize = .zero
+    static var defaultValue: CGSize { .zero }
     static func reduce(value: inout CGSize, nextValue: () -> CGSize) {
         value = nextValue()
     }

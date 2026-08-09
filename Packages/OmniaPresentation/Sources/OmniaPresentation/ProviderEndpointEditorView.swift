@@ -52,9 +52,13 @@ public struct ProviderEndpointEditorView: View {
         Form {
             Section {
                 TextField("Endpoint", text: $endpoint)
+                    #if os(iOS)
                     .keyboardType(.URL)
+                    #endif
                     .autocorrectionDisabled()
+                    #if os(iOS)
                     .textInputAutocapitalization(.never)
+                    #endif
             } footer: {
                 Text("Update the endpoint \(displayName) connects to.")
             }

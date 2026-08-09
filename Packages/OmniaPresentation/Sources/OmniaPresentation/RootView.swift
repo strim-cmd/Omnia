@@ -583,7 +583,7 @@ public struct RootView: View {
     /// through the settings surface — validated at the service boundary before
     /// any write (DES-011 §3.9, ARC-009) — and the settings state reloads, so
     /// the endpoint editor closes and the connection row reflects the change.
-    private func updateEndpoint(_ endpoint: String, for identity: ProviderIdentity) {
+    private func updateEndpoint(_ identity: ProviderIdentity, _ endpoint: String) {
         Task { @MainActor in
             do {
                 try await surface.settings.updateEndpoint(endpoint, for: identity)
