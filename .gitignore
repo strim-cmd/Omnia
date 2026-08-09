@@ -10,3 +10,18 @@ xcuserdata/
 
 # Local docker test workspace (bind-mounted into the zen_banach container)
 .scratch/
+
+# Environment and secret files
+.env
+.env.*
+*.p12
+*.mobileprovision
+*.pfx
+*.pem
+*.key
+*.jks
+credentials.json
+credentials.txt
+
+# Local chat/request log exports (contains private infrastructure details)
+Documentation/Design/public.md
