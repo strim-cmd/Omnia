@@ -79,12 +79,18 @@ the Swift package suite ran in the `swift:6.0` Linux container.
   iOS). SwiftUI views are `canImport(SwiftUI)`-guarded with `#if os(iOS)` /
   `#if canImport(UIKit)` branches. The Composition Root is platform-neutral.
   No macOS-only API is reachable from the iOS app.
-- **iOS build regression found and reverted.** The previously recommended
-  `INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES` was disproven by
-  CI: the v0.5.1 pipeline built and packaged the iOS target without it, and the
-  key caused the iOS build to fail (xcodebuild exit 70) on the v0.5.2 run. A
-  SwiftUI `@main` app does not require a scene manifest in Info.plist; the key
-  was removed in v0.5.3 (`project.pbxproj`).
+- **iOS build failure root cause.** CI logs show the iOS device build fails in
+  `actool` while compiling `Assets.xcassets`: "No simulator runtime version
+  [...] available to use with iphonesimulator SDK version 22C146". The pinned
+  Xcode 16.2 has no matching iOS 18.2 simulator runtime installed, which
+  `actool` requires even for device builds. The "Ensure iOS platform" step used
+  to skip `xcodebuild -downloadPlatform iOS` whenever the iphoneos SDK was
+  already present, leaving the runtime missing; restoring the unconditional
+  download fixes it (v0.5.4, `.github/workflows/release.yml`).
+- **Scene-manifest key not required.** `INFOPLIST_KEY_UIApplicationSceneManifest_Generation`
+  was added speculatively and later removed (v0.5.3): a SwiftUI `@main` app does
+  not require a scene manifest in Info.plist, and the project file now matches
+  the known-good v0.5.1 state. It was not the cause of the CI build failure.
 - **Tests.** Standard suite green on the Linux build environment: **1057 tests,
   0 failures** (OmniaFoundation 136, OmniaDomain 319, OmniaApplication 177,
   OmniaInfrastructure 187, OmniaPresentation 199, OmniaApp 39).
