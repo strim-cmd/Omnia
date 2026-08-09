@@ -10,6 +10,8 @@ import UIKit
 import AppKit
 #endif
 
+import OmniaTheme
+
 /// The SwiftUI rendering of the conversation screen (DES-012 §3.3): the
 /// message history, the streaming condition — the content deltas rendered
 /// incrementally as they arrive without blocking the interface, the assembled
@@ -84,52 +86,56 @@ public struct ConversationScreenView: View {
     }
 
     public var body: some View {
-        VStack(spacing: 0) {
-            ScrollViewReader { proxy in
-                ScrollView {
-                    // A regular (non-lazy) stack so the bottom marker is always
-                    // rendered and `scrollTo` can reliably reach it, including
-                    // for long histories (UX audit U2).
-                    VStack(alignment: .leading, spacing: 12) {
-                        ForEach(state.messages.indices, id: \.self) { index in
-                            messageBubble(state.messages[index])
+        ZStack(alignment: .bottom) {
+            OmniaTheme.Colors.background.ignoresSafeArea()
+            
+            VStack(spacing: 0) {
+                ScrollViewReader { proxy in
+                    ScrollView {
+                        // A regular (non-lazy) stack so the bottom marker is always
+                        // rendered and `scrollTo` can reliably reach it, including
+                        // for long histories (UX audit U2).
+                        VStack(alignment: .leading, spacing: OmniaTheme.Spacing.m) {
+                            ForEach(state.messages.indices, id: \.self) { index in
+                                messageBubble(state.messages[index])
+                            }
+                            streamingBubble
+                            bottomMarker
                         }
-                        streamingBubble
-                        bottomMarker
+                        .padding(OmniaTheme.Spacing.l)
                     }
-                    .padding()
-                }
-                .coordinateSpace(name: scrollCoordinateSpace)
-                .background(
-                    GeometryReader { geometry in
-                        Color.clear.preference(key: ScrollViewportSize.self, value: geometry.size)
+                    .coordinateSpace(name: scrollCoordinateSpace)
+                    .background(
+                        GeometryReader { geometry in
+                            Color.clear.preference(key: ScrollViewportSize.self, value: geometry.size)
+                        }
+                    )
+                    .onPreferenceChange(ScrollViewportSize.self) { size in
+                        MainActor.assumeIsolated {
+                            viewportHeight = size.height
+                        }
                     }
-                )
-                .onPreferenceChange(ScrollViewportSize.self) { size in
-                    MainActor.assumeIsolated {
-                        viewportHeight = size.height
+                    .onPreferenceChange(BottomMarkerPosition.self) { position in
+                        MainActor.assumeIsolated {
+                            guard viewportHeight > 0 else { return }
+                            isNearBottom = position <= viewportHeight
+                        }
                     }
-                }
-                .onPreferenceChange(BottomMarkerPosition.self) { position in
-                    MainActor.assumeIsolated {
-                        guard viewportHeight > 0 else { return }
-                        isNearBottom = position <= viewportHeight
+                    .onChange(of: autoScrollAnchor) { _ in
+                        scrollToLatest(proxy)
                     }
-                }
-                .onChange(of: autoScrollAnchor) { _ in
-                    scrollToLatest(proxy)
-                }
-                .overlay(alignment: .bottom) {
-                    if !isNearBottom {
-                        jumpToLatest(proxy)
+                    .overlay(alignment: .bottom) {
+                        if !isNearBottom {
+                            jumpToLatest(proxy)
+                        }
                     }
                 }
+                if let failure = state.failure {
+                    failureBanner(failure)
+                }
+                providerSelector
+                composer
             }
-            if let failure = state.failure {
-                failureBanner(failure)
-            }
-            providerSelector
-            composer
         }
         .onChange(of: state.streamingCondition) { condition in
             announceStreamingTransition(from: previousStreamingCondition, to: condition)
@@ -202,59 +208,53 @@ public struct ConversationScreenView: View {
     }
 
     private var composer: some View {
-        HStack(alignment: .bottom, spacing: 12) {
-            ZStack(alignment: .topLeading) {
-                RoundedRectangle(cornerRadius: 20, style: .continuous)
-                    .fill(Material.thick)
-                    .shadow(color: Color.black.opacity(0.1), radius: 5, x: 0, y: 2)
+        VStack(spacing: 0) {
+            Divider().background(OmniaTheme.Colors.border)
+            
+            HStack(alignment: .bottom, spacing: OmniaTheme.Spacing.m) {
+                ZStack(alignment: .topLeading) {
+                    RoundedRectangle(cornerRadius: OmniaTheme.Radii.composer, style: .continuous)
+                        .fill(OmniaTheme.Colors.surface)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: OmniaTheme.Radii.composer, style: .continuous)
+                                .stroke(OmniaTheme.Colors.border, lineWidth: 0.5)
+                        )
 
-                TextEditor(text: Binding(
-                    get: { draft },
-                    set: { newValue in
-                        if newValue.contains("\n") && !newValue.contains("\n\n") {
-                            if !trimmedDraft.isEmpty {
-                                submit()
-                            }
-                            draft = newValue.replacingOccurrences(of: "\n", with: "")
-                        } else {
-                            draft = newValue
+                    TextField("", text: $draft, axis: .vertical)
+                        .font(.body)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 8)
+                        .frame(minHeight: composerLineHeight() + 16, maxHeight: composerHeight(for: maxComposerLines))
+                        .scrollContentBackground(.hidden)
+                        .background(Color.clear)
+                        .onSubmit {
+                            submit()
                         }
-                    }
-                ))
-                .font(.body)
-                .padding(.horizontal, 8)
-                .padding(.vertical, 4)
-                .frame(
-                    minHeight: composerHeight(for: minComposerLines),
-                    idealHeight: composerHeight(for: min(draft.count / 20 + 1, maxComposerLines)),
-                    maxHeight: composerHeight(for: maxComposerLines)
-                )
-                .scrollContentBackground(.hidden)
-                .background(Color.clear)
-                .accessibilityLabel(Text(Localized.message))
-            }
-            .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+                        .accessibilityLabel(Text(Localized.message))
+                }
 
-            if isStreaming {
-                Button(action: onCancel) {
-                    Image(systemName: "stop.circle.fill")
-                        .font(.system(size: 36))
-                        .foregroundStyle(.red)
+                if isStreaming {
+                    Button(action: onCancel) {
+                        Image(systemName: "stop.circle.fill")
+                            .font(.system(size: 32))
+                            .foregroundStyle(.red)
+                    }
+                    .accessibilityLabel(Text(Localized.stop))
+                } else {
+                    Button(action: submit) {
+                        Image(systemName: "arrow.up.circle.fill")
+                            .font(.system(size: 32))
+                            .foregroundStyle(trimmedDraft.isEmpty ? Color.secondary : OmniaTheme.Colors.accentCyan)
+                    }
+                    .disabled(trimmedDraft.isEmpty)
+                    .accessibilityLabel(Text(Localized.send))
+                    .keyboardShortcut(.return, modifiers: .command)
                 }
-                .accessibilityLabel(Text(Localized.stop))
-            } else {
-                Button(action: submit) {
-                    Image(systemName: "arrow.up.circle.fill")
-                        .font(.system(size: 36))
-                        .foregroundStyle(trimmedDraft.isEmpty ? Color.secondary : Color.accentColor)
-                }
-                .disabled(trimmedDraft.isEmpty)
-                .accessibilityLabel(Text(Localized.send))
-                .keyboardShortcut(.return, modifiers: .command)
             }
+            .padding(.horizontal, OmniaTheme.Spacing.l)
+            .padding(.vertical, OmniaTheme.Spacing.m)
+            .background(OmniaTheme.Colors.background)
         }
-        .padding(.horizontal, 16)
-        .padding(.bottom, 8)
         .animation(.easeOut(duration: 0.2), value: isStreaming)
     }
 
@@ -424,11 +424,15 @@ public struct ConversationScreenView: View {
                 .font(.subheadline)
                 .padding(.vertical, 6)
                 .padding(.horizontal, 12)
-                .background(.thinMaterial, in: Capsule())
+                .background(OmniaTheme.Colors.surface, in: Capsule())
+                .overlay(
+                    Capsule()
+                        .stroke(OmniaTheme.Colors.border, lineWidth: 0.5)
+                )
         }
         .buttonStyle(.plain)
         .accessibilityLabel(Text(Localized.jumpToLatest))
-        .padding(.bottom, 8)
+        .padding(.bottom, OmniaTheme.Spacing.m)
     }
 
     /// The invisible last element of the scroll content: the anchor the

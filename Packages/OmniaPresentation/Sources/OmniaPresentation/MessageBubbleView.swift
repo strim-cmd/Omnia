@@ -25,12 +25,16 @@ struct MessageBubbleView: View {
         .padding(14)
         .background(
             message.role == .user
-                ? AnyShapeStyle(Color.accentColor.gradient)
-                : AnyShapeStyle(Material.thin.opacity(0.8))
+                ? AnyShapeStyle(OmniaTheme.Colors.accentPurple.gradient)
+                : AnyShapeStyle(OmniaTheme.Colors.surface)
         )
-        .foregroundColor(message.role == .user ? .white : .primary)
-        .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
-        .shadow(color: Color.black.opacity(0.08), radius: 3, x: 0, y: 1)
+        .foregroundColor(message.role == .user ? .white : OmniaTheme.Colors.textPrimary)
+        .clipShape(RoundedRectangle(cornerRadius: OmniaTheme.Radii.bubble, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: OmniaTheme.Radii.bubble, style: .continuous)
+                .stroke(OmniaTheme.Colors.border, lineWidth: 0.5)
+        )
+        .shadow(color: OmniaTheme.Shadows.bubble, radius: 4, x: 0, y: 2)
         .accessibilityElement(children: .combine)
         .accessibilityLabel(Text(accessibilityLabel))
     }

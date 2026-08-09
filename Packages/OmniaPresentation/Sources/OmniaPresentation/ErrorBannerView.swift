@@ -18,9 +18,13 @@ struct ErrorBannerView: View {
             .foregroundStyle(.white)
             .padding(12)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(backgroundColor)
-            .clipShape(RoundedRectangle(cornerRadius: 12))
-            .padding(.horizontal)
+            .background(backgroundColor.opacity(0.8))
+            .clipShape(RoundedRectangle(cornerRadius: OmniaTheme.Radii.container))
+            .overlay(
+                RoundedRectangle(cornerRadius: OmniaTheme.Radii.container)
+                    .stroke(Color.white.opacity(0.2), lineWidth: 0.5)
+            )
+            .padding(.horizontal, OmniaTheme.Spacing.l)
             .accessibilityLabel(Text(message))
     }
 }
