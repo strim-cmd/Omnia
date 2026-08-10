@@ -69,6 +69,17 @@ public struct ProviderConnectionFormView: View {
             .padding(OmniaTheme.Spacing.lg)
         }
         .background(OmniaTheme.Colors.background)
+        .navigationTitle(Localized.configureProvider)
+        .toolbar {
+            ToolbarItem(placement: .cancellationAction) {
+                Button(Localized.cancel, action: onCancel)
+            }
+            ToolbarItem(placement: .confirmationAction) {
+                Button(Localized.save, action: submit)
+                    .disabled(!canSubmit)
+                    .accessibilityLabel(Text(Localized.saveProviderConnection))
+            }
+        }
     }
 
     /// The connection section: the display name, endpoint, model, and credential
@@ -145,6 +156,50 @@ public struct ProviderConnectionFormView: View {
             }
         }
     }
+
+    /// The capabilities section: the declared capabilities of the connection
+    /// (new_design.md §14).
+    private var capabilitiesSection: some View {
+        OmniaCard {
+            VStack(alignment: .leading, spacing: OmniaTheme.Spacing.md) {
+                Text("Capabilities")
+                    .font(OmniaTheme.Typography.sectionTitle)
+                    .foregroundStyle(OmniaTheme.Colors.textPrimary)
+                ForEach(Self.allCapabilities, id: \.self) { capability in
+                    Toggle(capabilityLabel(capability), isOn: binding(for: capability))
+                }
+            }
+        }
+    }
+
+    /// The limits section: the stated limits of the connection
+    /// (new_design.md §14).
+    private var limitsSection: some View {
+        OmniaCard {
+            VStack(alignment: .leading, spacing: OmniaTheme.Spacing.md) {
+                Text("Limits")
+                    .font(OmniaTheme.Typography.sectionTitle)
+                    .foregroundStyle(OmniaTheme.Colors.textPrimary)
+                TextField("Max Requests per Minute", text: $maxRequestsPerMinute)
+                    #if os(iOS)
+                    .keyboardType(.numberPad)
+                    #endif
+                    .autocorrectionDisabled()
+                if showLimitError {
+                    validationMessage("Enter a whole number, or leave empty for no limit.")
+                }
+            }
+        }
+    }
+
+    /// The version section: the semantic version fields of the connection
+    /// (new_design.md §14).
+    private var versionSection: some View {
+        OmniaCard {
+            VStack(alignment: .leading, spacing: OmniaTheme.Spacing.md) {
+                Text("Version")
+                    .font(OmniaTheme.Typography.sectionTitle)
+                    .foregroundStyle(OmniaTheme.Colors.textPrimary)
                 HStack {
                     TextField("Major", text: $versionMajor)
                         #if os(iOS)
@@ -167,16 +222,25 @@ public struct ProviderConnectionFormView: View {
                 }
             }
         }
-        .navigationTitle("Configure Provider")
-        .toolbar {
-            ToolbarItem(placement: .cancellationAction) {
-                Button("Cancel", action: onCancel)
-            }
-            ToolbarItem(placement: .confirmationAction) {
-                Button("Save", action: submit)
-                    .disabled(!canSubmit)
-                    .accessibilityLabel(Text("Save Provider Connection"))
-            }
+    }
+
+    /// The action buttons of the form: the cancel and save intents
+    /// (new_design.md §14).
+    private var actionButtons: some View {
+        HStack(spacing: OmniaTheme.Spacing.md) {
+            OmniaButton(
+                title: Localized.cancel,
+                systemImage: "xmark",
+                style: .secondary,
+                action: onCancel
+            )
+            OmniaButton(
+                title: Localized.saveProviderConnection,
+                systemImage: "checkmark",
+                style: .primary,
+                action: submit
+            )
+            .disabled(!canSubmit)
         }
     }
 
