@@ -190,7 +190,7 @@ public struct ProviderConnectionFormView: View {
     /// saved request never contains a silently coerced value.
     private func submit() {
         guard canSubmit else { return }
-        onConfigure(
+        self.onConfigure(
             ConfigureProviderRequest(
                 displayName: trimmedDisplayName,
                 capabilities: ProviderCapabilities(capabilities: selectedCapabilities),
@@ -276,7 +276,7 @@ public struct ProviderConnectionFormView: View {
     }
 
     private var trimmedModel: String {
-        model.trimmingCharacters(in: .whitespacesAndNewlines)
+        self.model.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
     private func binding(for capability: Capability) -> Binding<Bool> {
