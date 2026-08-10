@@ -82,10 +82,20 @@ jobs:
       - name: Ensure iOS platform for pinned Xcode
         run: |
           set -euo pipefail
-          echo "Downloading the iOS platform for $PINNED_XCODE_VERSION"
-          xcodebuild -downloadPlatform iOS
+          if xcodebuild -showsdks | grep -q iphoneos; then
+            echo "iOS platform already available for $PINNED_XCODE_VERSION"
+            exit 0
+          fi
+          echo "iOS platform not found; downloading for $PINNED_XCODE_VERSION"
+          for attempt in 1 2 3; do
+            if xcodebuild -downloadPlatform iOS; then
+              break
+            fi
+            echo "::warning::iOS platform download attempt $attempt failed; retrying"
+            sleep 10
+          done
           if ! xcodebuild -showsdks | grep -q iphoneos; then
-            echo "::error::iOS platform unavailable"
+            echo "::error::iOS platform unavailable after download attempts"
             exit 1
           fi
           echo "iOS platform ready for $PINNED_XCODE_VERSION"
