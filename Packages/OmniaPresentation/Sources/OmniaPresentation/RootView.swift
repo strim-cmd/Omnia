@@ -2,6 +2,12 @@
 
 import OmniaApplication
 import SwiftUI
+#if canImport(UIKit)
+import UIKit
+#endif
+#if canImport(AppKit)
+import AppKit
+#endif
 
 /// The SwiftUI rendering of the navigation surface (DES-012 §3.5): the shell
 /// that hosts and routes between the conversation and settings surfaces — the
@@ -215,9 +221,9 @@ public struct RootView: View {
             draft: draftBinding,
             onSend: send,
             onCancel: cancel,
-            onRetry: retry,
-            onSelectProvider: selectProvider,
-            onOpenSettings: openSettings
+            onRegenerate: regenerate(at:),
+            onCopy: copy(at:),
+            onSelectProvider: { selectProvider($0.identity) }
         )
         .navigationTitle(title(for: identity))
         .onDisappear {
@@ -465,27 +471,31 @@ public struct RootView: View {
         screenState = state.replacingStreamingCondition(.interrupted(partialContent: partialContent))
     }
 
-    /// Translates the retry intent of an interrupted response: the conversation's
-    /// interrupted stream is resumed — the preserved partial content is carried
-    /// forward into the reply, never discarded (ARC-001, DES-009 §3.3) — and no
-    /// duplicate user message is appended: the last prompt is already in the
-    /// preserved history (UX audit U7). The rendered history and the preserved
-    /// partial content come from the presented state, so the resumed stream
-    /// continues the interrupted bubble where it left off.
-    private func retry() {
+    /// Translates the regenerate intent of an assistant message at the given
+    /// index: the exchange is re-issued from the last user prompt at or before
+    /// the message, truncating the stale assistant reply, so the response is
+    /// regenerated in place (UI_REDESIGN_FINAL_REVIEW — message actions). The
+    /// rendered history is truncated to the triggering prompt, so the fresh
+    /// reply replaces the stale one; no user message is appended beyond the
+    /// prompt already in the history (UX audit U7).
+    private func regenerate(at index: Int) {
         guard case .conversationScreen(let identity) = navigation.currentRoute,
-              case .interrupted(let partialContent)? = screenState?.streamingCondition
+              let messages = screenState?.messages,
+              messages.indices.contains(index),
+              let promptIndex = messages[...index].lastIndex(where: { $0.role == .user })
         else {
             return
         }
-        let history = screenState?.messages ?? []
+        let prompt = messages[promptIndex]
+        let request = SendMessageRequest(
+            conversation: identity,
+            message: Message(role: .user, content: prompt.content?.accessibilityText ?? ""),
+            userSelection: selectedProvider
+        )
+        let history = Array(messages.prefix(promptIndex + 1))
         streamingTask = Task { @MainActor in
             do {
-                for try await state in surface.conversationScreen.resume(
-                    identity,
-                    from: partialContent,
-                    rendering: history
-                ) {
+                for try await state in surface.conversationScreen.send(request, rendering: history) {
                     screenState = rendering(state).replacingDraft(conversationDrafts[identity] ?? "")
                 }
             } catch {
@@ -493,6 +503,24 @@ public struct RootView: View {
                 await presentUnexpectedStreamFailure()
             }
         }
+    }
+
+    /// Translates the copy intent of an assistant message at the given index:
+    /// its plain text is copied to the platform pasteboard — the user's own
+    /// content (ARC-005).
+    private func copy(at index: Int) {
+        guard let messages = screenState?.messages,
+              messages.indices.contains(index),
+              let text = messages[index].content?.accessibilityText
+        else {
+            return
+        }
+        #if canImport(UIKit)
+        UIPasteboard.general.string = text
+        #elseif canImport(AppKit)
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(text, forType: .string)
+        #endif
     }
 
     /// Translates the provider-selection intent of the conversation screen: the
@@ -516,13 +544,6 @@ public struct RootView: View {
                 settingsState = failingSettingsState(error)
             }
         }
-    }
-
-    /// Translates the open-settings intent of the conversation screen's empty
-    /// provider state: the shell routes to the settings surface, where a
-    /// provider connection can be configured (DES-012 §3.5, UX audit V2).
-    private func openSettings() {
-        navigation = NavigationState(currentRoute: .settings)
     }
 
     /// Presents an unexpected stream failure as a terminal failure on the

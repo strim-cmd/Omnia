@@ -33,13 +33,15 @@ public struct SettingsView: View {
     /// Translates the cancel intent — the compose condition is cleared.
     public let onCancel: () -> Void
     /// Translates the configure intent — the connection-form is submitted.
-    public let onConfigure: (ProviderConnectionForm) -> Void
-    /// Translates the endpoint-edit intent — the endpoint editor is presented
-    /// for the connection with the given identity.
-    public let onEditEndpoint: (ProviderIdentity) -> Void
+    public let onConfigure: (ConfigureProviderRequest, String, String) -> Void
+    /// Translates the provider-edit intent — the connection is edited.
+    public let onEditProvider: (ProviderConnectionListItem) -> Void
     /// Translates the model-edit intent — the model editor is presented for the
     /// connection with the given identity.
-    public let onEditModel: (ProviderIdentity) -> Void
+    public let onEditModel: (ProviderConnectionListItem) -> Void
+    /// Translates the reset-configuration intent for the given configuration
+    /// key — the user-owned setting is restored to its default.
+    public let onResetConfiguration: (ConfigurationKey<String>) -> Void
     /// Translates the update-endpoint intent — the endpoint editor is submitted
     /// for the connection with the given identity.
     public let onUpdateEndpoint: (ProviderIdentity, String) -> Void
@@ -65,9 +67,10 @@ public struct SettingsView: View {
         state: SettingsState,
         onCompose: @escaping () -> Void,
         onCancel: @escaping () -> Void,
-        onConfigure: @escaping (ProviderConnectionForm) -> Void,
-        onEditEndpoint: @escaping (ProviderIdentity) -> Void,
-        onEditModel: @escaping (ProviderIdentity) -> Void,
+        onConfigure: @escaping (ConfigureProviderRequest, String, String) -> Void,
+        onEditProvider: @escaping (ProviderConnectionListItem) -> Void,
+        onEditModel: @escaping (ProviderConnectionListItem) -> Void,
+        onResetConfiguration: @escaping (ConfigurationKey<String>) -> Void,
         onUpdateEndpoint: @escaping (ProviderIdentity, String) -> Void,
         onUpdateModel: @escaping (ProviderIdentity, String) -> Void,
         onCancelEndpointEdit: @escaping () -> Void,
@@ -78,8 +81,9 @@ public struct SettingsView: View {
         self.onCompose = onCompose
         self.onCancel = onCancel
         self.onConfigure = onConfigure
-        self.onEditEndpoint = onEditEndpoint
+        self.onEditProvider = onEditProvider
         self.onEditModel = onEditModel
+        self.onResetConfiguration = onResetConfiguration
         self.onUpdateEndpoint = onUpdateEndpoint
         self.onUpdateModel = onUpdateModel
         self.onCancelEndpointEdit = onCancelEndpointEdit
@@ -269,13 +273,13 @@ public struct SettingsView: View {
                         title: Localized.editEndpoint,
                         systemImage: "pencil",
                         style: .secondary,
-                        action: { onEditEndpoint(item.identity) }
+                        action: { onEditProvider(item) }
                     )
                     OmniaButton(
                         title: Localized.editModel,
                         systemImage: "cpu",
                         style: .secondary,
-                        action: { onEditModel(item.identity) }
+                        action: { onEditModel(item) }
                     )
                     Spacer()
                     OmniaIconButton(
