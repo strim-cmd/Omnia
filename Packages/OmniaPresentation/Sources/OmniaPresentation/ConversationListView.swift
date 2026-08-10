@@ -147,6 +147,20 @@ public struct ConversationListView: View {
         .padding(.bottom, OmniaTheme.Spacing.sm)
     }
 
+    /// The group header of the list: the reference groups conversation rows by
+    /// date — Today, Yesterday, Previous 7 Days — and the current data model
+    /// carries no timestamp, so the list presents the single Today group with
+    /// the same date-marker typography as the conversation screen
+    /// (new_design.md §6, CHAT.md). A group header never renders for a search
+    /// that has no matches, which the no-results row already explains.
+    private var todayGroupHeader: some View {
+        Text(Localized.today)
+            .font(OmniaTheme.Typography.caption)
+            .foregroundStyle(OmniaTheme.Colors.textMuted)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .textCase(.uppercase)
+    }
+
     /// The conversation rows over a plain, separator-free List, so the swipe
     /// delete affordance of the list contract is preserved while the rows read
     /// as premium cards, not standard list rows (new_design.md §6).
@@ -157,6 +171,17 @@ public struct ConversationListView: View {
             } else if hasQuery && filteredItems.isEmpty {
                 noResultsRow
             } else {
+                todayGroupHeader
+                    .listRowBackground(Color.clear)
+                    .listRowSeparator(.hidden)
+                    .listRowInsets(
+                        EdgeInsets(
+                            top: OmniaTheme.Spacing.sm,
+                            leading: OmniaTheme.Spacing.lg,
+                            bottom: OmniaTheme.Spacing.xs,
+                            trailing: OmniaTheme.Spacing.lg
+                        )
+                    )
                 ForEach(filteredItems, id: \.identity) { item in
                     row(item)
                         .listRowBackground(Color.clear)
