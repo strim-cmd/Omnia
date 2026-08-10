@@ -39,6 +39,8 @@ public struct ConversationScreenView: View {
     public let onCancel: () -> Void
     /// Translates the regenerate intent for the message with the given index.
     public let onRegenerate: (Int) -> Void
+    /// Translates the retry intent when a request fails.
+    public let onRetry: () -> Void
     /// Translates the copy intent for the message with the given index.
     public let onCopy: (Int) -> Void
     /// Translates the provider selection intent.
@@ -66,6 +68,9 @@ public struct ConversationScreenView: View {
     /// The indices of the messages the user has disliked, purely presentational
     /// feedback (new_design.md §5).
     @State private var dislikedMessages = Set<Int>()
+    /// The waveform pulse of the streaming indicator, toggled so the bars
+    /// animate while a stream is active or thinking (new_design.md §5).
+    @State private var waveformPulse = false
 
     /// Creates a conversation screen view over the given state and intent
     /// callbacks.
@@ -75,6 +80,7 @@ public struct ConversationScreenView: View {
         onSend: @escaping (String) -> Void,
         onCancel: @escaping () -> Void,
         onRegenerate: @escaping (Int) -> Void,
+        onRetry: @escaping () -> Void,
         onCopy: @escaping (Int) -> Void,
         onSelectProvider: @escaping (ProviderConnectionListItem) -> Void
     ) {
@@ -83,6 +89,7 @@ public struct ConversationScreenView: View {
         self.onSend = onSend
         self.onCancel = onCancel
         self.onRegenerate = onRegenerate
+        self.onRetry = onRetry
         self.onCopy = onCopy
         self.onSelectProvider = onSelectProvider
     }
@@ -93,15 +100,19 @@ public struct ConversationScreenView: View {
 
             VStack(spacing: 0) {
                 customTopBar
+                providerSelector
                 ScrollViewReader { proxy in
                     ScrollView {
                         VStack(alignment: .leading, spacing: OmniaTheme.Spacing.md) {
-                            ForEach(state.messages.indices, id: \.self) { index in
-                                messageBubble(state.messages[index], index: index)
+                            if state.messages.isEmpty {
+                                emptyConversationState
+                            } else {
+                                todayMarker
+                                ForEach(state.messages.indices, id: \.self) { index in
+                                    messageBubble(state.messages[index], index: index)
+                                }
                             }
-                            if case .active = state.streamingCondition {
-                                streamingIndicator
-                            }
+                            streamingStateCard
                             streamingBubble
                             bottomMarker
                         }
@@ -134,9 +145,8 @@ public struct ConversationScreenView: View {
                     }
                 }
                 if let failure = state.failure {
-                    failureBanner(failure)
+                    errorState(failure)
                 }
-                providerSelector
                 composer
             }
         }
@@ -154,50 +164,36 @@ public struct ConversationScreenView: View {
         }
     }
 
-    /// The custom top bar of the screen: the back button, the conversation
-    /// title, and the model indicator pill (new_design.md §5).
+    /// The custom top bar of the screen: the menu button, the conversation
+    /// title, and the compose button (new_design.md §5, CHAT.md) — the
+    /// hamburger/menu on the leading side, "New Conversation" centered, and the
+    /// compose icon on the trailing side. The bar is kept visually light; the
+    /// affordances' intent translation is owned by the shell, and the screen is
+    /// not handed callbacks for them, so they remain inert exactly like the back
+    /// affordance they replace (navigation behavior is preserved).
     private var customTopBar: some View {
         HStack {
-            OmniaIconButton(systemImage: "chevron.left", size: 36, action: {})
-                .accessibilityLabel(Text(Localized.back))
+            OmniaIconButton(systemImage: "line.3.horizontal", size: 36, action: {})
+                .accessibilityLabel(Text(Localized.menu))
             Spacer()
-            Text(conversationTitle.isEmpty ? Localized.untitledConversation : conversationTitle)
+            Text(conversationTitle.isEmpty ? Localized.newConversation : conversationTitle)
                 .font(OmniaTheme.Typography.sectionTitle)
                 .foregroundStyle(OmniaTheme.Colors.textPrimary)
                 .lineLimit(1)
             Spacer()
-            modelIndicator
+            OmniaIconButton(systemImage: "square.and.pencil", size: 36, action: {})
+                .accessibilityLabel(Text(Localized.newConversation))
         }
         .padding(.horizontal, OmniaTheme.Spacing.lg)
         .padding(.vertical, OmniaTheme.Spacing.sm)
         .background(OmniaTheme.Colors.background.opacity(0.8))
     }
 
-    /// The model indicator pill of the top bar: the provider icon and the
-    /// selected model name (new_design.md §5).
-    private var modelIndicator: some View {
-        HStack(spacing: OmniaTheme.Spacing.xs) {
-            Image(systemName: "cpu")
-                .font(.system(size: 12, weight: .semibold))
-                .foregroundStyle(OmniaTheme.Colors.textSecondary)
-            Text(Localized.automatic)
-                .font(OmniaTheme.Typography.caption.weight(.semibold))
-                .foregroundStyle(OmniaTheme.Colors.textSecondary)
-        }
-        .padding(.horizontal, OmniaTheme.Spacing.md)
-        .padding(.vertical, OmniaTheme.Spacing.xs)
-        .background(OmniaTheme.Colors.elevatedSurface, in: Capsule())
-        .overlay(
-            Capsule()
-                .stroke(OmniaTheme.Colors.border, lineWidth: 0.5)
-        )
-    }
-
     /// The compact composer of the screen: the attachment button, the message
     /// field, and the send/stop button — a single control roughly 50–60 pt tall
     /// on one line that expands only as needed (new_design.md §5).
     private var composer: some View {
-        HStack(alignment: .bottom, spacing: OmniaTheme.Spacing.sm) {
+        HStack(alignment: .bottom, spacing: OmniaTheme.Spacing.xs) {
             OmniaIconButton(
                 systemImage: "paperclip",
                 tint: OmniaTheme.Colors.textSecondary,
@@ -213,13 +209,6 @@ public struct ConversationScreenView: View {
                 .autocorrectionDisabled()
                 .textFieldStyle(.plain)
                 .frame(minHeight: 50, maxHeight: 150)
-                .padding(.vertical, OmniaTheme.Spacing.sm)
-                .background(OmniaTheme.Colors.elevatedSurface)
-                .clipShape(RoundedRectangle(cornerRadius: OmniaTheme.Radii.card, style: .continuous))
-                .overlay(
-                    RoundedRectangle(cornerRadius: OmniaTheme.Radii.card, style: .continuous)
-                        .stroke(OmniaTheme.Colors.border, lineWidth: 0.5)
-                )
 
             if isStreaming {
                 OmniaIconButton(
@@ -241,15 +230,28 @@ public struct ConversationScreenView: View {
             }
         }
         .padding(.horizontal, OmniaTheme.Spacing.lg)
+        .padding(.vertical, OmniaTheme.Spacing.xs)
+        .background(
+            OmniaTheme.Colors.elevatedSurface,
+            in: RoundedRectangle(cornerRadius: OmniaTheme.Radii.composer, style: .continuous)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: OmniaTheme.Radii.composer, style: .continuous)
+                .stroke(OmniaTheme.Colors.border, lineWidth: 0.5)
+        )
+        .shadow(color: OmniaTheme.Shadows.composer, radius: 10, x: 0, y: 4)
+        .padding(.horizontal, OmniaTheme.Spacing.lg)
         .padding(.top, OmniaTheme.Spacing.sm)
         .padding(.bottom, OmniaTheme.Spacing.md)
     }
 
     private var isStreaming: Bool {
-        if case .active = state.streamingCondition {
+        switch state.streamingCondition {
+        case .active, .thinking:
             return true
+        case .interrupted, .complete, .none:
+            return false
         }
-        return false
     }
 
     /// The conversation title of the screen, derived from its content: the
@@ -335,41 +337,46 @@ public struct ConversationScreenView: View {
     /// configured provider connections, with the current selection's status dot
     /// (new_design.md §5).
     private func providerPicker(_ selection: ConversationScreenState.ProviderSelection) -> some View {
-        Menu {
-            ForEach(selection.providers, id: \.identity) { item in
-                Button {
-                    onSelectProvider(item)
-                } label: {
-                    HStack {
-                        Text(item.displayName)
-                        Spacer()
-                        if selection.selectedItem?.identity == item.identity {
-                            Image(systemName: "checkmark")
+        HStack {
+            Spacer(minLength: 0)
+            Menu {
+                ForEach(selection.providers, id: \.identity) { item in
+                    Button {
+                        onSelectProvider(item)
+                    } label: {
+                        HStack {
+                            Text(item.displayName)
+                            Spacer()
+                            if selection.selectedItem?.identity == item.identity {
+                                Image(systemName: "checkmark")
+                            }
                         }
                     }
                 }
+            } label: {
+                HStack(spacing: OmniaTheme.Spacing.sm) {
+                    Circle()
+                        .fill(selectorDotColor(selection))
+                        .frame(width: 8, height: 8)
+                    Text(providerSelectionTitle(selection))
+                        .font(OmniaTheme.Typography.secondary)
+                        .foregroundStyle(OmniaTheme.Colors.textPrimary)
+                    Image(systemName: "chevron.down")
+                        .font(.caption2.weight(.semibold))
+                }
+                .font(OmniaTheme.Typography.secondary.weight(.medium))
+                .padding(.horizontal, OmniaTheme.Spacing.lg)
+                .padding(.vertical, OmniaTheme.Spacing.sm)
+                .background(OmniaTheme.Colors.elevatedSurface, in: Capsule())
+                .overlay(
+                    Capsule()
+                        .stroke(OmniaTheme.Colors.border, lineWidth: 0.5)
+                )
+                .shadow(color: OmniaTheme.Shadows.card, radius: 8, x: 0, y: 2)
             }
-        } label: {
-            HStack(spacing: OmniaTheme.Spacing.sm) {
-                Circle()
-                    .fill(selectorDotColor(selection))
-                    .frame(width: 8, height: 8)
-                Text(providerSelectionTitle(selection))
-                    .font(OmniaTheme.Typography.secondary)
-                    .foregroundStyle(OmniaTheme.Colors.textPrimary)
-                Image(systemName: "chevron.down")
-                    .font(.caption2.weight(.semibold))
-            }
-            .font(OmniaTheme.Typography.secondary.weight(.medium))
-            .padding(.horizontal, OmniaTheme.Spacing.lg)
-            .padding(.vertical, OmniaTheme.Spacing.sm)
-            .background(OmniaTheme.Colors.elevatedSurface, in: Capsule())
-            .overlay(
-                Capsule()
-                    .stroke(OmniaTheme.Colors.border, lineWidth: 0.5)
-            )
-            .shadow(color: OmniaTheme.Shadows.card, radius: 8, x: 0, y: 2)
+            Spacer(minLength: 0)
         }
+        .padding(.top, OmniaTheme.Spacing.sm)
         .accessibilityLabel(Text(Localized.providerSelectionCurrent(providerSelectionTitle(selection))))
     }
 
@@ -416,6 +423,95 @@ public struct ConversationScreenView: View {
     }
 
     // MARK: Messages
+
+    /// The empty conversation state: the hero of a brand-new conversation with
+    /// no messages — the product invites the first prompt (new_design.md §5).
+    private var emptyConversationState: some View {
+        VStack(spacing: OmniaTheme.Spacing.md) {
+            Image(systemName: "sparkles")
+                .font(.system(size: 40, weight: .medium))
+                .foregroundStyle(OmniaTheme.Colors.accent)
+                .shadow(color: OmniaTheme.Colors.glowPurple, radius: 20)
+                .shadow(color: OmniaTheme.Colors.glowCyan, radius: 32)
+            Text(Localized.startNewConversation)
+                .font(OmniaTheme.Typography.sectionTitle)
+                .foregroundStyle(OmniaTheme.Colors.textPrimary)
+                .multilineTextAlignment(.center)
+            Text(Localized.startNewConversationDescription)
+                .font(OmniaTheme.Typography.body)
+                .foregroundStyle(OmniaTheme.Colors.textSecondary)
+                .multilineTextAlignment(.center)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.top, OmniaTheme.Spacing.xxl * 4)
+        .padding(.horizontal, OmniaTheme.Spacing.xl)
+    }
+
+    /// The today marker: the day divider at the top of the message history that
+    /// anchors the newest content (new_design.md §5).
+    /// The "Today" date marker shown in the conversation (CHAT.md).
+    private var todayMarker: some View {
+        HStack(spacing: OmniaTheme.Spacing.md) {
+            Capsule()
+                .fill(OmniaTheme.Colors.border)
+                .frame(height: 1)
+            Text(Localized.today)
+                .font(OmniaTheme.Typography.caption)
+                .foregroundStyle(OmniaTheme.Colors.textMuted)
+            Capsule()
+                .fill(OmniaTheme.Colors.border)
+                .frame(height: 1)
+        }
+        .padding(.horizontal, OmniaTheme.Spacing.md)
+        .padding(.vertical, OmniaTheme.Spacing.sm)
+    }
+
+    /// The assistant message action row: copy, like, dislike, and more (COMPONENTS.md).
+    private func assistantActionRow(for message: MessagePresentation, index: Int) -> some View {
+        HStack(spacing: OmniaTheme.Spacing.sm) {
+            OmniaIconButton(
+                systemImage: "doc.on.doc",
+                tint: OmniaTheme.Colors.textSecondary,
+                size: 28,
+                action: { copy(message) }
+            )
+            .accessibilityLabel(Text(Localized.copy))
+
+            OmniaIconButton(
+                systemImage: likedMessages.contains(index) ? "hand.thumbsup.fill" : "hand.thumbsup",
+                tint: likedMessages.contains(index) ? OmniaTheme.Colors.accent : OmniaTheme.Colors.textSecondary,
+                size: 28,
+                action: { toggleLike(index) }
+            )
+            .accessibilityLabel(Text(Localized.like))
+
+            OmniaIconButton(
+                systemImage: dislikedMessages.contains(index) ? "hand.thumbsdown.fill" : "hand.thumbsdown",
+                tint: dislikedMessages.contains(index) ? OmniaTheme.Colors.accent : OmniaTheme.Colors.textSecondary,
+                size: 28,
+                action: { toggleDislike(index) }
+            )
+            .accessibilityLabel(Text(Localized.dislike))
+
+            Spacer(minLength: 0)
+
+            Menu {
+                Button {
+                    onRegenerate(index)
+                } label: {
+                    Label(Localized.regenerate, systemImage: "arrow.clockwise")
+                }
+            } label: {
+                Image(systemName: "ellipsis")
+                    .font(.system(size: 15, weight: .semibold))
+                    .frame(width: 28, height: 28)
+                    .foregroundStyle(OmniaTheme.Colors.textSecondary)
+            }
+            .accessibilityLabel(Text(Localized.more))
+        }
+        .padding(.horizontal, OmniaTheme.Spacing.md)
+        .padding(.bottom, OmniaTheme.Spacing.xs)
+    }
 
     @ViewBuilder
     private func messageBubble(_ message: MessagePresentation, index: Int) -> some View {
@@ -466,26 +562,16 @@ public struct ConversationScreenView: View {
                     .font(OmniaTheme.Typography.body)
                     .foregroundStyle(OmniaTheme.Colors.textPrimary)
                     .padding(OmniaTheme.Spacing.md)
-                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .frame(maxWidth: OmniaTheme.maxBubbleWidth, alignment: .leading)
                     .background(OmniaTheme.Colors.surface, in: RoundedRectangle(cornerRadius: OmniaTheme.Radii.bubble, style: .continuous))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: OmniaTheme.Radii.bubble, style: .continuous)
+                            .stroke(OmniaTheme.Colors.border, lineWidth: 0.5)
+                    )
+                    .shadow(color: OmniaTheme.Shadows.bubble, radius: 8, x: 0, y: 2)
             }
             if message.role == .assistant {
-                HStack(spacing: OmniaTheme.Spacing.sm) {
-                    OmniaIconButton(
-                        systemImage: "doc.on.doc",
-                        tint: OmniaTheme.Colors.textSecondary,
-                        size: 28,
-                        action: { copy(message) }
-                    )
-                    .accessibilityLabel(Text(Localized.copy))
-                    OmniaIconButton(
-                        systemImage: "arrow.clockwise",
-                        tint: OmniaTheme.Colors.textSecondary,
-                        size: 28,
-                        action: { onRegenerate(index) }
-                    )
-                    .accessibilityLabel(Text(Localized.regenerate))
-                }
+                assistantActionRow(for: message, index: index)
             }
         }
     }
@@ -529,7 +615,7 @@ public struct ConversationScreenView: View {
 
     @ViewBuilder
     private var streamingBubble: some View {
-        if case .active(let partialContent) = state.streamingCondition {
+        if case .active(let partialContent) = state.streamingCondition, !partialContent.isEmpty {
             HStack {
                 assistantBubble(MessagePresentation(role: .assistant, content: MarkdownContent(markdown: partialContent)), index: -1)
                 Spacer(minLength: 48)
@@ -544,26 +630,121 @@ public struct ConversationScreenView: View {
                     title: Localized.retry,
                     systemImage: "arrow.clockwise",
                     style: .secondary,
-                    action: {}
+                    action: onRetry
                 )
             }
         }
     }
 
-    /// The streaming indicator: the typing animation shown while a stream is
-    /// active (new_design.md §5).
-    private var streamingIndicator: some View {
-        HStack {
-            Image(systemName: "ellipsis.bubble")
+    /// The streaming state card of the screen: the compact status line that
+    /// reflects the current streaming condition above the message history
+    /// (new_design.md §5) — the thinking state while a stream has begun but not
+    /// yet delivered content, the streaming state while content is streaming,
+    /// and the interrupted notice when a stream was cut short.
+    @ViewBuilder
+    private var streamingStateCard: some View {
+        switch state.streamingCondition {
+        case .thinking:
+            thinkingState
+        case .active:
+            streamingState
+        case .interrupted:
+            interruptedState
+        case .complete, .none:
+            EmptyView()
+        }
+    }
+
+    /// The streaming state card of the screen: the elevated card with the spark
+    /// icon, the state title and line, and the trailing activity indicator,
+    /// presented while a stream is forming (COMPONENTS.md, new_design.md §12).
+    private func stateCard(
+        title: String,
+        subtitle: String,
+        @ViewBuilder indicator: () -> some View
+    ) -> some View {
+        HStack(spacing: OmniaTheme.Spacing.md) {
+            Image(systemName: "sparkles")
+                .font(.system(size: 16, weight: .medium))
+                .foregroundStyle(OmniaTheme.Colors.accent)
+            VStack(alignment: .leading, spacing: OmniaTheme.Spacing.xs) {
+                Text(title)
+                    .font(OmniaTheme.Typography.secondary.weight(.semibold))
+                    .foregroundStyle(OmniaTheme.Colors.textPrimary)
+                Text(subtitle)
+                    .font(OmniaTheme.Typography.caption)
+                    .foregroundStyle(OmniaTheme.Colors.textMuted)
+            }
+            Spacer()
+            indicator()
+        }
+        .padding(.horizontal, OmniaTheme.Spacing.lg)
+        .padding(.vertical, OmniaTheme.Spacing.md)
+        .background(OmniaTheme.Colors.elevatedSurface, in: RoundedRectangle(cornerRadius: OmniaTheme.Radii.card, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: OmniaTheme.Radii.card, style: .continuous)
+                .stroke(OmniaTheme.Colors.border, lineWidth: 0.5)
+        )
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(Text("\(title), \(subtitle)"))
+    }
+
+    /// The thinking state: the elevated state card presented while the stream
+    /// has begun but the first content delta has not arrived yet (COMPONENTS.md).
+    private var thinkingState: some View {
+        stateCard(title: Localized.thinking, subtitle: Localized.omniaIsThinking) {
+            waveform
+        }
+    }
+
+    /// The streaming state: the elevated state card presented while the content
+    /// deltas are streaming (COMPONENTS.md).
+    private var streamingState: some View {
+        stateCard(title: Localized.streaming, subtitle: Localized.omniaIsTyping) {
+            waveform
+        }
+    }
+
+    /// The interrupted state: the notice that the response was interrupted,
+    /// presented with the preserved partial content of the interruption below
+    /// it (ARC-001).
+    private var interruptedState: some View {
+        HStack(spacing: OmniaTheme.Spacing.sm) {
+            Image(systemName: "pause.circle")
                 .font(.system(size: 14, weight: .medium))
-                .foregroundStyle(OmniaTheme.Colors.textMuted)
-            Text(Localized.assistantIsResponding)
+                .foregroundStyle(OmniaTheme.Colors.warning)
+            Text(Localized.responseInterrupted)
                 .font(OmniaTheme.Typography.secondary)
                 .foregroundStyle(OmniaTheme.Colors.textMuted)
             Spacer()
         }
         .padding(.horizontal, OmniaTheme.Spacing.lg)
         .padding(.vertical, OmniaTheme.Spacing.sm)
+    }
+
+    /// The animated waveform of the thinking and streaming states: three bars
+    /// that pulse while a response is forming (new_design.md §5).
+    private var waveform: some View {
+        HStack(alignment: .center, spacing: 3) {
+            ForEach(0..<3, id: \.self) { index in
+                Capsule()
+                    .fill(OmniaTheme.Colors.accent)
+                    .frame(width: 3, height: waveformHeight(index))
+                    .animation(.easeInOut(duration: 0.5).repeatForever(autoreverses: true), value: waveformPulse)
+            }
+        }
+        .frame(height: 16)
+        .task {
+            waveformPulse = true
+        }
+    }
+
+    /// The height of the waveform bar at the given index, animated by the
+    /// waveform pulse so the bars rise and fall in sequence.
+    private func waveformHeight(_ index: Int) -> CGFloat {
+        let phase = (CGFloat(index) * .pi) / 2
+        let wave = (sin(waveformPulse ? phase : phase + .pi / 2) + 1) / 2
+        return 6 + wave * 8
     }
 
     /// The bottom marker of the scroll view: the invisible view whose position
@@ -612,6 +793,42 @@ public struct ConversationScreenView: View {
     /// presents (DES-012 §3.2).
     private func failureBanner(_ failure: ConversationScreenState.Failure) -> some View {
         ErrorBannerView(message: FailureCopy.message(for: failure))
+    }
+
+    /// The error state of the screen: the error card presented above the
+    /// composer when the last send failed — the error icon, the error title,
+    /// the failure message, and the retry action on a red-tinted surface, the
+    /// failure presented as it is, never silent (ARC-001, new_design.md §11).
+    private func errorState(_ failure: ConversationScreenState.Failure) -> some View {
+        HStack(alignment: .top, spacing: OmniaTheme.Spacing.sm) {
+            Image(systemName: "exclamationmark.triangle")
+                .font(.system(size: 16, weight: .medium))
+                .foregroundStyle(OmniaTheme.Colors.error)
+            VStack(alignment: .leading, spacing: OmniaTheme.Spacing.xs) {
+                Text(Localized.error)
+                    .font(OmniaTheme.Typography.secondary.weight(.semibold))
+                    .foregroundStyle(OmniaTheme.Colors.textPrimary)
+                Text(FailureCopy.message(for: failure))
+                    .font(OmniaTheme.Typography.caption)
+                    .foregroundStyle(OmniaTheme.Colors.textSecondary)
+            }
+            Spacer(minLength: OmniaTheme.Spacing.sm)
+            OmniaButton(
+                title: Localized.retry,
+                systemImage: "arrow.clockwise",
+                style: .secondary,
+                action: onRetry
+            )
+        }
+        .padding(OmniaTheme.Spacing.md)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(OmniaTheme.Colors.errorSubtle, in: RoundedRectangle(cornerRadius: OmniaTheme.Radii.medium, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: OmniaTheme.Radii.medium, style: .continuous)
+                .stroke(OmniaTheme.Colors.error.opacity(0.3), lineWidth: 0.5)
+        )
+        .padding(.horizontal, OmniaTheme.Spacing.lg)
+        .accessibilityLabel(Text(FailureCopy.message(for: failure)))
     }
 
     /// Announces the streaming lifecycle transition to VoiceOver: a response

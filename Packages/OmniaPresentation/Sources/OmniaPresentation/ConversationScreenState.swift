@@ -57,6 +57,8 @@ public struct ConversationScreenState: Equatable, Sendable {
     /// `interrupted` renders the preserved partial content as incomplete —
     /// never discarded (ARC-001).
     public enum StreamingCondition: Equatable, Sendable {
+        /// The request is sent, and the provider is processing the input.
+        case thinking
         /// A stream is active, delivering content incrementally.
         case active(partialContent: String)
         /// The stream completed; the assembled assistant message is appended

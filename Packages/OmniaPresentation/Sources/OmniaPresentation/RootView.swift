@@ -222,6 +222,7 @@ public struct RootView: View {
             onSend: send,
             onCancel: cancel,
             onRegenerate: regenerate(at:),
+            onRetry: retry,
             onCopy: copy(at:),
             onSelectProvider: { selectProvider($0.identity) }
         )
@@ -276,10 +277,10 @@ public struct RootView: View {
     /// with a fallback for a conversation without content.
     private func title(for identity: ConversationIdentity) -> String {
         guard let conversation = presentedConversation, conversation.identity == identity else {
-            return "Conversation"
+            return Localized.newConversation
         }
         let title = ConversationListItem(conversation: conversation).displayTitle
-        return title.isEmpty ? "Conversation" : title
+        return title.isEmpty ? Localized.newConversation : title
     }
 
     // MARK: Loading
@@ -501,6 +502,41 @@ public struct RootView: View {
             } catch {
                 if error is CancellationError { return }
                 await presentUnexpectedStreamFailure()
+            }
+        }
+    }
+
+    /// Translates the retry intent when a request fails: the last user message
+    /// is re-sent to the provider (UX audit V2).
+    private func retry() {
+        guard let messages = screenState?.messages,
+              let lastUserIndex = messages.indices.last(where: { messages[$0].role == .user })
+        else {
+            return
+        }
+        // If there's an assistant message after the last user message, we regenerate.
+        // Otherwise we just re-send the last user message with the history before it.
+        if let lastAssistantIndex = messages.indices.last(where: { messages[$0].role == .assistant }),
+           lastAssistantIndex > lastUserIndex {
+            regenerate(at: lastAssistantIndex)
+        } else {
+            let prompt = messages[lastUserIndex]
+            guard case .conversationScreen(let identity) = navigation.currentRoute else { return }
+            let request = SendMessageRequest(
+                conversation: identity,
+                message: Message(role: .user, content: prompt.content?.accessibilityText ?? ""),
+                userSelection: selectedProvider
+            )
+            let history = Array(messages.prefix(lastUserIndex + 1))
+            streamingTask = Task { @MainActor in
+                do {
+                    for try await state in surface.conversationScreen.send(request, rendering: history) {
+                        screenState = rendering(state).replacingDraft(conversationDrafts[identity] ?? "")
+                    }
+                } catch {
+                    if error is CancellationError { return }
+                    await presentUnexpectedStreamFailure()
+                }
             }
         }
     }

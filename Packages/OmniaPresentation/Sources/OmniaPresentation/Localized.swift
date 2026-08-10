@@ -35,6 +35,7 @@ public enum Localized {
     public static var embeddings: String { String(localized: "embeddings") }
     public static var endpoint: String { String(localized: "endpoint") }
     public static var enterWholeNumberOrEmpty: String { String(localized: "enter_whole_number_or_empty") }
+    public static var error: String { String(localized: "error") }
     public static var imageGeneration: String { String(localized: "image_generation") }
     public static var initializing: String { String(localized: "initializing") }
     public static var interrupted: String { String(localized: "interrupted") }
@@ -59,6 +60,8 @@ public enum Localized {
     public static var noProviderConnectionsDescription: String { String(localized: "no_provider_connections_description") }
     public static var noSearchResults: String { String(localized: "no_search_results") }
     public static var noConfigurationValues: String { String(localized: "no_configuration_values") }
+    public static var omniaIsThinking: String { String(localized: "omnia_is_thinking") }
+    public static var omniaIsTyping: String { String(localized: "omnia_is_typing") }
     public static var openSettings: String { String(localized: "open_settings") }
     public static var patch: String { String(localized: "patch") }
     public static var preparing: String { String(localized: "preparing") }
@@ -92,6 +95,8 @@ public enum Localized {
     public static var streaming: String { String(localized: "streaming") }
     public static var structuredOutput: String { String(localized: "structured_output") }
     public static var textGeneration: String { String(localized: "text_generation") }
+    public static var thinking: String { String(localized: "thinking") }
+    public static var today: String { String(localized: "today") }
     public static var toolCalling: String { String(localized: "tool_calling") }
     public static var unavailable: String { String(localized: "unavailable") }
     public static var untitledConversation: String { String(localized: "untitled_conversation") }
