@@ -1,0 +1,62 @@
+name: iOS Diagnostics
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  PINNED_XCODE_VERSION: '16.2'
+  PINNED_XCODE_PATH: '/Applications/Xcode_16.2.app/Contents/Developer'
+
+jobs:
+  ios-diagnostics:
+    runs-on: macos-15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Pin Xcode version
+        run: |
+          if [ -d "$PINNED_XCODE_PATH" ]; then
+            sudo xcode-select --switch "$PINNED_XCODE_PATH"
+            echo "Selected $PINNED_XCODE_VERSION at $PINNED_XCODE_PATH"
+          else
+            echo "::warning::pinned Xcode $PINNED_XCODE_VERSION not installed on this image; using the runner default"
+          fi
+          echo "DEVELOPER_DIR=$(xcode-select -p)" >> "$GITHUB_ENV"
+
+      - name: iOS platform diagnostics (read-only)
+        run: |
+          set +e
+          echo "########## 1. xcode-select -p"
+          xcode-select -p
+          echo "########## 2. xcodebuild -version"
+          xcodebuild -version
+          echo "########## 3. xcodebuild -showsdks"
+          xcodebuild -showsdks
+          echo "########## 4. xcodebuild -showdestinations (workspace Omnia.xcworkspace, scheme OmniaiOS)"
+          xcodebuild -workspace Omnia.xcworkspace -scheme OmniaiOS -showdestinations 2>&1
+          echo "########## 5. xcrun simctl list runtimes"
+          xcrun simctl list runtimes 2>&1
+          echo "########## 6. xcrun simctl list devices available"
+          xcrun simctl list devices available 2>&1
+          echo "########## 7. xcodebuild -checkFirstLaunchStatus"
+          xcodebuild -checkFirstLaunchStatus 2>&1
+          echo "########## 8a. Xcode Platforms directory"
+          ls -1 "$(xcode-select -p)/Platforms" 2>&1
+          echo "########## 8b. iPhoneOS.platform/Developer/SDKs"
+          ls -1 "$(xcode-select -p)/Platforms/iPhoneOS.platform/Developer/SDKs" 2>&1
+          echo "########## 8c. iPhoneOS.platform bundled CoreSimulator runtimes"
+          ls -1 "$(xcode-select -p)/Platforms/iPhoneOS.platform/Library/Developer/CoreSimulator/Profiles/Runtimes" 2>&1
+          echo "########## 8d. Global CoreSimulator runtimes (~/Library/Developer/CoreSimulator/Profiles/Runtimes)"
+          ls -1 "$HOME/Library/Developer/CoreSimulator/Profiles/Runtimes" 2>&1
+          echo "########## 8e. CoreSimulatorService launchctl state"
+          launchctl print "system/com.apple.CoreSimulator.CoreSimulatorService" 2>&1 | grep -E "state =|pid =" | head -5
+          echo "########## 9. Usable iOS destination probe (count of 'Any iOS Device' lines in -showdestinations)"
+          xcodebuild -workspace Omnia.xcworkspace -scheme OmniaiOS -showdestinations 2>&1 | grep -c "Any iOS Device"
+          echo "########## 10. xcodebuild -downloadPlatform iOS (capture result only, no fix)"
+          echo "--- attempt start ---"
+          xcodebuild -downloadPlatform iOS 2>&1
+          echo "--- downloadPlatform exit code: $? ---"
