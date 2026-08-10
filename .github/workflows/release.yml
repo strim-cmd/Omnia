@@ -82,25 +82,30 @@ jobs:
       - name: Ensure iOS platform for pinned Xcode
         run: |
           set -euo pipefail
-          # The macos-15 image ships no iOS simulator runtime compatible with the
-          # pinned Xcode (it has newer runtimes only), so DVT marks the generic iOS
-          # destination ineligible ("iOS <version> is not installed") even though the
-          # matching SDK is bundled. `-showsdks` cannot detect this gap, so probe the
-          # destinations for a genuinely usable "Any iOS Device" instead.
+          # The macos-15 image usually ships no iOS simulator runtime compatible
+          # with the pinned Xcode (newer runtimes only), so DVT marks the generic
+          # iOS destination ineligible ("iOS <version> is not installed") even
+          # though the matching SDK is bundled. Probe -showdestinations for a
+          # genuinely usable destination; the check fails closed (any uncertainty
+          # triggers the download). The per-line error text varies by image, so
+          # base the check on the structural "Ineligible destinations" header.
           ios_usable() {
             local out
             out="$(xcodebuild -workspace Omnia.xcworkspace -scheme OmniaiOS -showdestinations 2>/dev/null || true)"
-            printf '%s' "$out" | grep 'name:Any iOS Device' | grep -qv 'is not installed'
+            printf '%s' "$out" | grep -q 'Any iOS Device' \
+              && ! printf '%s' "$out" | grep -q 'Ineligible' \
+              && ! printf '%s' "$out" | grep -q 'is not installed'
           }
           if ios_usable; then
             echo "iOS platform already usable for $PINNED_XCODE_VERSION"
             exit 0
           fi
           echo "iOS platform not registered; downloading for $PINNED_XCODE_VERSION"
+          xcodebuild -workspace Omnia.xcworkspace -scheme OmniaiOS -showdestinations 2>&1 || true
           for attempt in 1 2 3; do
             # "Unable to connect to simulator." (exit 70) occurs when CoreSimulator
-            # is not initialized in the headless runner session; warming it up before
-            # each attempt makes the download reliable.
+            # is not initialized in the headless runner session; warming it up
+            # before each attempt makes the download reliable.
             xcrun simctl list > /dev/null 2>&1 || true
             if xcodebuild -downloadPlatform iOS; then
               echo "iOS platform downloaded"
