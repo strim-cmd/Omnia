@@ -82,20 +82,35 @@ jobs:
       - name: Ensure iOS platform for pinned Xcode
         run: |
           set -euo pipefail
-          if xcodebuild -showsdks | grep -q iphoneos; then
-            echo "iOS platform already available for $PINNED_XCODE_VERSION"
+          # The macos-15 image ships no iOS simulator runtime compatible with the
+          # pinned Xcode (it has newer runtimes only), so DVT marks the generic iOS
+          # destination ineligible ("iOS <version> is not installed") even though the
+          # matching SDK is bundled. `-showsdks` cannot detect this gap, so probe the
+          # destinations for a genuinely usable "Any iOS Device" instead.
+          ios_usable() {
+            local out
+            out="$(xcodebuild -workspace Omnia.xcworkspace -scheme OmniaiOS -showdestinations 2>/dev/null || true)"
+            printf '%s' "$out" | grep 'name:Any iOS Device' | grep -qv 'is not installed'
+          }
+          if ios_usable; then
+            echo "iOS platform already usable for $PINNED_XCODE_VERSION"
             exit 0
           fi
-          echo "iOS platform not found; downloading for $PINNED_XCODE_VERSION"
+          echo "iOS platform not registered; downloading for $PINNED_XCODE_VERSION"
           for attempt in 1 2 3; do
+            # "Unable to connect to simulator." (exit 70) occurs when CoreSimulator
+            # is not initialized in the headless runner session; warming it up before
+            # each attempt makes the download reliable.
+            xcrun simctl list > /dev/null 2>&1 || true
             if xcodebuild -downloadPlatform iOS; then
+              echo "iOS platform downloaded"
               break
             fi
             echo "::warning::iOS platform download attempt $attempt failed; retrying"
             sleep 10
           done
-          if ! xcodebuild -showsdks | grep -q iphoneos; then
-            echo "::error::iOS platform unavailable after download attempts"
+          if ! ios_usable; then
+            echo "::error::iOS platform still not usable after download attempts"
             exit 1
           fi
           echo "iOS platform ready for $PINNED_XCODE_VERSION"
@@ -153,40 +168,6 @@ jobs:
           xcodebuild -workspace Omnia.xcworkspace -scheme Omnia -configuration Release \
             -destination 'platform=macOS' \
             CODE_SIGNING_ALLOWED=NO build
-
-      - name: iOS platform diagnostics (read-only)
-        run: |
-          set +e
-          echo "########## 1. xcode-select -p"
-          xcode-select -p
-          echo "########## 2. xcodebuild -version"
-          xcodebuild -version
-          echo "########## 3. xcodebuild -showsdks"
-          xcodebuild -showsdks
-          echo "########## 4. xcodebuild -showdestinations (workspace Omnia.xcworkspace, scheme OmniaiOS)"
-          xcodebuild -workspace Omnia.xcworkspace -scheme OmniaiOS -showdestinations 2>&1
-          echo "########## 5. xcrun simctl list runtimes"
-          xcrun simctl list runtimes 2>&1
-          echo "########## 6. xcrun simctl list devices available"
-          xcrun simctl list devices available 2>&1
-          echo "########## 7. xcodebuild -checkFirstLaunchStatus"
-          xcodebuild -checkFirstLaunchStatus 2>&1
-          echo "########## 8a. Xcode Platforms directory"
-          ls -1 "$(xcode-select -p)/Platforms" 2>&1
-          echo "########## 8b. iPhoneOS.platform/Developer/SDKs"
-          ls -1 "$(xcode-select -p)/Platforms/iPhoneOS.platform/Developer/SDKs" 2>&1
-          echo "########## 8c. iPhoneOS.platform bundled CoreSimulator runtimes"
-          ls -1 "$(xcode-select -p)/Platforms/iPhoneOS.platform/Library/Developer/CoreSimulator/Profiles/Runtimes" 2>&1
-          echo "########## 8d. Global CoreSimulator runtimes (~/Library/Developer/CoreSimulator/Profiles/Runtimes)"
-          ls -1 "$HOME/Library/Developer/CoreSimulator/Profiles/Runtimes" 2>&1
-          echo "########## 8e. CoreSimulatorService launchctl state"
-          launchctl print "system/com.apple.CoreSimulator.CoreSimulatorService" 2>&1 | grep -E "state =|pid =" | head -5
-          echo "########## 9. Usable iOS destination probe (count of 'Any iOS Device' lines)"
-          xcodebuild -workspace Omnia.xcworkspace -scheme OmniaiOS -showdestinations 2>&1 | grep -c "Any iOS Device"
-          echo "########## 10. xcodebuild -downloadPlatform iOS (capture result only, no fix)"
-          echo "--- attempt start ---"
-          xcodebuild -downloadPlatform iOS 2>&1
-          echo "--- downloadPlatform exit code: $? ---"
 
       - name: Build iOS app target (Release)
         run: |
