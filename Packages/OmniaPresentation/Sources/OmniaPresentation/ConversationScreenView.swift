@@ -156,7 +156,7 @@ public struct ConversationScreenView: View {
             OmniaIconButton(systemImage: "chevron.left", size: 36, action: {})
                 .accessibilityLabel(Text(Localized.back))
             Spacer()
-            Text(state.displayTitle.isEmpty ? Localized.untitledConversation : state.displayTitle)
+            Text(conversationTitle.isEmpty ? Localized.untitledConversation : conversationTitle)
                 .font(OmniaTheme.Typography.sectionTitle)
                 .foregroundStyle(OmniaTheme.Colors.textPrimary)
                 .lineLimit(1)
@@ -175,7 +175,7 @@ public struct ConversationScreenView: View {
             Image(systemName: "cpu")
                 .font(.system(size: 12, weight: .semibold))
                 .foregroundStyle(OmniaTheme.Colors.textSecondary)
-            Text(state.selectedModel ?? Localized.automatic)
+            Text(Localized.automatic)
                 .font(OmniaTheme.Typography.caption.weight(.semibold))
                 .foregroundStyle(OmniaTheme.Colors.textSecondary)
         }
@@ -245,6 +245,16 @@ public struct ConversationScreenView: View {
             return true
         }
         return false
+    }
+
+    /// The conversation title of the screen, derived from its content: the
+    /// first user message, or the first assistant message when the conversation
+    /// has no user message, collapsed to a single line (DES-012 §3.1).
+    private var conversationTitle: String {
+        let titleMessage = state.messages.first(where: { $0.role == .user })
+            ?? state.messages.first(where: { $0.role == .assistant })
+        guard let content = titleMessage?.content?.accessibilityText else { return "" }
+        return content.split(whereSeparator: { $0.isWhitespace }).joined(separator: " ")
     }
 
     private var trimmedDraft: String {
@@ -321,16 +331,12 @@ public struct ConversationScreenView: View {
     /// (new_design.md §5).
     private func providerPicker(_ selection: ConversationScreenState.ProviderSelection) -> some View {
         Menu {
-            ForEach(selection.items, id: \.identity) { item in
+            ForEach(selection.providers, id: \.identity) { item in
                 Button {
                     onSelectProvider(item)
                 } label: {
                     HStack {
-                        if let icon = item.icon {
-                            Image(systemName: icon)
-                                .font(.system(size: 14, weight: .medium))
-                        }
-                        Text(item.displayTitle)
+                        Text(item.displayName)
                         Spacer()
                         if selection.selectedItem?.identity == item.identity {
                             Image(systemName: "checkmark")
@@ -376,7 +382,7 @@ public struct ConversationScreenView: View {
     /// provider connection, or "Automatic" when no provider is selected.
     private func providerSelectionTitle(_ selection: ConversationScreenState.ProviderSelection) -> String {
         if let item = selection.selectedItem {
-            return item.displayTitle
+            return item.displayName
         }
         return Localized.automatic
     }
@@ -389,7 +395,7 @@ public struct ConversationScreenView: View {
             Image(systemName: "exclamationmark.triangle")
                 .font(.system(size: 14, weight: .medium))
                 .foregroundStyle(OmniaTheme.Colors.warning)
-            Text(Localized.providerUnavailable(item.displayTitle))
+            Text(Localized.providerUnavailable(item.displayName))
                 .font(OmniaTheme.Typography.secondary)
                 .foregroundStyle(OmniaTheme.Colors.textSecondary)
             Spacer()
@@ -623,7 +629,7 @@ public struct ConversationScreenView: View {
         switch (previous, current) {
         case (nil, .active):
             announcement = StreamingAnnouncement.started
-        case (.active, .inactive):
+        case (.active, .complete):
             announcement = StreamingAnnouncement.completed
         case (.active, .interrupted):
             announcement = StreamingAnnouncement.interrupted

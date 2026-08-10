@@ -590,6 +590,12 @@ public struct RootView: View {
         )
     }
 
+    /// Translates the open-settings intent of the navigation chrome: the shell
+    /// routes to the settings surface (DES-012 §3.5).
+    private func openSettings() {
+        navigation = NavigationState(currentRoute: .settings)
+    }
+
     /// Translates the configure intent: the composed request, the declared
     /// endpoint, and the declared model are handed to the settings surface —
     /// the entered secret enters only the frozen `ConfigureProviderRequest`,

@@ -11,8 +11,10 @@ public enum Localized {
     public static var apiKey: String { String(localized: "api_key") }
     public static var assistantIsResponding: String { String(localized: "assistant_is_responding") }
     public static var assistantMessage: String { String(localized: "assistant_message") }
+    public static var attachment: String { String(localized: "attachment") }
     public static var audio: String { String(localized: "audio") }
     public static var automatic: String { String(localized: "automatic") }
+    public static var back: String { String(localized: "back") }
     public static var cancel: String { String(localized: "cancel") }
     public static var capabilities: String { String(localized: "capabilities") }
     public static var clearSearch: String { String(localized: "clear_search") }
@@ -21,10 +23,12 @@ public enum Localized {
     public static var connection: String { String(localized: "connection") }
     public static var conversation: String { String(localized: "conversation") }
     public static var conversations: String { String(localized: "conversations") }
+    public static var copy: String { String(localized: "copy") }
     public static var delete: String { String(localized: "delete") }
     public static var deleteConversation: String { String(localized: "delete_conversation") }
     public static var deleteConversationConfirmation: String { String(localized: "delete_conversation_confirmation") }
     public static var disabled: String { String(localized: "disabled") }
+    public static var dislike: String { String(localized: "dislike") }
     public static var displayName: String { String(localized: "display_name") }
     public static var editEndpoint: String { String(localized: "edit_endpoint") }
     public static var editModel: String { String(localized: "edit_model") }
@@ -32,17 +36,22 @@ public enum Localized {
     public static var endpoint: String { String(localized: "endpoint") }
     public static var enterWholeNumberOrEmpty: String { String(localized: "enter_whole_number_or_empty") }
     public static var imageGeneration: String { String(localized: "image_generation") }
+    public static var initializing: String { String(localized: "initializing") }
     public static var interrupted: String { String(localized: "interrupted") }
     public static var jumpToLatest: String { String(localized: "jump_to_latest") }
+    public static var like: String { String(localized: "like") }
     public static var limits: String { String(localized: "limits") }
     public static var loading: String { String(localized: "loading") }
     public static var loadingProviderSelection: String { String(localized: "loading_provider_selection") }
     public static var major: String { String(localized: "major") }
     public static var maxRequestsPerMinute: String { String(localized: "max_requests_per_minute") }
     public static var message: String { String(localized: "message") }
+    public static var messageActions: String { String(localized: "message_actions") }
+    public static var messagePlaceholder: String { String(localized: "message_placeholder") }
     public static var menu: String { String(localized: "menu") }
     public static var minor: String { String(localized: "minor") }
     public static var model: String { String(localized: "model") }
+    public static var more: String { String(localized: "more") }
     public static var newConversation: String { String(localized: "new_conversation") }
     public static var noConversations: String { String(localized: "no_conversations") }
     public static var noConversationsDescription: String { String(localized: "no_conversations_description") }
@@ -59,9 +68,13 @@ public enum Localized {
     }
     public static var ready: String { String(localized: "ready") }
     public static var reasoning: String { String(localized: "reasoning") }
+    public static var regenerate: String { String(localized: "regenerate") }
     public static var registered: String { String(localized: "registered") }
     public static var remove: String { String(localized: "remove") }
     public static var removeProviderConfirmation: String { String(localized: "remove_provider_confirmation") }
+    public static var removeProviderConnection: String { String(localized: "remove_provider_connection") }
+    public static var removeProviderConnectionConfirmation: String { String(localized: "remove_provider_connection_confirmation") }
+    public static var removed: String { String(localized: "removed") }
     public static var responseComplete: String { String(localized: "response_complete") }
     public static var responseInterrupted: String { String(localized: "response_interrupted") }
     public static var retry: String { String(localized: "retry") }

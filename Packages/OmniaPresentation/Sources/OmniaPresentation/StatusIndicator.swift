@@ -24,13 +24,27 @@ struct StatusIndicator: View {
                 .fill(color)
                 .frame(width: 8, height: 8)
             if showsLabel {
-                Text(ProviderStateLabel.label(for: state))
+                Text(label)
                     .font(OmniaTheme.Typography.caption)
                     .foregroundStyle(OmniaTheme.Colors.textSecondary)
             }
         }
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel(Text(ProviderStateLabel.label(for: state)))
+        .accessibilityLabel(Text(label))
+    }
+
+    /// The generic lifecycle label of the provider state (ARC-004,
+    /// new_design.md §5, §7).
+    private var label: String {
+        switch state {
+        case .registered: return Localized.registered
+        case .validated: return Localized.validated
+        case .initializing: return Localized.initializing
+        case .ready: return Localized.ready
+        case .unavailable: return Localized.unavailable
+        case .disabled: return Localized.disabled
+        case .removed: return Localized.removed
+        }
     }
 
     /// The dot color of the lifecycle state: the design's status colors — green

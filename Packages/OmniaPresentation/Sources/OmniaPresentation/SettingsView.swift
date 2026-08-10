@@ -245,28 +245,11 @@ public struct SettingsView: View {
         OmniaCard {
             VStack(alignment: .leading, spacing: OmniaTheme.Spacing.md) {
                 HStack {
-                    if let icon = item.icon {
-                        Image(systemName: icon)
-                            .font(.system(size: 16, weight: .medium))
-                            .foregroundStyle(OmniaTheme.Colors.accent)
-                    }
                     Text(item.displayName)
                         .font(OmniaTheme.Typography.body.weight(.semibold))
                         .foregroundStyle(OmniaTheme.Colors.textPrimary)
                     Spacer()
                     statusDot(item.state)
-                }
-                if let endpoint = item.endpoint {
-                    Text(endpoint)
-                        .font(OmniaTheme.Typography.secondary)
-                        .foregroundStyle(OmniaTheme.Colors.textSecondary)
-                        .lineLimit(1)
-                }
-                if let model = item.model {
-                    Text(model)
-                        .font(OmniaTheme.Typography.secondary)
-                        .foregroundStyle(OmniaTheme.Colors.textSecondary)
-                        .lineLimit(1)
                 }
                 HStack(spacing: OmniaTheme.Spacing.sm) {
                     OmniaButton(
@@ -296,7 +279,7 @@ public struct SettingsView: View {
 
     /// The status dot of a provider connection: green when ready, amber when
     /// not ready (new_design.md §13).
-    private func statusDot(_ state: ProviderConnectionListItem.State) -> some View {
+    private func statusDot(_ state: ProviderState) -> some View {
         Circle()
             .fill(state == .ready ? OmniaTheme.Colors.success : OmniaTheme.Colors.warning)
             .frame(width: 8, height: 8)

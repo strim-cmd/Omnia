@@ -27,10 +27,6 @@ struct ErrorBannerView: View {
             .padding(.horizontal, OmniaTheme.Spacing.lg)
             .accessibilityLabel(Text(message))
     }
-
-    private var backgroundColor: Color {
-        .red
-    }
 }
 
 #endif
