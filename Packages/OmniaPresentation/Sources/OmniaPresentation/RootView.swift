@@ -256,14 +256,14 @@ public struct RootView: View {
                 onCompose: presentConnectionForm,
                 onCancel: dismissConnectionForm,
                 onConfigure: configure,
-                onRemove: remove,
                 onEditProvider: editProvider,
-                onUpdateEndpoint: updateEndpoint,
-                onCancelEndpointEdit: cancelEndpointEdit,
                 onEditModel: editModel,
+                onResetConfiguration: resetConfiguration,
+                onUpdateEndpoint: updateEndpoint,
                 onUpdateModel: updateModel,
+                onCancelEndpointEdit: cancelEndpointEdit,
                 onCancelModelEdit: cancelModelEdit,
-                onResetConfiguration: resetConfiguration
+                onRemove: remove
             )
         } else {
             loadingState

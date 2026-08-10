@@ -70,7 +70,11 @@ public struct ConversationListView: View {
             list
         }
         .background(OmniaBackground())
+        #if os(macOS)
+        .toolbar(.hidden, for: .windowToolbar)
+        #else
         .toolbar(.hidden, for: .navigationBar)
+        #endif
         .confirmationDialog(
             Localized.deleteConversation,
             isPresented: Binding(
@@ -271,6 +275,19 @@ public struct ConversationListView: View {
         ErrorBannerView(message: FailureCopy.message(for: failure))
             .padding(.horizontal, OmniaTheme.Spacing.lg)
             .padding(.bottom, OmniaTheme.Spacing.sm)
+    }
+
+    /// User-facing copy for the typed failure the list presents — view-layer
+    /// text derived from the typed error, never raw error detail (ARC-005). The
+    /// failure is presented as it is, never silent (ARC-001): the banner text
+    /// and its accessibility label both carry the message (UX audit A2/S2).
+    enum FailureCopy {
+        static func message(for failure: RepositoryError) -> String {
+            switch failure {
+            case .storageUnavailable:
+                return "Storage is temporarily unavailable. Please try again."
+            }
+        }
     }
 }
 

@@ -286,10 +286,10 @@ public struct SettingsView: View {
     }
 
     /// A configuration row: the key and the value (new_design.md §13).
-    private func configurationRow(_ item: ConfigurationItem) -> some View {
+    private func configurationRow(_ item: SettingsState.ConfigurationItem) -> some View {
         OmniaCard {
             HStack {
-                Text(item.key.displayName)
+                Text(item.key.name)
                     .font(OmniaTheme.Typography.body)
                     .foregroundStyle(OmniaTheme.Colors.textPrimary)
                 Spacer()
@@ -317,7 +317,9 @@ public struct SettingsView: View {
             switch failure {
             case .application(let error):
                 return FailureCopy.message(for: error)
-            case .domain(let error):
+            case .repository(let error):
+                return FailureCopy.message(for: error)
+            case .credentialStorage(let error):
                 return FailureCopy.message(for: error)
             }
         }

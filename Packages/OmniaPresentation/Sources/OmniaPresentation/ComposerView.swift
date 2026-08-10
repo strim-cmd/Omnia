@@ -40,7 +40,7 @@ struct ComposerView: View {
             )
             .accessibilityLabel(Text(Localized.attachment))
 
-            TextField("", text: $draft, axis: .vertical, prompt: Text(Localized.messagePlaceholder))
+            TextField("", text: $draft, prompt: Text(Localized.messagePlaceholder), axis: .vertical)
                 .font(OmniaTheme.Typography.body)
                 .foregroundStyle(OmniaTheme.Colors.textPrimary)
                 .tint(OmniaTheme.Colors.accent)

@@ -140,8 +140,13 @@ public struct ConversationScreenView: View {
                 composer
             }
         }
+        #if os(macOS)
+        .toolbarBackground(OmniaTheme.Colors.background, for: .windowToolbar)
+        .toolbarBackground(.visible, for: .windowToolbar)
+        #else
         .toolbarBackground(OmniaTheme.Colors.background, for: .navigationBar)
         .toolbarBackground(.visible, for: .navigationBar)
+        #endif
         .tint(OmniaTheme.Colors.accent)
         .onChange(of: state.streamingCondition) { condition in
             announceStreamingTransition(from: previousStreamingCondition, to: condition)
@@ -201,7 +206,7 @@ public struct ConversationScreenView: View {
             )
             .accessibilityLabel(Text(Localized.attachment))
 
-            TextField("", text: $draft, axis: .vertical, prompt: Text(Localized.messagePlaceholder))
+            TextField("", text: $draft, prompt: Text(Localized.messagePlaceholder), axis: .vertical)
                 .font(OmniaTheme.Typography.body)
                 .foregroundStyle(OmniaTheme.Colors.textPrimary)
                 .tint(OmniaTheme.Colors.accent)
@@ -449,11 +454,6 @@ public struct ConversationScreenView: View {
                         in: RoundedRectangle(cornerRadius: OmniaTheme.Radii.bubble, style: .continuous)
                     )
             }
-            if let timestamp = message.timestamp {
-                Text(timestamp)
-                    .font(OmniaTheme.Typography.caption)
-                    .foregroundStyle(OmniaTheme.Colors.textMuted)
-            }
         }
     }
 
@@ -468,11 +468,6 @@ public struct ConversationScreenView: View {
                     .padding(OmniaTheme.Spacing.md)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .background(OmniaTheme.Colors.surface, in: RoundedRectangle(cornerRadius: OmniaTheme.Radii.bubble, style: .continuous))
-            }
-            if let timestamp = message.timestamp {
-                Text(timestamp)
-                    .font(OmniaTheme.Typography.caption)
-                    .foregroundStyle(OmniaTheme.Colors.textMuted)
             }
             if message.role == .assistant {
                 HStack(spacing: OmniaTheme.Spacing.sm) {
@@ -615,7 +610,7 @@ public struct ConversationScreenView: View {
 
     /// The failure banner of the screen: the error condition the screen
     /// presents (DES-012 §3.2).
-    private func failureBanner(_ failure: RepositoryError) -> some View {
+    private func failureBanner(_ failure: ConversationScreenState.Failure) -> some View {
         ErrorBannerView(message: FailureCopy.message(for: failure))
     }
 
@@ -623,8 +618,9 @@ public struct ConversationScreenView: View {
     /// starting, completing, or being interrupted (UX audit A4).
     private func announceStreamingTransition(
         from previous: ConversationScreenState.StreamingCondition?,
-        to current: ConversationScreenState.StreamingCondition
+        to current: ConversationScreenState.StreamingCondition?
     ) {
+        guard let current else { return }
         let announcement: String
         switch (previous, current) {
         case (nil, .active):
@@ -639,7 +635,7 @@ public struct ConversationScreenView: View {
         #if canImport(UIKit)
         UIAccessibility.post(notification: .announcement, argument: announcement)
         #elseif canImport(AppKit)
-        NSAccessibility.post(notification: .announcement, argument: announcement)
+        NSAccessibility.post(element: NSApplication.shared, notification: .announcementRequested)
         #endif
     }
 
@@ -680,6 +676,21 @@ public struct ConversationScreenView: View {
     /// A2/S2).
     enum FailureCopy {
 
+        static func message(for failure: ConversationScreenState.Failure) -> String {
+            switch failure {
+            case .application(let error):
+                return message(for: error)
+            case .repository(let error):
+                return message(for: error)
+            case .capability(let error):
+                return message(for: error)
+            case .credentialStorage(let error):
+                return message(for: error)
+            case .unexpected:
+                return "An unexpected error occurred. Please try again."
+            }
+        }
+
         static func message(for failure: RepositoryError) -> String {
             switch failure {
             case .storageUnavailable:
@@ -711,14 +722,8 @@ public struct ConversationScreenView: View {
                 return "The request could not be sent. Check your connection settings."
             case .invalidResponse:
                 return "The response could not be processed. Check your connection settings."
-            case .rateLimited:
-                return "The request was rate-limited. Please try again later."
-            case .unauthorized:
-                return "The request was unauthorized. Check your connection settings."
-            case .unsupported:
-                return "The request is not supported. Check your connection settings."
-            case .unknown:
-                return "An unknown error occurred. Please try again."
+            case .streamingInterrupted:
+                return "The response was interrupted. Please try again."
             }
         }
     }
