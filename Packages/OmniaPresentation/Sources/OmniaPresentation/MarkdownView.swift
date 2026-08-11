@@ -7,10 +7,12 @@ import SwiftUI
 /// The SwiftUI rendering of `MarkdownContent` with native Apple APIs only
 /// (DES-012 §3.3.1, ARC-009): prose text segments are rendered as Markdown
 /// through Foundation `AttributedString` parsing, and fenced code blocks are
-/// presented as distinct code-block elements — monospaced text, a distinct
-/// background, and preserved whitespace and wrapping — without language-aware
-/// syntax coloring. No third-party Markdown renderer or syntax-highlighting
-/// library is used (PRODUCT_CHARTER, no-third-party-packages non-goal).
+/// presented as distinct code-block elements — system monospaced body text, a
+/// platform-resolved background, and preserved whitespace and wrapping — with
+/// fixed presentation metrics (a 16pt inset and a 12pt continuous corner
+/// radius) and without language-aware syntax coloring. No third-party Markdown
+/// renderer or syntax-highlighting library is used (PRODUCT_CHARTER,
+/// no-third-party-packages non-goal).
 ///
 /// The view is Apple-platform code, isolated behind platform availability; it
 /// is not exercised by the Linux test environment (§3.7) and is verified by

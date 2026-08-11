@@ -195,7 +195,9 @@ public struct ConversationScreenView: View {
 
     /// The compact composer of the screen: the attachment button, the message
     /// field, and the send/stop button — a single control roughly 50–60 pt tall
-    /// on one line that expands only as needed (new_design.md §5).
+    /// on one line that expands only as needed (new_design.md §5). The send
+    /// button is enabled whenever the draft is non-empty; a whitespace-only
+    /// draft stays enabled and is refused at send time (new_design.md §5).
     private var composer: some View {
         HStack(alignment: .bottom, spacing: OmniaTheme.Spacing.xs) {
             OmniaIconButton(
@@ -272,10 +274,10 @@ public struct ConversationScreenView: View {
         draft.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
-    /// Translates the send intent with the drafted text: Return-key send and
-    /// the send button both route here, so one path governs the guard — an
-    /// empty or whitespace draft is not sent, and while a stream is active the
-    /// Stop affordance takes over (UX audit U1).
+    /// Translates the send intent with the drafted text: the send button routes
+    /// here, so one path governs the guard — an empty or whitespace draft is not
+    /// sent, and while a stream is active the Stop affordance takes over (UX
+    /// audit U1).
     private func submit() {
         guard !isStreaming, !trimmedDraft.isEmpty else { return }
         onSend(draft)

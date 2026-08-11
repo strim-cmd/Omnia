@@ -285,7 +285,6 @@ public struct RootView: View {
                 onConfigure: configure,
                 onEditProvider: editProvider,
                 onEditModel: editModel,
-                onResetConfiguration: resetConfiguration,
                 onUpdateEndpoint: updateEndpoint,
                 onUpdateModel: updateModel,
                 onCancelEndpointEdit: cancelEndpointEdit,
@@ -894,20 +893,6 @@ public struct RootView: View {
             editing: nil,
             editingModel: nil
         )
-    }
-
-    /// Translates the reset intent: the configuration value is removed at the
-    /// user-owned workspace level, and the settings state reloads (DES-011
-    /// §3.5).
-    private func resetConfiguration(_ key: ConfigurationKey<String>) {
-        Task { @MainActor in
-            do {
-                try await surface.settings.remove(key, at: .workspaceOverride)
-                await loadSettings()
-            } catch {
-                settingsState = failingSettingsState(error)
-            }
-        }
     }
 
     /// Composes the settings state presenting the typed failure of a settings

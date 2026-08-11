@@ -6,7 +6,7 @@ import SwiftUI
 /// The SwiftUI rendering of the settings surface (DES-012 §3.4): the provider
 /// connection rows — display name and lifecycle state — with the compose,
 /// endpoint-edit, model-edit, and remove intents, the typed configuration
-/// values the surface presents, with the reset intent, the Appearance section's
+/// values the surface presents, the Appearance section's
 /// Dark Mode control, and the About item (new_design.md §7, §9, SCREENS/
 /// SETTINGS.md). The view renders state and translates intent; it owns no
 /// business logic (ARC-002). Removing a connection is the user's removal of
@@ -18,8 +18,9 @@ import SwiftUI
 /// In the current navigation model the settings surface also presents the
 /// providers content (SCREENS/SETTINGS.md): the Providers and Settings items of
 /// the navigation drawer route to this one destination. The Dark Mode toggle
-/// drives the shell's presentation-only color-scheme state, shared with the
-/// drawer's Dark Mode card and never persisted (ARC-002).
+/// drives the shell's color scheme through the shared binding with the drawer's
+/// Dark Mode card, and the choice is persisted at the user-owned workspace
+/// level and restored on launch (DES-011 §3.5, ARC-005).
 ///
 /// When the compose condition holds, the connection-form intent is presented;
 /// when the endpoint-edit condition holds, the endpoint editor — the retry/edit
@@ -51,9 +52,6 @@ public struct SettingsView: View {
     /// Translates the model-edit intent — the model editor is presented for the
     /// connection with the given identity.
     public let onEditModel: (ProviderConnectionListItem) -> Void
-    /// Translates the reset-configuration intent for the given configuration
-    /// key — the user-owned setting is restored to its default.
-    public let onResetConfiguration: (ConfigurationKey<String>) -> Void
     /// Translates the update-endpoint intent — the endpoint editor is submitted
     /// for the connection with the given identity.
     public let onUpdateEndpoint: (ProviderIdentity, String) -> Void
@@ -86,7 +84,6 @@ public struct SettingsView: View {
         onConfigure: @escaping (ConfigureProviderRequest, String, String) -> Void,
         onEditProvider: @escaping (ProviderConnectionListItem) -> Void,
         onEditModel: @escaping (ProviderConnectionListItem) -> Void,
-        onResetConfiguration: @escaping (ConfigurationKey<String>) -> Void,
         onUpdateEndpoint: @escaping (ProviderIdentity, String) -> Void,
         onUpdateModel: @escaping (ProviderIdentity, String) -> Void,
         onCancelEndpointEdit: @escaping () -> Void,
@@ -101,7 +98,6 @@ public struct SettingsView: View {
         self.onConfigure = onConfigure
         self.onEditProvider = onEditProvider
         self.onEditModel = onEditModel
-        self.onResetConfiguration = onResetConfiguration
         self.onUpdateEndpoint = onUpdateEndpoint
         self.onUpdateModel = onUpdateModel
         self.onCancelEndpointEdit = onCancelEndpointEdit

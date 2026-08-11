@@ -21,8 +21,6 @@ Not representable by the current architecture — do not invent:
 - `Default provider`: provider selection is per-conversation context composed
   by the shell (UX audit V2); it is not a settings value, and no
   `Default provider` row is fabricated.
-- A persisted theme: the Dark Mode value is presentation-only shell state
-  shared with the navigation drawer's Dark Mode card; it is never persisted.
 
 ## Top bar
 
@@ -40,8 +38,9 @@ Order:
    lifecycle label, status indicator, overflow menu (new_design.md §7).
 2. **Configuration** — the typed configuration values as label/value cards.
 3. **Appearance** — one card row: moon icon, `Dark Mode` label, toggle
-   accessory. The toggle drives the shell's preferred color scheme
-   (presentation-only, shared with the drawer's Dark Mode card).
+   accessory. The toggle drives the shell's preferred color scheme through the
+   shared drawer/settings binding, persisted at the user-owned workspace level
+   and restored on launch.
 4. **About** — one card row: info icon, `About` label, chevron accessory.
    Routes to the About screen.
 5. Security hint — the lock icon caption stating the providers are stored
