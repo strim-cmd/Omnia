@@ -49,9 +49,10 @@ public struct RootView: View {
     /// COMPONENTS.md — ThemeToggle): presented as the drawer's Dark Mode toggle
     /// and applied as the shell's preferred color scheme. When the toggle is
     /// off the shell follows the system scheme, so the product's dark identity
-    /// remains the default (new_design.md §13). The value is presentation state
-    /// only — never persisted, never a Domain or Application concept (DES-011
-    /// §3.7, ARC-002).
+    /// remains the default (new_design.md §13). The value is shell presentation
+    /// state, restored at launch and recorded on change through the typed
+    /// configuration store (DES-011 §3.5) — never a Domain or Application
+    /// concept (ARC-002).
     @State private var isDarkMode = false
     /// The ready-to-render conversation list state.
     @State private var listState: ConversationListState?
@@ -91,6 +92,13 @@ public struct RootView: View {
     /// the provider selector — it is not among the `ConfigurationKey<String>`
     /// rows the settings surface presents.
     private static let providerSelectionKey = ConfigurationKey<ProviderIdentity>("provider.selection")
+
+    /// The typed configuration key of the shell's dark-mode choice, stored at
+    /// the user-owned workspace level (DES-011 §3.5). Like the provider
+    /// selection key, it is the shell's own configuration vocabulary — the
+    /// presence of a stored `true` means dark mode, and it is not among the
+    /// `ConfigurationKey<String>` rows the settings surface presents.
+    private static let darkModeKey = ConfigurationKey<Bool>("appearance.darkMode")
 
     public var body: some View {
         ZStack(alignment: .leading) {
@@ -144,6 +152,9 @@ public struct RootView: View {
                     if let screenState {
                         self.screenState = screenState.replacingProviderSelection(selection)
                     }
+                }
+                .onChange(of: isDarkMode) { dark in
+                    persistDarkModeAppearance(dark)
                 }
             }
             .disabled(isMenuPresented)
@@ -237,7 +248,8 @@ public struct RootView: View {
             onRegenerate: regenerate(at:),
             onRetry: retry,
             onCopy: copy(at:),
-            onSelectProvider: { selectProvider($0.identity) }
+            onSelectProvider: { selectProvider($0.identity) },
+            onOpenSettings: openSettingsFromConversation
         )
         .navigationTitle(title(for: identity))
         .onDisappear {
@@ -349,6 +361,46 @@ public struct RootView: View {
             )
         }
         await resolveProviderSelection()
+        await resolveDarkModeAppearance()
+    }
+
+    /// Restores the persisted dark-mode choice through the settings surface and
+    /// applies it to the shell's color scheme (DES-011 §3.5). When no choice
+    /// was ever stored the shell keeps its current behavior — the system scheme
+    /// with the dark-first token identity (new_design.md §13). A failure to
+    /// read the choice surfaces as the settings failure — presented as it is,
+    /// never silent (ARC-001).
+    @MainActor
+    private func resolveDarkModeAppearance() async {
+        do {
+            isDarkMode = try await surface.settings.resolved(for: Self.darkModeKey) ?? false
+        } catch is CancellationError {
+            return
+        } catch {
+            settingsState = failingSettingsState(error)
+        }
+    }
+
+    /// Records the shell's dark-mode choice through the settings surface at the
+    /// user-owned workspace level (DES-011 §3.5, ARC-005): the presence of a
+    /// stored `true` means dark mode; turning it off removes the stored choice,
+    /// so the app returns to the system scheme default. The write is driven by
+    /// the shared binding — the drawer and the settings toggle alike. A failure
+    /// surfaces as the settings failure — never silent (ARC-001).
+    private func persistDarkModeAppearance(_ dark: Bool) {
+        Task { @MainActor in
+            do {
+                if dark {
+                    try await surface.settings.store(true, for: Self.darkModeKey, at: .workspaceOverride)
+                } else {
+                    try await surface.settings.remove(Self.darkModeKey, at: .workspaceOverride)
+                }
+            } catch is CancellationError {
+                return
+            } catch {
+                settingsState = failingSettingsState(error)
+            }
+        }
     }
 
     /// Resolves the persisted provider selection through the settings surface
@@ -651,6 +703,13 @@ public struct RootView: View {
     /// routes to the about surface (DES-012 §3.5, SCREENS/SETTINGS.md).
     private func openAbout() {
         navigation = NavigationState(currentRoute: .about)
+    }
+
+    /// Translates the open-settings intent of the conversation screen's
+    /// provider banners — the existing `.settings` route of the navigation
+    /// structure, reached through the shell's normal routing (DES-012 §3.5).
+    private func openSettingsFromConversation() {
+        navigation = NavigationState(currentRoute: .settings)
     }
 
     /// Translates the new-chat intent of the drawer: the shell returns to the

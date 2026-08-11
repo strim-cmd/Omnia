@@ -232,8 +232,8 @@ public struct SideMenuView: View {
 
     /// The compact Dark Mode card of the drawer: the moon icon, the label, and
     /// the toggle control (new_design.md §8, COMPONENTS.md — ThemeToggle). The
-    /// toggle drives the shell's preferred color scheme; it is never persisted
-    /// and owns no state beyond the presented binding (ARC-002).
+    /// toggle drives the shell's preferred color scheme; it owns no state beyond
+    /// the presented binding — persistence is the shell's concern (ARC-002).
     private var darkModeToggle: some View {
         HStack(spacing: OmniaTheme.Spacing.md) {
             Image(systemName: "moon")

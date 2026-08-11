@@ -450,8 +450,9 @@ public struct SettingsView: View {
 
     /// The Dark Mode row: the moon icon, the label, and the toggle control
     /// (new_design.md §9, COMPONENTS.md — ThemeToggle). The toggle drives the
-    /// shell's presentation-only color-scheme state, shared with the navigation
-    /// drawer and never persisted (ARC-002).
+    /// shell's color-scheme state, shared with the navigation drawer; it owns no
+    /// state beyond the presented binding — persistence is the shell's concern
+    /// (ARC-002).
     private var darkModeRow: some View {
         OmniaCard {
             HStack(spacing: OmniaTheme.Spacing.md) {
