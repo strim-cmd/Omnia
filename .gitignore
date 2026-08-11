@@ -25,3 +25,7 @@ credentials.txt
 
 # Local chat/request log exports (contains private infrastructure details)
 Documentation/Design/public.md
+
+# Local UI audit work products (kept out of version control)
+Documentation/Development/UI_PRE_COMMIT_INSPECTION.md
+Documentation/Development/UI_REDESIGN_FINAL_AUDIT.md
