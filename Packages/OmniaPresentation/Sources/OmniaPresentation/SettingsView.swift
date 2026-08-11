@@ -306,8 +306,10 @@ public struct SettingsView: View {
     }
 
     /// The prominent card of the active provider: the accent provider glyph,
-    /// the display name, the lifecycle label, and the green Active pill
-    /// (new_design.md §7).
+    /// the display name, the lifecycle label, the green Active pill, and the
+    /// trailing overflow menu — the endpoint-edit, model-edit, and remove
+    /// intents of the connection, so the ready provider is as manageable as
+    /// every other connection (new_design.md §7, COMPONENTS.md — ProviderCard).
     private func activeProviderCard(_ item: ProviderConnectionListItem) -> some View {
         OmniaCard {
             HStack(spacing: OmniaTheme.Spacing.md) {
@@ -323,6 +325,7 @@ public struct SettingsView: View {
                 }
                 Spacer(minLength: OmniaTheme.Spacing.sm)
                 activePill
+                providerMenu(item)
             }
         }
     }
