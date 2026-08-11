@@ -511,7 +511,7 @@ public struct ConversationScreenView: View {
             } label: {
                 Image(systemName: "ellipsis")
                     .font(.system(size: 15, weight: .semibold))
-                    .frame(width: 28, height: 28)
+                    .frame(width: 44, height: 44)
                     .foregroundStyle(OmniaTheme.Colors.textSecondary)
             }
             .accessibilityLabel(Text(Localized.more))
@@ -791,39 +791,16 @@ public struct ConversationScreenView: View {
     }
 
     /// The error state of the screen: the error card presented above the
-    /// composer when the last send failed — the error icon, the error title,
-    /// the failure message, and the retry action on a red-tinted surface, the
-    /// failure presented as it is, never silent (ARC-001, new_design.md §11).
+    /// composer when the last send failed — the shared error banner with the
+    /// error title, the failure message, and the retry action on a red-tinted
+    /// surface, the failure presented as it is, never silent (ARC-001,
+    /// new_design.md §11).
     private func errorState(_ failure: ConversationScreenState.Failure) -> some View {
-        HStack(alignment: .top, spacing: OmniaTheme.Spacing.sm) {
-            Image(systemName: "exclamationmark.triangle")
-                .font(.system(size: 16, weight: .medium))
-                .foregroundStyle(OmniaTheme.Colors.error)
-            VStack(alignment: .leading, spacing: OmniaTheme.Spacing.xs) {
-                Text(Localized.error)
-                    .font(OmniaTheme.Typography.secondary.weight(.semibold))
-                    .foregroundStyle(OmniaTheme.Colors.textPrimary)
-                Text(FailureCopy.message(for: failure))
-                    .font(OmniaTheme.Typography.caption)
-                    .foregroundStyle(OmniaTheme.Colors.textSecondary)
-            }
-            Spacer(minLength: OmniaTheme.Spacing.sm)
-            OmniaButton(
-                title: Localized.retry,
-                systemImage: "arrow.clockwise",
-                style: .secondary,
-                action: onRetry
-            )
-        }
-        .padding(OmniaTheme.Spacing.md)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(OmniaTheme.Colors.errorSubtle, in: RoundedRectangle(cornerRadius: OmniaTheme.Radii.medium, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: OmniaTheme.Radii.medium, style: .continuous)
-                .stroke(OmniaTheme.Colors.error.opacity(0.3), lineWidth: 0.5)
+        ErrorBannerView(
+            title: Localized.error,
+            message: FailureCopy.message(for: failure),
+            onRetry: onRetry
         )
-        .padding(.horizontal, OmniaTheme.Spacing.lg)
-        .accessibilityLabel(Text(FailureCopy.message(for: failure)))
     }
 
     /// Announces the streaming lifecycle transition to VoiceOver: a response

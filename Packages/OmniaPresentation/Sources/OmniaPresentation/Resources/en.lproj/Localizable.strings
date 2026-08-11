@@ -9,11 +9,9 @@
 "api_key" = "API Key";
 "appearance" = "Appearance";
 "assistant_is_responding" = "Assistant is responding.";
-"assistant_message" = "Assistant message";
 "attachment" = "Attachment";
 "audio" = "Audio";
 "automatic" = "Automatic";
-"back" = "Back";
 "cancel" = "Cancel";
 "capabilities" = "Capabilities";
 "clear_search" = "Clear search";
@@ -49,7 +47,6 @@
 "major" = "Major";
 "max_requests_per_minute" = "Max Requests per Minute";
 "message" = "Message";
-"message_actions" = "Message actions";
 "message_placeholder" = "Message Omnia...";
 "menu" = "Menu";
 "minor" = "Minor";
@@ -57,8 +54,6 @@
 "more" = "More";
 "new_chat" = "New Chat";
 "new_conversation" = "New Conversation";
-"no_conversations" = "No Conversations";
-"no_conversations_description" = "Start a new conversation to begin.";
 "no_provider_available" = "No provider is available. Check your connection settings.";
 "no_provider_connections" = "No Provider Connections";
 "no_provider_connections_description" = "Add a connection to start.";
@@ -68,8 +63,6 @@
 "omnia_is_typing" = "Omnia is typing";
 "open_settings" = "Open Settings";
 "patch" = "Patch";
-"preparing" = "Preparing";
-"provider_connections" = "Provider Connections";
 "provider_selection_current" = "Provider selection. Current: %@";
 "providers" = "Providers";
 "providers_stored_securely" = "Your providers are stored securely on this device.";
@@ -88,7 +81,6 @@
 "response_interrupted_retry" = "The response was interrupted. Please try again.";
 "response_processing_failed" = "The response could not be processed. Check your connection settings.";
 "retry" = "Retry";
-"retry_interrupted_response" = "Retry the interrupted response";
 "save" = "Save";
 "save_endpoint" = "Save Endpoint";
 "save_model" = "Save Model";
@@ -111,12 +103,9 @@
 "untitled_conversation" = "Untitled Conversation";
 "update_endpoint" = "Update the endpoint %@ connects to.";
 "update_model" = "Update the model %@ uses.";
-"user_message" = "User message";
 "validated" = "Validated";
 "version" = "Version";
 "version_parts_non_negative" = "Each version part must be a non-negative whole number.";
 "vision" = "Vision";
 "workspace" = "Workspace";
 "provider_unavailable" = "%@ is not available. Messages will use the automatic selection.";
-"provider_state_count" = "%d";
-"provider_state_count_range" = "%d-%d";

@@ -9,32 +9,34 @@ import SwiftUI
 /// `SettingsView`, and `ConversationScreenView`.
 struct ErrorBannerView: View {
     let message: String
+    var title: String? = nil
     var systemImage: String = "exclamationmark.triangle"
     var backgroundColor: Color = OmniaTheme.Colors.errorSubtle
     var onRetry: (() -> Void)?
 
     var body: some View {
-        HStack {
-            Label {
-                Text(message)
-                    .foregroundStyle(OmniaTheme.Colors.textPrimary)
-            } icon: {
-                Image(systemName: systemImage)
-                    .foregroundStyle(OmniaTheme.Colors.error)
-            }
-            .font(OmniaTheme.Typography.body)
-
-            if let onRetry {
-                Spacer()
-                Button(action: onRetry) {
-                    Text(Localized.retry)
-                        .font(OmniaTheme.Typography.caption)
-                        .padding(.horizontal, OmniaTheme.Spacing.sm)
-                        .padding(.vertical, OmniaTheme.Spacing.xs)
-                        .foregroundStyle(OmniaTheme.Colors.error)
-                        .background(OmniaTheme.Colors.error.opacity(0.14), in: Capsule())
+        HStack(alignment: .top, spacing: OmniaTheme.Spacing.sm) {
+            Image(systemName: systemImage)
+                .font(.system(size: 16, weight: .medium))
+                .foregroundStyle(OmniaTheme.Colors.error)
+            VStack(alignment: .leading, spacing: OmniaTheme.Spacing.xs) {
+                if let title {
+                    Text(title)
+                        .font(OmniaTheme.Typography.secondary.weight(.semibold))
+                        .foregroundStyle(OmniaTheme.Colors.textPrimary)
                 }
-                .buttonStyle(.plain)
+                Text(message)
+                    .font(OmniaTheme.Typography.body)
+                    .foregroundStyle(OmniaTheme.Colors.textPrimary)
+            }
+            if let onRetry {
+                Spacer(minLength: OmniaTheme.Spacing.sm)
+                OmniaButton(
+                    title: Localized.retry,
+                    systemImage: "arrow.clockwise",
+                    style: .secondary,
+                    action: onRetry
+                )
             }
         }
         .padding(OmniaTheme.Spacing.md)

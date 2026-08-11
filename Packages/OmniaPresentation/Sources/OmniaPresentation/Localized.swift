@@ -15,11 +15,9 @@ public enum Localized {
     public static var apiKey: String { String(localized: "api_key") }
     public static var appearance: String { String(localized: "appearance") }
     public static var assistantIsResponding: String { String(localized: "assistant_is_responding") }
-    public static var assistantMessage: String { String(localized: "assistant_message") }
     public static var attachment: String { String(localized: "attachment") }
     public static var audio: String { String(localized: "audio") }
     public static var automatic: String { String(localized: "automatic") }
-    public static var back: String { String(localized: "back") }
     public static var cancel: String { String(localized: "cancel") }
     public static var capabilities: String { String(localized: "capabilities") }
     public static var clearSearch: String { String(localized: "clear_search") }
@@ -55,7 +53,6 @@ public enum Localized {
     public static var major: String { String(localized: "major") }
     public static var maxRequestsPerMinute: String { String(localized: "max_requests_per_minute") }
     public static var message: String { String(localized: "message") }
-    public static var messageActions: String { String(localized: "message_actions") }
     public static var messagePlaceholder: String { String(localized: "message_placeholder") }
     public static var menu: String { String(localized: "menu") }
     public static var minor: String { String(localized: "minor") }
@@ -63,8 +60,6 @@ public enum Localized {
     public static var more: String { String(localized: "more") }
     public static var newChat: String { String(localized: "new_chat") }
     public static var newConversation: String { String(localized: "new_conversation") }
-    public static var noConversations: String { String(localized: "no_conversations") }
-    public static var noConversationsDescription: String { String(localized: "no_conversations_description") }
     public static var noProviderAvailable: String { String(localized: "no_provider_available") }
     public static var noProviderConnections: String { String(localized: "no_provider_connections") }
     public static var noProviderConnectionsDescription: String { String(localized: "no_provider_connections_description") }
@@ -74,8 +69,6 @@ public enum Localized {
     public static var omniaIsTyping: String { String(localized: "omnia_is_typing") }
     public static var openSettings: String { String(localized: "open_settings") }
     public static var patch: String { String(localized: "patch") }
-    public static var preparing: String { String(localized: "preparing") }
-    public static var providerConnections: String { String(localized: "provider_connections") }
     public static func providerSelectionCurrent(_ provider: String) -> String {
         String(format: String(localized: "provider_selection_current"), provider)
     }
@@ -96,7 +89,6 @@ public enum Localized {
     public static var responseInterruptedRetry: String { String(localized: "response_interrupted_retry") }
     public static var responseProcessingFailed: String { String(localized: "response_processing_failed") }
     public static var retry: String { String(localized: "retry") }
-    public static var retryInterruptedResponse: String { String(localized: "retry_interrupted_response") }
     public static var save: String { String(localized: "save") }
     public static var saveEndpoint: String { String(localized: "save_endpoint") }
     public static var saveModel: String { String(localized: "save_model") }
@@ -123,7 +115,6 @@ public enum Localized {
     public static func updateModel(_ provider: String) -> String {
         String(format: String(localized: "update_model"), provider)
     }
-    public static var userMessage: String { String(localized: "user_message") }
     public static var validated: String { String(localized: "validated") }
     public static var version: String { String(localized: "version") }
     public static var versionPartsNonNegative: String { String(localized: "version_parts_non_negative") }
@@ -131,12 +122,6 @@ public enum Localized {
     public static var workspace: String { String(localized: "workspace") }
     public static func providerUnavailable(_ provider: String) -> String {
         String(format: String(localized: "provider_unavailable"), provider)
-    }
-    public static func providerStateCount(_ count: Int) -> String {
-        String(format: String(localized: "provider_state_count"), count)
-    }
-    public static func providerStateCountRange(_ start: Int, _ end: Int) -> String {
-        String(format: String(localized: "provider_state_count_range"), start, end)
     }
 }
 

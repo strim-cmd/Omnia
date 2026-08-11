@@ -579,11 +579,34 @@ public struct RootView: View {
         }
     }
 
-    /// Translates the retry intent when a request fails: the last user message
-    /// is re-sent to the provider (UX audit V2).
+    /// Translates the retry intent: an interrupted response resumes its
+    /// preserved partial content — the last prompt is already in the history,
+    /// and the resume carries the partial content forward into the reply
+    /// instead of regenerating it (UX audit U7) — and a failed request re-sends
+    /// the last user message (UX audit V2).
     private func retry() {
-        guard let messages = screenState?.messages,
-              let lastUserIndex = messages.indices.last(where: { messages[$0].role == .user })
+        guard case .conversationScreen(let identity) = navigation.currentRoute,
+              let messages = screenState?.messages
+        else {
+            return
+        }
+        // An interrupted stream resumes through the surface: a resume does not
+        // add a user message, and the preserved partial content continues in
+        // the reply (ConversationScreenSurface.resume).
+        if case .interrupted(let partialContent) = screenState?.streamingCondition {
+            streamingTask = Task { @MainActor in
+                do {
+                    for try await state in surface.conversationScreen.resume(identity, from: partialContent, rendering: messages) {
+                        screenState = rendering(state).replacingDraft(conversationDrafts[identity] ?? "")
+                    }
+                } catch {
+                    if error is CancellationError { return }
+                    await presentUnexpectedStreamFailure()
+                }
+            }
+            return
+        }
+        guard let lastUserIndex = messages.indices.last(where: { messages[$0].role == .user })
         else {
             return
         }
@@ -594,7 +617,6 @@ public struct RootView: View {
             regenerate(at: lastAssistantIndex)
         } else {
             let prompt = messages[lastUserIndex]
-            guard case .conversationScreen(let identity) = navigation.currentRoute else { return }
             let request = SendMessageRequest(
                 conversation: identity,
                 message: Message(role: .user, content: prompt.content?.accessibilityText ?? ""),
