@@ -310,7 +310,7 @@ public struct ConversationListView: View {
         static func message(for failure: RepositoryError) -> String {
             switch failure {
             case .storageUnavailable:
-                return "Storage is temporarily unavailable. Please try again."
+                return Localized.storageUnavailable
             }
         }
     }

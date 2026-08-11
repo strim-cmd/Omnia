@@ -473,7 +473,7 @@ public struct ConversationScreenView: View {
                 systemImage: "doc.on.doc",
                 tint: OmniaTheme.Colors.textSecondary,
                 size: 28,
-                action: { copy(message) }
+                action: { onCopy(index) }
             )
             .accessibilityLabel(Text(Localized.copy))
 
@@ -554,12 +554,12 @@ public struct ConversationScreenView: View {
     }
 
     /// The assistant message bubble: the surface bubble with the message content
-    /// and the action buttons (new_design.md §5).
+    /// and, for completed messages with a valid index, the action buttons —
+    /// partial streaming content renders without the action row (new_design.md §5).
     private func assistantBubble(_ message: MessagePresentation, index: Int) -> some View {
         VStack(alignment: .leading, spacing: 4) {
             if let content = message.content {
-                Text(content.accessibilityText)
-                    .font(OmniaTheme.Typography.body)
+                MarkdownView(content: content)
                     .foregroundStyle(OmniaTheme.Colors.textPrimary)
                     .padding(OmniaTheme.Spacing.md)
                     .frame(maxWidth: OmniaTheme.maxBubbleWidth, alignment: .leading)
@@ -570,22 +570,10 @@ public struct ConversationScreenView: View {
                     )
                     .shadow(color: OmniaTheme.Shadows.bubble, radius: 8, x: 0, y: 2)
             }
-            if message.role == .assistant {
+            if message.role == .assistant, index >= 0 {
                 assistantActionRow(for: message, index: index)
             }
         }
-    }
-
-    /// Translates the copy action of an assistant message: its plain text is
-    /// copied to the platform pasteboard — the user's own content (ARC-005).
-    private func copy(_ message: MessagePresentation) {
-        guard let text = message.content?.accessibilityText else { return }
-        #if canImport(UIKit)
-        UIPasteboard.general.string = text
-        #elseif canImport(AppKit)
-        NSPasteboard.general.clearContents()
-        NSPasteboard.general.setString(text, forType: .string)
-        #endif
     }
 
     /// Toggles the like action of the message with the given index; liking a
@@ -881,9 +869,9 @@ public struct ConversationScreenView: View {
     /// VoiceOver user hears whether a response is forming versus finished (UX
     /// audit A4).
     private enum StreamingAnnouncement {
-        static let started = "Assistant is responding."
-        static let completed = "Response complete."
-        static let interrupted = "Response interrupted."
+        static let started = Localized.assistantIsResponding
+        static let completed = Localized.responseComplete
+        static let interrupted = Localized.responseInterrupted
     }
 
     /// User-facing copy for the typed failures the presentation views present —
@@ -904,14 +892,14 @@ public struct ConversationScreenView: View {
             case .credentialStorage(let error):
                 return message(for: error)
             case .unexpected:
-                return "An unexpected error occurred. Please try again."
+                return Localized.unexpectedError
             }
         }
 
         static func message(for failure: RepositoryError) -> String {
             switch failure {
             case .storageUnavailable:
-                return "Storage is temporarily unavailable. Please try again."
+                return Localized.storageUnavailable
             }
         }
 
@@ -925,22 +913,22 @@ public struct ConversationScreenView: View {
         static func message(for failure: CredentialStorageError) -> String {
             switch failure {
             case .credentialNotFound:
-                return "The stored credential could not be found. Check your connection settings."
+                return Localized.credentialNotFound
             case .storageUnavailable:
-                return "Secure credential storage is unavailable. Please try again."
+                return Localized.credentialStorageUnavailable
             }
         }
 
         static func message(for failure: CapabilityError) -> String {
             switch failure {
             case .providerUnavailable:
-                return "No provider is available. Check your connection settings."
+                return Localized.noProviderAvailable
             case .invalidRequest:
-                return "The request could not be sent. Check your connection settings."
+                return Localized.requestSendFailed
             case .invalidResponse:
-                return "The response could not be processed. Check your connection settings."
+                return Localized.responseProcessingFailed
             case .streamingInterrupted:
-                return "The response was interrupted. Please try again."
+                return Localized.responseInterruptedRetry
             }
         }
     }

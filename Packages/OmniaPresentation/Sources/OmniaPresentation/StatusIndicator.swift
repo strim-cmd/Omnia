@@ -35,7 +35,7 @@ struct StatusIndicator: View {
 
     /// The generic lifecycle label of the provider state (ARC-004,
     /// new_design.md §5, §7).
-    private var label: String {
+    var label: String {
         switch state {
         case .registered: return Localized.registered
         case .validated: return Localized.validated

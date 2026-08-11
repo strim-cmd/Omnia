@@ -33,6 +33,11 @@ final class NavigationStateTests: XCTestCase {
         XCTAssertEqual(state.currentRoute, .settings)
     }
 
+    func testAboutRoute() {
+        let state = NavigationState(currentRoute: .about)
+        XCTAssertEqual(state.currentRoute, .about)
+    }
+
     // MARK: Equality
 
     func testEquality_SameRouteIsEqual() throws {

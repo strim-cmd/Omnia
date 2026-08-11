@@ -10,22 +10,42 @@ import SwiftUI
 struct ErrorBannerView: View {
     let message: String
     var systemImage: String = "exclamationmark.triangle"
-    var backgroundColor: Color = .red
+    var backgroundColor: Color = OmniaTheme.Colors.errorSubtle
+    var onRetry: (() -> Void)?
 
     var body: some View {
-        Label(message, systemImage: systemImage)
+        HStack {
+            Label {
+                Text(message)
+                    .foregroundStyle(OmniaTheme.Colors.textPrimary)
+            } icon: {
+                Image(systemName: systemImage)
+                    .foregroundStyle(OmniaTheme.Colors.error)
+            }
             .font(OmniaTheme.Typography.body)
-            .foregroundStyle(Color.white)
-            .padding(OmniaTheme.Spacing.md)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(backgroundColor.opacity(0.8))
-            .clipShape(RoundedRectangle(cornerRadius: OmniaTheme.Radii.medium, style: .continuous))
-            .overlay(
-                RoundedRectangle(cornerRadius: OmniaTheme.Radii.medium, style: .continuous)
-                    .stroke(Color.white.opacity(0.2), lineWidth: 0.5)
-            )
-            .padding(.horizontal, OmniaTheme.Spacing.lg)
-            .accessibilityLabel(Text(message))
+
+            if let onRetry {
+                Spacer()
+                Button(action: onRetry) {
+                    Text(Localized.retry)
+                        .font(OmniaTheme.Typography.caption)
+                        .padding(.horizontal, OmniaTheme.Spacing.sm)
+                        .padding(.vertical, OmniaTheme.Spacing.xs)
+                        .foregroundStyle(OmniaTheme.Colors.error)
+                        .background(OmniaTheme.Colors.error.opacity(0.14), in: Capsule())
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(OmniaTheme.Spacing.md)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(backgroundColor, in: RoundedRectangle(cornerRadius: OmniaTheme.Radii.medium, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: OmniaTheme.Radii.medium, style: .continuous)
+                .stroke(OmniaTheme.Colors.error.opacity(0.3), lineWidth: 0.5)
+        )
+        .padding(.horizontal, OmniaTheme.Spacing.lg)
+        .accessibilityLabel(Text(message))
     }
 }
 

@@ -87,10 +87,10 @@ public struct ProviderConnectionFormView: View {
     private var connectionSection: some View {
         OmniaCard {
             VStack(alignment: .leading, spacing: OmniaTheme.Spacing.md) {
-                Text("Connection")
+                Text(Localized.connection)
                     .font(OmniaTheme.Typography.sectionTitle)
                     .foregroundStyle(OmniaTheme.Colors.textPrimary)
-                TextField("Display Name", text: $displayName)
+                TextField(Localized.displayName, text: $displayName)
                     .font(OmniaTheme.Typography.body)
                     .foregroundStyle(OmniaTheme.Colors.textPrimary)
                     .tint(OmniaTheme.Colors.accent)
@@ -120,7 +120,7 @@ public struct ProviderConnectionFormView: View {
                     .textInputAutocapitalization(.never)
                     .keyboardType(.URL)
                     #endif
-                TextField("Endpoint", text: $endpoint)
+                TextField(Localized.endpoint, text: $endpoint)
                     .font(OmniaTheme.Typography.body)
                     .foregroundStyle(OmniaTheme.Colors.textPrimary)
                     .tint(OmniaTheme.Colors.accent)
@@ -137,7 +137,7 @@ public struct ProviderConnectionFormView: View {
                     .keyboardType(.URL)
                     .textInputAutocapitalization(.never)
                     #endif
-                SecureField("API Key", text: $credentialSecret)
+                SecureField(Localized.apiKey, text: $credentialSecret)
                     .font(OmniaTheme.Typography.body)
                     .foregroundStyle(OmniaTheme.Colors.textPrimary)
                     .tint(OmniaTheme.Colors.accent)
@@ -162,7 +162,7 @@ public struct ProviderConnectionFormView: View {
     private var capabilitiesSection: some View {
         OmniaCard {
             VStack(alignment: .leading, spacing: OmniaTheme.Spacing.md) {
-                Text("Capabilities")
+                Text(Localized.capabilities)
                     .font(OmniaTheme.Typography.sectionTitle)
                     .foregroundStyle(OmniaTheme.Colors.textPrimary)
                 ForEach(Self.allCapabilities, id: \.self) { capability in
@@ -177,16 +177,16 @@ public struct ProviderConnectionFormView: View {
     private var limitsSection: some View {
         OmniaCard {
             VStack(alignment: .leading, spacing: OmniaTheme.Spacing.md) {
-                Text("Limits")
+                Text(Localized.limits)
                     .font(OmniaTheme.Typography.sectionTitle)
                     .foregroundStyle(OmniaTheme.Colors.textPrimary)
-                TextField("Max Requests per Minute", text: $maxRequestsPerMinute)
+                TextField(Localized.maxRequestsPerMinute, text: $maxRequestsPerMinute)
                     #if os(iOS)
                     .keyboardType(.numberPad)
                     #endif
                     .autocorrectionDisabled()
                 if showLimitError {
-                    validationMessage("Enter a whole number, or leave empty for no limit.")
+                    validationMessage(Localized.enterWholeNumberOrEmpty)
                 }
             }
         }
@@ -197,28 +197,28 @@ public struct ProviderConnectionFormView: View {
     private var versionSection: some View {
         OmniaCard {
             VStack(alignment: .leading, spacing: OmniaTheme.Spacing.md) {
-                Text("Version")
+                Text(Localized.version)
                     .font(OmniaTheme.Typography.sectionTitle)
                     .foregroundStyle(OmniaTheme.Colors.textPrimary)
                 HStack {
-                    TextField("Major", text: $versionMajor)
+                    TextField(Localized.major, text: $versionMajor)
                         #if os(iOS)
                         .keyboardType(.numberPad)
                         #endif
                         .autocorrectionDisabled()
-                    TextField("Minor", text: $versionMinor)
+                    TextField(Localized.minor, text: $versionMinor)
                         #if os(iOS)
                         .keyboardType(.numberPad)
                         #endif
                         .autocorrectionDisabled()
-                    TextField("Patch", text: $versionPatch)
+                    TextField(Localized.patch, text: $versionPatch)
                         #if os(iOS)
                         .keyboardType(.numberPad)
                         #endif
                         .autocorrectionDisabled()
                 }
                 if showVersionError {
-                    validationMessage("Each version part must be a non-negative whole number.")
+                    validationMessage(Localized.versionPartsNonNegative)
                 }
             }
         }
@@ -328,7 +328,7 @@ public struct ProviderConnectionFormView: View {
     private func validationMessage(_ message: String) -> some View {
         Text(message)
             .font(.caption)
-            .foregroundStyle(.red)
+            .foregroundStyle(OmniaTheme.Colors.error)
     }
 
     private var trimmedDisplayName: String {
@@ -358,16 +358,16 @@ public struct ProviderConnectionFormView: View {
 
     private func capabilityLabel(_ capability: Capability) -> String {
         switch capability {
-        case .textGeneration: "Text Generation"
-        case .conversation: "Conversation"
-        case .streaming: "Streaming"
-        case .vision: "Vision"
-        case .imageGeneration: "Image Generation"
-        case .embeddings: "Embeddings"
-        case .toolCalling: "Tool Calling"
-        case .structuredOutput: "Structured Output"
-        case .audio: "Audio"
-        case .reasoning: "Reasoning"
+        case .textGeneration: Localized.textGeneration
+        case .conversation: Localized.conversation
+        case .streaming: Localized.streaming
+        case .vision: Localized.vision
+        case .imageGeneration: Localized.imageGeneration
+        case .embeddings: Localized.embeddings
+        case .toolCalling: Localized.toolCalling
+        case .structuredOutput: Localized.structuredOutput
+        case .audio: Localized.audio
+        case .reasoning: Localized.reasoning
         }
     }
 

@@ -10,14 +10,14 @@ import AppKit
 #endif
 
 /// The SwiftUI rendering of the navigation surface (DES-012 §3.5): the shell
-/// that hosts and routes between the conversation and settings surfaces — the
-/// conversation list is the root destination, selecting a conversation opens
-/// the conversation screen, and the list reaches the settings surface. The
-/// view renders state and translates intent; it owns no business logic
-/// (ARC-002, ARC-007).
+/// that hosts and routes between the conversation, settings, and about
+/// surfaces — the conversation list is the root destination, selecting a
+/// conversation opens the conversation screen, and the list reaches the
+/// settings and about surfaces. The view renders state and translates intent;
+/// it owns no business logic (ARC-002, ARC-007).
 ///
 /// The shell is composed over the `NavigationSurface` seam: it hosts the
-/// conversation list, conversation screen, and settings surfaces the
+/// conversation list, conversation screen, settings, and about surfaces the
 /// Composition Root delivered (DES-012 §3.6, ARC-006), and routes between them
 /// with the platform-native Navigation container (ADR-0001). The current route
 /// is the frozen `NavigationState` model — presentation state owned at the
@@ -42,9 +42,17 @@ public struct RootView: View {
     /// The current route of the navigation structure (DES-012 §3.5).
     @State private var navigation = NavigationState(currentRoute: .conversationList)
     /// Whether the navigation drawer is presented over the shell (new_design.md
-    /// §7): the drawer is a slide-in overlay opened by the conversation list's
+    /// §8): the drawer is a slide-in overlay opened by the conversation list's
     /// menu button and closed by its dim backdrop or a row selection.
     @State private var isMenuPresented = false
+    /// Whether the shell forces the dark color scheme (new_design.md §8,
+    /// COMPONENTS.md — ThemeToggle): presented as the drawer's Dark Mode toggle
+    /// and applied as the shell's preferred color scheme. When the toggle is
+    /// off the shell follows the system scheme, so the product's dark identity
+    /// remains the default (new_design.md §13). The value is presentation state
+    /// only — never persisted, never a Domain or Application concept (DES-011
+    /// §3.7, ARC-002).
+    @State private var isDarkMode = false
     /// The ready-to-render conversation list state.
     @State private var listState: ConversationListState?
     /// The conversation the conversation screen presents.
@@ -116,6 +124,8 @@ public struct RootView: View {
                             conversationScreen(for: identity)
                         case .settings:
                             settingsScreen
+                        case .about:
+                            aboutScreen
                         case nil:
                             EmptyView()
                         }
@@ -124,9 +134,9 @@ public struct RootView: View {
                 .toolbar {
                     ToolbarItem(placement: .primaryAction) {
                         Button(action: openSettings) {
-                            Label("Settings", systemImage: "gearshape")
+                            Label(Localized.settings, systemImage: "gearshape")
                         }
-                        .accessibilityLabel(Text("Settings"))
+                        .accessibilityLabel(Text(Localized.settings))
                     }
                 }
                 .task {
@@ -151,10 +161,11 @@ public struct RootView: View {
             }
         }
         .animation(OmniaTheme.Motion.drawer, value: isMenuPresented)
+        .preferredColorScheme(isDarkMode ? .dark : nil)
     }
 
     /// The presented navigation drawer: the dim backdrop that closes it and the
-    /// slide-in panel over the shell (new_design.md §7).
+    /// slide-in panel over the shell (new_design.md §8).
     private var drawer: some View {
         ZStack(alignment: .leading) {
             Color.black.opacity(0.35)
@@ -167,11 +178,19 @@ public struct RootView: View {
                 workspaceName: Localized.workspace,
                 providerCount: settingsState?.connections.count ?? 0,
                 currentRoute: navigation.currentRoute,
+                isDarkMode: $isDarkMode,
+                onNewChat: newChatFromMenu,
                 onOpenConversations: {
                     closeMenu(route: .conversationList)
                 },
+                onOpenProviders: {
+                    closeMenu(route: .settings)
+                },
                 onOpenSettings: {
                     closeMenu(route: .settings)
+                },
+                onOpenAbout: {
+                    closeMenu(route: .about)
                 }
             )
             .transition(.move(edge: .leading))
@@ -207,6 +226,8 @@ public struct RootView: View {
                     return .conversation(conversation)
                 case .settings:
                     return .settings
+                case .about:
+                    return .about
                 }
             },
             set: { value in
@@ -254,6 +275,7 @@ public struct RootView: View {
         if let settingsState {
             SettingsView(
                 state: settingsState,
+                isDarkMode: $isDarkMode,
                 onCompose: presentConnectionForm,
                 onCancel: dismissConnectionForm,
                 onConfigure: configure,
@@ -264,12 +286,19 @@ public struct RootView: View {
                 onUpdateModel: updateModel,
                 onCancelEndpointEdit: cancelEndpointEdit,
                 onCancelModelEdit: cancelModelEdit,
-                onRemove: remove
+                onRemove: remove,
+                onOpenAbout: openAbout
             )
         } else {
             loadingState
-                .navigationTitle("Settings")
+                .navigationTitle(Localized.settings)
         }
+    }
+
+    /// The about surface: the Omnia branding over the workspace context of the
+    /// shell (new_design.md §8).
+    private var aboutScreen: some View {
+        AboutView(workspaceName: Localized.workspace)
     }
 
     /// The navigation title of the conversation screen: the conversation's
@@ -292,7 +321,7 @@ public struct RootView: View {
     private var loadingState: some View {
         ProgressView()
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .accessibilityLabel(Text("Loading"))
+            .accessibilityLabel(Text(Localized.loading))
     }
 
     @MainActor
@@ -632,6 +661,20 @@ public struct RootView: View {
         navigation = NavigationState(currentRoute: .settings)
     }
 
+    /// Translates the open-about intent of the settings surface: the shell
+    /// routes to the about surface (DES-012 §3.5, SCREENS/SETTINGS.md).
+    private func openAbout() {
+        navigation = NavigationState(currentRoute: .about)
+    }
+
+    /// Translates the new-chat intent of the drawer: the shell returns to the
+    /// conversation list and creates a fresh conversation — the same intent as
+    /// the conversation list's New Chat button (new_design.md §8, DES-012 §3.3).
+    private func newChatFromMenu() {
+        closeMenu(route: .conversationList)
+        createConversation()
+    }
+
     /// Translates the configure intent: the composed request, the declared
     /// endpoint, and the declared model are handed to the settings surface —
     /// the entered secret enters only the frozen `ConfigureProviderRequest`,
@@ -835,6 +878,7 @@ public struct RootView: View {
 private enum Destination: Hashable {
     case conversation(ConversationIdentity)
     case settings
+    case about
 
     /// The frozen route this destination presents.
     var route: NavigationState.Route {
@@ -843,6 +887,8 @@ private enum Destination: Hashable {
             return .conversationScreen(conversation: conversation)
         case .settings:
             return .settings
+        case .about:
+            return .about
         }
     }
 }

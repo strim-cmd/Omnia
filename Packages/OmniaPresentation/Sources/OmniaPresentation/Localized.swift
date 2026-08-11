@@ -7,8 +7,13 @@ import SwiftUI
 /// Consolidates all user-visible strings into a localization catalog.
 /// Follows UI.md §Localization and ARC-005.
 public enum Localized {
+    public static var about: String { String(localized: "about") }
+    public static var active: String { String(localized: "active") }
+    public static var activeProvider: String { String(localized: "active_provider") }
     public static var addConnection: String { String(localized: "add_connection") }
+    public static var allProviders: String { String(localized: "all_providers") }
     public static var apiKey: String { String(localized: "api_key") }
+    public static var appearance: String { String(localized: "appearance") }
     public static var assistantIsResponding: String { String(localized: "assistant_is_responding") }
     public static var assistantMessage: String { String(localized: "assistant_message") }
     public static var attachment: String { String(localized: "attachment") }
@@ -24,6 +29,9 @@ public enum Localized {
     public static var conversation: String { String(localized: "conversation") }
     public static var conversations: String { String(localized: "conversations") }
     public static var copy: String { String(localized: "copy") }
+    public static var credentialNotFound: String { String(localized: "credential_not_found") }
+    public static var credentialStorageUnavailable: String { String(localized: "credential_storage_unavailable") }
+    public static var darkMode: String { String(localized: "dark_mode") }
     public static var delete: String { String(localized: "delete") }
     public static var deleteConversation: String { String(localized: "delete_conversation") }
     public static var deleteConversationConfirmation: String { String(localized: "delete_conversation_confirmation") }
@@ -53,9 +61,11 @@ public enum Localized {
     public static var minor: String { String(localized: "minor") }
     public static var model: String { String(localized: "model") }
     public static var more: String { String(localized: "more") }
+    public static var newChat: String { String(localized: "new_chat") }
     public static var newConversation: String { String(localized: "new_conversation") }
     public static var noConversations: String { String(localized: "no_conversations") }
     public static var noConversationsDescription: String { String(localized: "no_conversations_description") }
+    public static var noProviderAvailable: String { String(localized: "no_provider_available") }
     public static var noProviderConnections: String { String(localized: "no_provider_connections") }
     public static var noProviderConnectionsDescription: String { String(localized: "no_provider_connections_description") }
     public static var noSearchResults: String { String(localized: "no_search_results") }
@@ -69,6 +79,8 @@ public enum Localized {
     public static func providerSelectionCurrent(_ provider: String) -> String {
         String(format: String(localized: "provider_selection_current"), provider)
     }
+    public static var providers: String { String(localized: "providers") }
+    public static var providersStoredSecurely: String { String(localized: "providers_stored_securely") }
     public static var ready: String { String(localized: "ready") }
     public static var reasoning: String { String(localized: "reasoning") }
     public static var regenerate: String { String(localized: "regenerate") }
@@ -78,8 +90,11 @@ public enum Localized {
     public static var removeProviderConnection: String { String(localized: "remove_provider_connection") }
     public static var removeProviderConnectionConfirmation: String { String(localized: "remove_provider_connection_confirmation") }
     public static var removed: String { String(localized: "removed") }
+    public static var requestSendFailed: String { String(localized: "request_send_failed") }
     public static var responseComplete: String { String(localized: "response_complete") }
     public static var responseInterrupted: String { String(localized: "response_interrupted") }
+    public static var responseInterruptedRetry: String { String(localized: "response_interrupted_retry") }
+    public static var responseProcessingFailed: String { String(localized: "response_processing_failed") }
     public static var retry: String { String(localized: "retry") }
     public static var retryInterruptedResponse: String { String(localized: "retry_interrupted_response") }
     public static var save: String { String(localized: "save") }
@@ -92,6 +107,7 @@ public enum Localized {
     public static var startNewConversation: String { String(localized: "start_new_conversation") }
     public static var startNewConversationDescription: String { String(localized: "start_new_conversation_description") }
     public static var stop: String { String(localized: "stop") }
+    public static var storageUnavailable: String { String(localized: "storage_unavailable") }
     public static var streaming: String { String(localized: "streaming") }
     public static var structuredOutput: String { String(localized: "structured_output") }
     public static var textGeneration: String { String(localized: "text_generation") }
@@ -99,6 +115,7 @@ public enum Localized {
     public static var today: String { String(localized: "today") }
     public static var toolCalling: String { String(localized: "tool_calling") }
     public static var unavailable: String { String(localized: "unavailable") }
+    public static var unexpectedError: String { String(localized: "unexpected_error") }
     public static var untitledConversation: String { String(localized: "untitled_conversation") }
     public static func updateEndpoint(_ provider: String) -> String {
         String(format: String(localized: "update_endpoint"), provider)
@@ -109,6 +126,7 @@ public enum Localized {
     public static var userMessage: String { String(localized: "user_message") }
     public static var validated: String { String(localized: "validated") }
     public static var version: String { String(localized: "version") }
+    public static var versionPartsNonNegative: String { String(localized: "version_parts_non_negative") }
     public static var vision: String { String(localized: "vision") }
     public static var workspace: String { String(localized: "workspace") }
     public static func providerUnavailable(_ provider: String) -> String {

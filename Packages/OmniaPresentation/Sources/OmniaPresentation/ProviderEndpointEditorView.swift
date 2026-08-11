@@ -53,7 +53,7 @@ public struct ProviderEndpointEditorView: View {
             VStack(spacing: OmniaTheme.Spacing.lg) {
                 OmniaCard {
                     VStack(alignment: .leading, spacing: OmniaTheme.Spacing.md) {
-                        TextField("Endpoint", text: $endpoint)
+                        TextField(Localized.endpoint, text: $endpoint)
                             .font(OmniaTheme.Typography.body)
                             .foregroundStyle(OmniaTheme.Colors.textPrimary)
                             .tint(OmniaTheme.Colors.accent)
@@ -70,7 +70,7 @@ public struct ProviderEndpointEditorView: View {
                             .keyboardType(.URL)
                             .textInputAutocapitalization(.never)
                             #endif
-                        Text("Update the endpoint \(displayName) connects to.")
+                        Text(Localized.updateEndpoint(displayName))
                             .font(OmniaTheme.Typography.secondary)
                             .foregroundStyle(OmniaTheme.Colors.textSecondary)
                     }
