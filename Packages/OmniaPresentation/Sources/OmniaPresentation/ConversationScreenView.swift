@@ -799,8 +799,8 @@ public struct ConversationScreenView: View {
     /// new_design.md §11).
     private func errorState(_ failure: ConversationScreenState.Failure) -> some View {
         ErrorBannerView(
-            title: Localized.error,
             message: FailureCopy.message(for: failure),
+            title: Localized.error,
             onRetry: onRetry
         )
     }
