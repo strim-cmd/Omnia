@@ -147,6 +147,11 @@ public struct SettingsView: View {
                 }
             }
         }
+        #if os(macOS)
+        .toolbar(.hidden, for: .windowToolbar)
+        #else
+        .toolbar(.hidden, for: .navigationBar)
+        #endif
         .confirmationDialog(
             Localized.removeProviderConnection,
             isPresented: Binding(

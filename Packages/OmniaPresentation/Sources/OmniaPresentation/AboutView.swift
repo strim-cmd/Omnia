@@ -12,11 +12,12 @@ import SwiftUI
 /// owns. It renders no version/build information because the application state
 /// carries none — the interface is honest (ARC-001).
 ///
-/// The screen is reached from the navigation drawer; the system back button of
-/// the navigation container remains the back behavior (navigation is owned by
-/// the shell, CHAT.md). The top bar follows the pushed-screen pattern: the
-/// leading and trailing affordances are inert exactly like the back affordance
-/// they replace.
+/// The screen is reached from the navigation drawer; the navigation container's
+/// system back behavior remains — the system bar chrome is hidden exactly like
+/// the conversation list's, so the custom top bar is the only top chrome
+/// (navigation is owned by the shell, CHAT.md). The top bar follows the
+/// pushed-screen pattern: the leading and trailing affordances are inert exactly
+/// like the back affordance they replace.
 ///
 /// The view is Apple-platform code, isolated behind platform availability; it
 /// is not exercised by the Linux test environment (§3.7) and is verified by
@@ -43,6 +44,11 @@ public struct AboutView: View {
                 }
             }
         }
+        #if os(macOS)
+        .toolbar(.hidden, for: .windowToolbar)
+        #else
+        .toolbar(.hidden, for: .navigationBar)
+        #endif
     }
 
     /// The custom top bar of the screen: the menu button, the title, and the

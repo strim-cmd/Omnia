@@ -131,14 +131,6 @@ public struct RootView: View {
                         }
                     }
                 }
-                .toolbar {
-                    ToolbarItem(placement: .primaryAction) {
-                        Button(action: openSettings) {
-                            Label(Localized.settings, systemImage: "gearshape")
-                        }
-                        .accessibilityLabel(Text(Localized.settings))
-                    }
-                }
                 .task {
                     await loadSettings()
                 }
@@ -653,12 +645,6 @@ public struct RootView: View {
             configuration: current.configuration,
             isComposing: false
         )
-    }
-
-    /// Translates the open-settings intent of the navigation chrome: the shell
-    /// routes to the settings surface (DES-012 §3.5).
-    private func openSettings() {
-        navigation = NavigationState(currentRoute: .settings)
     }
 
     /// Translates the open-about intent of the settings surface: the shell

@@ -151,11 +151,9 @@ public struct ConversationScreenView: View {
             }
         }
         #if os(macOS)
-        .toolbarBackground(OmniaTheme.Colors.background, for: .windowToolbar)
-        .toolbarBackground(.visible, for: .windowToolbar)
+        .toolbar(.hidden, for: .windowToolbar)
         #else
-        .toolbarBackground(OmniaTheme.Colors.background, for: .navigationBar)
-        .toolbarBackground(.visible, for: .navigationBar)
+        .toolbar(.hidden, for: .navigationBar)
         #endif
         .tint(OmniaTheme.Colors.accent)
         .onChange(of: state.streamingCondition) { condition in
