@@ -249,7 +249,8 @@ public struct RootView: View {
             onRetry: retry,
             onCopy: copy(at:),
             onSelectProvider: { selectProvider($0.identity) },
-            onOpenSettings: openSettingsFromConversation
+            onOpenSettings: openSettingsFromConversation,
+            onOpenMenu: presentMenu
         )
         .navigationTitle(title(for: identity))
         .onDisappear {
@@ -290,7 +291,8 @@ public struct RootView: View {
                 onCancelEndpointEdit: cancelEndpointEdit,
                 onCancelModelEdit: cancelModelEdit,
                 onRemove: remove,
-                onOpenAbout: openAbout
+                onOpenAbout: openAbout,
+                onOpenMenu: presentMenu
             )
         } else {
             loadingState
@@ -301,7 +303,7 @@ public struct RootView: View {
     /// The about surface: the Omnia branding over the workspace context of the
     /// shell (new_design.md §8).
     private var aboutScreen: some View {
-        AboutView(workspaceName: Localized.workspace)
+        AboutView(workspaceName: Localized.workspace, onOpenMenu: presentMenu)
     }
 
     /// The navigation title of the conversation screen: the conversation's

@@ -16,8 +16,8 @@ import SwiftUI
 /// system back behavior remains — the system bar chrome is hidden exactly like
 /// the conversation list's, so the custom top bar is the only top chrome
 /// (navigation is owned by the shell, CHAT.md). The top bar follows the
-/// pushed-screen pattern: the leading and trailing affordances are inert exactly
-/// like the back affordance they replace.
+/// pushed-screen pattern: the leading menu affordance opens the navigation
+/// drawer, and the trailing glyph is decorative.
 ///
 /// The view is Apple-platform code, isolated behind platform availability; it
 /// is not exercised by the Linux test environment (§3.7) and is verified by
@@ -26,10 +26,13 @@ import SwiftUI
 public struct AboutView: View {
     /// The name of the workspace the app presents (new_design.md §8).
     public let workspaceName: String
+    /// Translates the open-menu intent: the navigation drawer is presented.
+    public let onOpenMenu: () -> Void
 
     /// Creates an about view over the given workspace context.
-    public init(workspaceName: String) {
+    public init(workspaceName: String, onOpenMenu: @escaping () -> Void) {
         self.workspaceName = workspaceName
+        self.onOpenMenu = onOpenMenu
     }
 
     public var body: some View {
@@ -52,12 +55,11 @@ public struct AboutView: View {
     }
 
     /// The custom top bar of the screen: the menu button, the title, and the
-    /// about glyph (new_design.md §8). The affordances are inert exactly like
-    /// the back affordance they replace — navigation is owned by the shell
-    /// (CHAT.md).
+    /// about glyph (new_design.md §8). The menu affordance opens the navigation
+    /// drawer, owned by the shell; the trailing glyph is decorative (CHAT.md).
     private var customTopBar: some View {
         HStack {
-            OmniaIconButton(systemImage: "line.3.horizontal", size: 36, action: {})
+            OmniaIconButton(systemImage: "line.3.horizontal", size: 36, action: onOpenMenu)
                 .accessibilityLabel(Text(Localized.menu))
             Spacer()
             Text(Localized.about)

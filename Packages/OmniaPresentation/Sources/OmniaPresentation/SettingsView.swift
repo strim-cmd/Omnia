@@ -68,6 +68,8 @@ public struct SettingsView: View {
     /// Translates the open-about intent — the shell routes to the about
     /// surface.
     public let onOpenAbout: () -> Void
+    /// Translates the open-menu intent: the navigation drawer is presented.
+    public let onOpenMenu: () -> Void
 
     /// The connection awaiting destructive confirmation before the remove intent
     /// is translated — nil until a destructive action is requested. A full swipe
@@ -89,7 +91,8 @@ public struct SettingsView: View {
         onCancelEndpointEdit: @escaping () -> Void,
         onCancelModelEdit: @escaping () -> Void,
         onRemove: @escaping (ProviderIdentity) -> Void,
-        onOpenAbout: @escaping () -> Void
+        onOpenAbout: @escaping () -> Void,
+        onOpenMenu: @escaping () -> Void
     ) {
         self.state = state
         self._isDarkMode = isDarkMode
@@ -104,6 +107,7 @@ public struct SettingsView: View {
         self.onCancelModelEdit = onCancelModelEdit
         self.onRemove = onRemove
         self.onOpenAbout = onOpenAbout
+        self.onOpenMenu = onOpenMenu
     }
 
     public var body: some View {
@@ -169,13 +173,12 @@ public struct SettingsView: View {
     }
 
     /// The custom top bar of the screen: the menu button, the title, and the
-    /// add-connection button (new_design.md §7). The menu affordance is inert
-    /// exactly like the back affordance it replaces — navigation is owned by the
-    /// shell (CHAT.md), and the reference presents a hamburger on the leading
-    /// side of the providers screen.
+    /// add-connection button (new_design.md §7). The menu affordance opens the
+    /// navigation drawer, owned by the shell; the add-connection button
+    /// translates the compose intent of the providers content (CHAT.md).
     private var customTopBar: some View {
         HStack {
-            OmniaIconButton(systemImage: "line.3.horizontal", size: 36, action: {})
+            OmniaIconButton(systemImage: "line.3.horizontal", size: 36, action: onOpenMenu)
                 .accessibilityLabel(Text(Localized.menu))
             Spacer()
             Text(Localized.providers)

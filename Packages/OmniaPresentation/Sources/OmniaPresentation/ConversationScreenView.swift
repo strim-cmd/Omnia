@@ -49,6 +49,8 @@ public struct ConversationScreenView: View {
     /// empty and unavailable provider rows route to the settings surface
     /// through the shell's normal navigation (UX audit P2).
     public let onOpenSettings: () -> Void
+    /// Translates the open-menu intent: the navigation drawer is presented.
+    public let onOpenMenu: () -> Void
 
     /// The coordinate space of the scroll view, used to measure the viewport
     /// and the bottom marker's position (UX audit U2).
@@ -87,7 +89,8 @@ public struct ConversationScreenView: View {
         onRetry: @escaping () -> Void,
         onCopy: @escaping (Int) -> Void,
         onSelectProvider: @escaping (ProviderConnectionListItem) -> Void,
-        onOpenSettings: @escaping () -> Void
+        onOpenSettings: @escaping () -> Void,
+        onOpenMenu: @escaping () -> Void
     ) {
         self.state = state
         self._draft = draft
@@ -98,6 +101,7 @@ public struct ConversationScreenView: View {
         self.onCopy = onCopy
         self.onSelectProvider = onSelectProvider
         self.onOpenSettings = onOpenSettings
+        self.onOpenMenu = onOpenMenu
     }
 
     public var body: some View {
@@ -170,14 +174,13 @@ public struct ConversationScreenView: View {
 
     /// The custom top bar of the screen: the menu button, the conversation
     /// title, and the compose button (new_design.md §5, CHAT.md) — the
-    /// hamburger/menu on the leading side, "New Conversation" centered, and the
-    /// compose icon on the trailing side. The bar is kept visually light; the
-    /// affordances' intent translation is owned by the shell, and the screen is
-    /// not handed callbacks for them, so they remain inert exactly like the back
-    /// affordance they replace (navigation behavior is preserved).
+    /// hamburger/menu on the leading side opens the navigation drawer, "New
+    /// Conversation" centered, and the compose icon on the trailing side stays
+    /// inert exactly like the back affordance it replaces — navigation is owned
+    /// by the shell, and only the menu intent is wired here (CHAT.md).
     private var customTopBar: some View {
         HStack {
-            OmniaIconButton(systemImage: "line.3.horizontal", size: 36, action: {})
+            OmniaIconButton(systemImage: "line.3.horizontal", size: 36, action: onOpenMenu)
                 .accessibilityLabel(Text(Localized.menu))
             Spacer()
             Text(conversationTitle.isEmpty ? Localized.newConversation : conversationTitle)
