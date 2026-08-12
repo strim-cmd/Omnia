@@ -252,6 +252,40 @@ final class CompositionRootTests: XCTestCase {
         XCTAssertEqual(model, modelReference)
     }
 
+    func testPreparePersistsTheReadyStateSoThePresentationSeesAnAvailableProvider() async throws {
+        let composition = try makeComposition()
+        let connection = try await composition.providerConnectionService.configure(
+            makeConfigureRequest()
+        )
+        _ = try await composition.prepare()
+        // The settings and conversation surfaces derive a provider's
+        // availability from the persisted state the repository returns, so a
+        // provider the lifecycle has actually made ready must be persisted
+        // ready — otherwise the conversation UI reports it unavailable while
+        // it is available (DES-009 §3.1).
+        let providers = try await composition.providerConnectionService.allProviders()
+        guard let stored = providers.first(where: { $0.identity == connection.identity }) else {
+            return XCTFail("Expected the configured provider to be stored")
+        }
+        XCTAssertEqual(stored.state, .ready)
+    }
+
+    func testPrepareKeepsThePersistedReadyStateAcrossLaunches() async throws {
+        let root = try makeTemporaryRoot()
+        let first = CompositionRoot(storageRoot: root)
+        let connection = try await first.providerConnectionService.configure(makeConfigureRequest())
+        _ = try await first.prepare()
+        let second = CompositionRoot(storageRoot: root)
+        _ = try await second.prepare()
+        let providers = try await second.providerConnectionService.allProviders()
+        guard let stored = providers.first(where: { $0.identity == connection.identity }) else {
+            return XCTFail("Expected the configured provider to be stored")
+        }
+        XCTAssertEqual(stored.state, .ready)
+        let state = await second.lifecycleService.state(of: connection.identity)
+        XCTAssertEqual(state, .ready)
+    }
+
     func testPrepareSelectsTheRecordedModelWhenTheProviderRecordsOne() async throws {
         let composition = try makeComposition()
         let combo = "omniroute:gpt-4o"

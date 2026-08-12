@@ -164,13 +164,20 @@ public struct CompositionRoot: Sendable {
     }
 
     /// Wires the composed graph to the running state: registers the stored
-    /// provider connections in the lifecycle service and transitions them to
-    /// ready, and resolves the default workspace, creating it on first launch
+    /// provider connections in the lifecycle service, transitions them to
+    /// ready, and persists the resulting ready state back to the repository —
+    /// so the persisted provider state the settings and conversation surfaces
+    /// read agrees with the runtime lifecycle that actually serves requests
+    /// (the presentation derives a provider's availability from the persisted
+    /// state, and a provider that is actually available must render available)
+    /// — and resolves the default workspace, creating it on first launch
     /// (DES-013 §3.3, §3.4).
     ///
     /// The operation is idempotent across launches: registration replaces any
-    /// previously registered connection with the same identity, and the
-    /// bootstrap re-resolves the recorded default workspace identity.
+    /// previously registered connection with the same identity, the transition
+    /// chain re-runs from the fresh registered state, and the ready state is
+    /// re-persisted; the bootstrap re-resolves the recorded default workspace
+    /// identity.
     ///
     /// - Returns: The resolved default workspace identity, delivered as session
     ///   state and as `RootView.workspace`.
@@ -181,6 +188,9 @@ public struct CompositionRoot: Sendable {
             try await lifecycleService.transition(identity, to: .validated)
             try await lifecycleService.transition(identity, to: .initializing)
             try await lifecycleService.transition(identity, to: .ready)
+            if let readyProvider = await lifecycleService.provider(with: identity) {
+                try await providerRepository.save(readyProvider)
+            }
         }
         let bootstrap = FirstRunBootstrap(
             workspaceService: workspaceService,
