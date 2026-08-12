@@ -1157,7 +1157,7 @@ final class ProviderConnectionServiceTests: XCTestCase {
         )
         let connection = try await service.configure(request())
 
-        try await service.update(
+        _ = try await service.update(
             updateRequest(),
             for: connection.identity,
             endpoint: "https://api.example.com/v2",
@@ -1175,7 +1175,7 @@ final class ProviderConnectionServiceTests: XCTestCase {
         let (_, _, _, service) = makeServiceWithInMemoryDoubles()
         let connection = try await service.configure(request())
 
-        try await service.update(
+        _ = try await service.update(
             updateRequest(),
             for: connection.identity,
             endpoint: "  https://api.example.com/v2  ",
@@ -1198,7 +1198,7 @@ final class ProviderConnectionServiceTests: XCTestCase {
         let recorded = try await service.model(for: connection.identity)
         XCTAssertNotNil(recorded)
 
-        try await service.update(
+        _ = try await service.update(
             updateRequest(),
             for: connection.identity,
             endpoint: "https://api.example.com/v2",
@@ -1291,7 +1291,7 @@ final class ProviderConnectionServiceTests: XCTestCase {
         let reference = try XCTUnwrap(storedReference)
         let before = try await credentialStorage.credential(for: reference)
 
-        try await service.update(
+        _ = try await service.update(
             updateRequest(),
             for: connection.identity,
             endpoint: "https://api.example.com/v2",
