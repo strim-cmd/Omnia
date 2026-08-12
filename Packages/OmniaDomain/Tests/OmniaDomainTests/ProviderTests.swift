@@ -203,4 +203,54 @@ final class ProviderTests: XCTestCase {
             [LifecycleEvent(previousState: .registered, newState: .validated)]
         )
     }
+
+    // MARK: Replacing the connection
+
+    func testReplacingConnection_PreservesLifecycleStateAndCarriesNewDeclaration() throws {
+        let provider = Provider(connection: try makeConnection())
+        try provider.transition(to: .validated)
+        try provider.transition(to: .initializing)
+        try provider.transition(to: .ready)
+
+        let updated = provider.replacingConnection(
+            ProviderConnection(
+                identity: provider.identity,
+                capabilities: ProviderCapabilities(capabilities: [.streaming]),
+                metadata: ProviderMetadata(displayName: "Edited"),
+                limits: ProviderLimits(maxRequestsPerMinute: 30),
+                version: SemanticVersion(major: 2, minor: 0, patch: 0)
+            )
+        )
+
+        XCTAssertEqual(updated.state, .ready)
+        XCTAssertEqual(updated.identity, provider.identity)
+        XCTAssertEqual(updated.connection.metadata, ProviderMetadata(displayName: "Edited"))
+        XCTAssertEqual(
+            updated.connection.capabilities,
+            ProviderCapabilities(capabilities: [.streaming])
+        )
+    }
+
+    func testReplacingConnection_DoesNotCarryObservers() throws {
+        let provider = Provider(connection: try makeConnection())
+        try provider.transition(to: .validated)
+        try provider.transition(to: .initializing)
+        try provider.transition(to: .ready)
+        let observer = RecordingObserver()
+        provider.addObserver(observer)
+
+        let updated = provider.replacingConnection(
+            ProviderConnection(
+                identity: provider.identity,
+                capabilities: ProviderCapabilities(capabilities: [.textGeneration]),
+                metadata: ProviderMetadata(displayName: "Edited"),
+                limits: ProviderLimits(maxRequestsPerMinute: 60),
+                version: SemanticVersion(major: 1, minor: 0, patch: 0)
+            )
+        )
+        try updated.transition(to: .unavailable)
+
+        XCTAssertEqual(updated.state, .unavailable)
+        XCTAssertTrue(observer.recordedEvents().isEmpty)
+    }
 }

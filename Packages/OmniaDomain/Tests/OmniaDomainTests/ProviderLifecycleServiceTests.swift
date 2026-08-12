@@ -126,4 +126,32 @@ final class ProviderLifecycleServiceTests: XCTestCase {
         let all = await service.allProviders()
         XCTAssertEqual(Set(all), Set([a, b]))
     }
+
+    func testUpdate_ReplacesConnectionPreservingLifecycleState() async throws {
+        let service = ProviderLifecycleService()
+        let identity = await service.register(makeConnection())
+        try await makeReady(service: service, identity: identity)
+
+        let edited = ProviderConnection(
+            identity: identity,
+            capabilities: ProviderCapabilities(capabilities: [.streaming]),
+            metadata: ProviderMetadata(displayName: "Edited"),
+            limits: ProviderLimits(maxRequestsPerMinute: 60),
+            version: SemanticVersion(major: 1, minor: 0, patch: 0)
+        )
+        await service.update(edited)
+
+        let provider = await service.provider(with: identity)
+        XCTAssertEqual(provider?.state, .ready)
+        XCTAssertEqual(provider?.connection, edited)
+    }
+
+    func testUpdate_RegistersUnknownIdentityFresh() async {
+        let service = ProviderLifecycleService()
+        let identity = ProviderIdentity()
+        await service.update(makeConnection(identity: identity))
+
+        let state = await service.state(of: identity)
+        XCTAssertEqual(state, .registered)
+    }
 }

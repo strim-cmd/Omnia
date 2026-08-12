@@ -3,8 +3,8 @@ import OmniaFoundation
 
 /// The ready-to-render state of the settings surface: the provider connection
 /// list items of the configured connections, the configuration values the
-/// surface presents, and the compose, endpoint-edit, model-edit, and error
-/// conditions (DES-012 §3.2, Settings module, ARC-007).
+/// surface presents, and the compose, provider-edit, and error conditions
+/// (DES-012 §3.2, Settings module, ARC-007).
 ///
 /// The state is owned by the Presentation layer and composed from the
 /// `ProviderConnectionService` and `ConfigurationService` it renders (DES-011
@@ -59,67 +59,54 @@ public struct SettingsState: Equatable, Sendable {
         }
     }
 
-    /// The endpoint-edit condition of the settings surface (DES-012 §3.2,
-    /// Settings module): the provider connection whose OpenAI-compatible
-    /// endpoint is being edited, the declared display name presented as the
-    /// editor's context, and the endpoint currently recorded — the value the
-    /// editor pre-fills (UX audit U7).
+    /// The provider-edit condition of the settings surface (DES-012 §3.2,
+    /// Settings module): the provider connection whose declaration is being
+    /// edited — the unified provider-edit flow, which presents the same
+    /// connection form as compose, pre-filled — holding the connection's
+    /// current declaration (display name, capabilities, limits, and version)
+    /// and its recorded endpoint and model, the values the form pre-fills.
     ///
     /// The condition holds only the configured connection state and the
-    /// recorded endpoint — never a credential or provider-specific detail
-    /// (ARC-001, ARC-004, ARC-005). The endpoint is connection configuration
-    /// the user owns (ARC-005, DES-011 §3.9).
+    /// recorded endpoint and model — never a credential or provider-specific
+    /// detail (ARC-001, ARC-004, ARC-005). The declaration, the endpoint, and
+    /// the model are connection configuration the user owns (ARC-005, DES-011
+    /// §3.1, §3.9, §3.10).
     public struct Editing: Equatable, Sendable {
         /// The identity of the provider connection being edited.
         public let identity: ProviderIdentity
         /// The declared display name of the provider connection.
         public let displayName: String
+        /// The capabilities the provider connection declares it can deliver.
+        public let capabilities: ProviderCapabilities
+        /// The limits the provider connection declares.
+        public let limits: ProviderLimits
+        /// The version of the provider API the connection targets.
+        public let version: SemanticVersion
         /// The endpoint currently recorded for the connection, empty when none
         /// is recorded.
         public let currentEndpoint: String
-
-        /// Creates the endpoint-edit condition for the provider connection
-        /// with the given identity, display name, and current endpoint.
-        public init(
-            identity: ProviderIdentity,
-            displayName: String,
-            currentEndpoint: String
-        ) {
-            self.identity = identity
-            self.displayName = displayName
-            self.currentEndpoint = currentEndpoint
-        }
-    }
-
-    /// The model-edit condition of the settings surface (DES-012 §3.2,
-    /// Settings module): the provider connection whose OpenAI-compatible model
-    /// — the OmniRoute combo, or any provider model name — is being edited,
-    /// the declared display name presented as the editor's context, and the
-    /// model currently recorded — the value the editor pre-fills.
-    ///
-    /// The condition holds only the configured connection state and the
-    /// recorded model — never a credential or provider-specific detail
-    /// (ARC-001, ARC-004, ARC-005). The model is connection configuration the
-    /// user owns (ARC-005, DES-011 §3.10), recorded at the provider-settings
-    /// level under the documented `providerModel.<canonical>` key.
-    public struct ModelEditing: Equatable, Sendable {
-        /// The identity of the provider connection being edited.
-        public let identity: ProviderIdentity
-        /// The declared display name of the provider connection.
-        public let displayName: String
-        /// The model currently recorded for the connection, empty when none
-        /// is recorded.
+        /// The model currently recorded for the connection, empty when none is
+        /// recorded.
         public let currentModel: String
 
-        /// Creates the model-edit condition for the provider connection with
-        /// the given identity, display name, and current model.
+        /// Creates the provider-edit condition for the provider connection
+        /// with the given identity, declaration, current endpoint, and current
+        /// model.
         public init(
             identity: ProviderIdentity,
             displayName: String,
+            capabilities: ProviderCapabilities,
+            limits: ProviderLimits,
+            version: SemanticVersion,
+            currentEndpoint: String,
             currentModel: String
         ) {
             self.identity = identity
             self.displayName = displayName
+            self.capabilities = capabilities
+            self.limits = limits
+            self.version = version
+            self.currentEndpoint = currentEndpoint
             self.currentModel = currentModel
         }
     }
@@ -132,32 +119,27 @@ public struct SettingsState: Equatable, Sendable {
     /// The compose condition: the provider-connection compose form is
     /// presented and the configure flow is active.
     public let isComposing: Bool
-    /// The endpoint-edit condition: the provider-connection endpoint editor is
-    /// presented and the endpoint-update flow is active.
+    /// The provider-edit condition: the provider-connection edit form is
+    /// presented and the provider-update flow is active.
     public let editing: Editing?
-    /// The model-edit condition: the provider-connection model editor is
-    /// presented and the model-update flow is active.
-    public let editingModel: ModelEditing?
     /// The typed failure of a settings operation, when the settings surface is
     /// in an error condition.
     public let failure: Failure?
 
     /// Creates a settings state from the configured connections, the
-    /// configuration values, the compose condition, the endpoint-edit
-    /// condition, the model-edit condition, and the optional typed failure.
+    /// configuration values, the compose condition, the provider-edit
+    /// condition, and the optional typed failure.
     public init(
         connections: [ProviderConnectionListItem],
         configuration: [ConfigurationItem] = [],
         isComposing: Bool = false,
         editing: Editing? = nil,
-        editingModel: ModelEditing? = nil,
         failure: Failure? = nil
     ) {
         self.connections = connections
         self.configuration = configuration
         self.isComposing = isComposing
         self.editing = editing
-        self.editingModel = editingModel
         self.failure = failure
     }
 

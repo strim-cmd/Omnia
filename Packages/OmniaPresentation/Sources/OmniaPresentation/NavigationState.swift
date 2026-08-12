@@ -8,10 +8,11 @@ import OmniaFoundation
 ///
 /// The state is owned by the Presentation layer; the navigation model is the
 /// set of destinations — the conversation list, the conversation screen, the
-/// settings surface, and the about surface — and the current route (§3.5). It
-/// is session state, never a Domain or Application concept (DES-011 §3.7),
-/// immutable, `Equatable` and `Sendable`, and owns no business logic (ARC-002).
-/// The routes are value types; the current route is presentation state (ARC-007).
+/// providers surface, the settings surface, and the about surface — and the
+/// current route (§3.5). It is session state, never a Domain or Application
+/// concept (DES-011 §3.7), immutable, `Equatable` and `Sendable`, and owns no
+/// business logic (ARC-002). The routes are value types; the current route is
+/// presentation state (ARC-007).
 public struct NavigationState: Equatable, Sendable {
     /// A destination of the navigation structure (DES-012 §3.5).
     public enum Route: Equatable, Sendable {
@@ -20,7 +21,10 @@ public struct NavigationState: Equatable, Sendable {
         /// The conversation screen, presenting the conversation with the
         /// given identity.
         case conversationScreen(conversation: ConversationIdentity)
-        /// The settings surface.
+        /// The providers surface: provider-connection management (new_design.md
+        /// §7) — a destination distinct from application settings.
+        case providers
+        /// The settings surface: application settings (new_design.md §9).
         case settings
         /// The about surface.
         case about

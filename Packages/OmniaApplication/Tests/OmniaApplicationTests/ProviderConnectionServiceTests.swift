@@ -30,6 +30,22 @@ private func referenceKey(
     ConfigurationKey<CredentialReference>("providerCredential.\(identity.canonicalString)")
 }
 
+private func updateRequest(
+    displayName: String = "Updated Provider",
+    capabilities: ProviderCapabilities = ProviderCapabilities(
+        capabilities: [.textGeneration, .conversation, .streaming]
+    ),
+    limits: ProviderLimits = ProviderLimits(maxRequestsPerMinute: 120),
+    version: SemanticVersion = SemanticVersion(major: 2, minor: 1, patch: 0)
+) -> ProviderUpdateRequest {
+    ProviderUpdateRequest(
+        displayName: displayName,
+        capabilities: capabilities,
+        limits: limits,
+        version: version
+    )
+}
+
 private func endpointKey(
     for identity: ProviderIdentity
 ) -> ConfigurationKey<String> {
@@ -293,12 +309,14 @@ final class ProviderConnectionServiceTests: XCTestCase {
     private func makeService(
         providerRepository: some ProviderRepository,
         credentialStorage: some CredentialStorageProtocol,
-        configurationRepository: some ConfigurationRepository
+        configurationRepository: some ConfigurationRepository,
+        lifecycleService: ProviderLifecycleService = ProviderLifecycleService()
     ) -> ProviderConnectionService {
         ProviderConnectionService(
             providerRepository: providerRepository,
             credentialStorage: credentialStorage,
-            configurationRepository: configurationRepository
+            configurationRepository: configurationRepository,
+            lifecycleService: lifecycleService
         )
     }
 
@@ -343,9 +361,28 @@ final class ProviderConnectionServiceTests: XCTestCase {
 
         let stored = try await providerRepository.provider(with: connection.identity)
         XCTAssertEqual(stored?.connection, connection)
-        XCTAssertEqual(stored?.state, .registered)
+        XCTAssertEqual(stored?.state, .ready)
         XCTAssertTrue(stored?.canDeliver(.textGeneration) == true)
         XCTAssertTrue(stored?.canDeliver(.conversation) == true)
+    }
+
+    func testConfigure_RegistersTheConnectionInTheLifecycleServiceAsReady() async throws {
+        let (providerRepository, credentialStorage, configurationRepository, _) =
+            makeServiceWithInMemoryDoubles()
+        let lifecycle = ProviderLifecycleService()
+        let service = makeService(
+            providerRepository: providerRepository,
+            credentialStorage: credentialStorage,
+            configurationRepository: configurationRepository,
+            lifecycleService: lifecycle
+        )
+
+        let connection = try await service.configure(request())
+
+        let state = await lifecycle.state(of: connection.identity)
+        XCTAssertEqual(state, .ready)
+        let registered = await lifecycle.provider(with: connection.identity)
+        XCTAssertEqual(registered?.connection, connection)
     }
 
     func testConfigure_StoresTheCredentialByReference() async throws {
@@ -1076,6 +1113,193 @@ final class ProviderConnectionServiceTests: XCTestCase {
         }
         XCTAssertEqual(providerRepository.saveCallCount, 1)
         XCTAssertEqual(credentialStorage.storeCallCount, 1)
+    }
+
+    // MARK: Update
+
+    func testUpdate_PersistsTheEditedDeclarationPreservingTheLifecycleState() async throws {
+        let (providerRepository, _, _, service) = makeServiceWithInMemoryDoubles()
+        let connection = try await service.configure(request())
+
+        let updated = try await service.update(
+            updateRequest(),
+            for: connection.identity,
+            endpoint: "https://api.example.com/v2",
+            model: "omniroute:gpt-5"
+        )
+
+        XCTAssertEqual(updated.identity, connection.identity)
+        XCTAssertEqual(updated.metadata, ProviderMetadata(displayName: "Updated Provider"))
+        XCTAssertEqual(
+            updated.capabilities,
+            ProviderCapabilities(capabilities: [.textGeneration, .conversation, .streaming])
+        )
+        XCTAssertEqual(updated.limits, ProviderLimits(maxRequestsPerMinute: 120))
+        XCTAssertEqual(updated.version, SemanticVersion(major: 2, minor: 1, patch: 0))
+        let stored = try await providerRepository.provider(with: connection.identity)
+        XCTAssertEqual(stored?.connection, updated)
+        XCTAssertEqual(stored?.state, .ready)
+        let endpoint = try await service.endpoint(for: connection.identity)
+        XCTAssertEqual(endpoint, "https://api.example.com/v2")
+        let model = try await service.model(for: connection.identity)
+        XCTAssertEqual(model, "omniroute:gpt-5")
+    }
+
+    func testUpdate_ReplacesTheLifecycleServiceProviderPreservingReadyState() async throws {
+        let (providerRepository, credentialStorage, configurationRepository, _) =
+            makeServiceWithInMemoryDoubles()
+        let lifecycle = ProviderLifecycleService()
+        let service = makeService(
+            providerRepository: providerRepository,
+            credentialStorage: credentialStorage,
+            configurationRepository: configurationRepository,
+            lifecycleService: lifecycle
+        )
+        let connection = try await service.configure(request())
+
+        try await service.update(
+            updateRequest(),
+            for: connection.identity,
+            endpoint: "https://api.example.com/v2",
+            model: nil
+        )
+
+        let registered = await lifecycle.provider(with: connection.identity)
+        XCTAssertEqual(registered?.state, .ready)
+        XCTAssertEqual(registered?.connection.metadata.displayName, "Updated Provider")
+        let providers = await lifecycle.providersReady(capableOf: .streaming)
+        XCTAssertTrue(providers.contains(connection.identity))
+    }
+
+    func testUpdate_RecordsTheEndpointAndModel() async throws {
+        let (_, _, _, service) = makeServiceWithInMemoryDoubles()
+        let connection = try await service.configure(request())
+
+        try await service.update(
+            updateRequest(),
+            for: connection.identity,
+            endpoint: "  https://api.example.com/v2  ",
+            model: "  omniroute:gpt-5  "
+        )
+
+        let endpoint = try await service.endpoint(for: connection.identity)
+        XCTAssertEqual(endpoint, "https://api.example.com/v2")
+        let model = try await service.model(for: connection.identity)
+        XCTAssertEqual(model, "omniroute:gpt-5")
+    }
+
+    func testUpdate_NilModelRemovesTheRecordedModel() async throws {
+        let (_, _, _, service) = makeServiceWithInMemoryDoubles()
+        let connection = try await service.configure(
+            request(),
+            endpoint: "https://api.example.com/v1",
+            model: "omniroute:gpt-4o"
+        )
+        let recorded = try await service.model(for: connection.identity)
+        XCTAssertNotNil(recorded)
+
+        try await service.update(
+            updateRequest(),
+            for: connection.identity,
+            endpoint: "https://api.example.com/v2",
+            model: nil
+        )
+
+        let model = try await service.model(for: connection.identity)
+        XCTAssertNil(model)
+    }
+
+    func testUpdate_EmptyDisplayNameIsRejectedBeforeAnyWrite() async throws {
+        let (providerRepository, _, _, service) = makeServiceWithInMemoryDoubles()
+        let connection = try await service.configure(request())
+
+        await assertThrowsValidationError(reason: "The display name is empty.") {
+            _ = try await service.update(
+                updateRequest(displayName: "   "),
+                for: connection.identity,
+                endpoint: "https://api.example.com/v2",
+                model: nil
+            )
+        }
+        let stored = try await providerRepository.provider(with: connection.identity)
+        XCTAssertEqual(stored?.connection.metadata.displayName, "Example Provider")
+    }
+
+    func testUpdate_EmptyCapabilitiesAreRejected() async throws {
+        let (_, _, _, service) = makeServiceWithInMemoryDoubles()
+        let connection = try await service.configure(request())
+
+        await assertThrowsValidationError(reason: "The provider must declare at least one capability.") {
+            _ = try await service.update(
+                updateRequest(capabilities: ProviderCapabilities(capabilities: [])),
+                for: connection.identity,
+                endpoint: "https://api.example.com/v2",
+                model: nil
+            )
+        }
+    }
+
+    func testUpdate_EmptyEndpointIsRejectedBeforeAnyWrite() async throws {
+        let (providerRepository, _, _, service) = makeServiceWithInMemoryDoubles()
+        let connection = try await service.configure(request())
+
+        await assertThrowsValidationError(reason: "The endpoint is empty.") {
+            _ = try await service.update(
+                updateRequest(),
+                for: connection.identity,
+                endpoint: "   ",
+                model: nil
+            )
+        }
+        let stored = try await providerRepository.provider(with: connection.identity)
+        XCTAssertEqual(stored?.connection.metadata.displayName, "Example Provider")
+    }
+
+    func testUpdate_EmptyModelIsRejected() async throws {
+        let (_, _, _, service) = makeServiceWithInMemoryDoubles()
+        let connection = try await service.configure(request())
+
+        await assertThrowsValidationError(reason: "The model is empty.") {
+            _ = try await service.update(
+                updateRequest(),
+                for: connection.identity,
+                endpoint: "https://api.example.com/v2",
+                model: "   "
+            )
+        }
+    }
+
+    func testUpdate_UnknownProviderIsRejected() async {
+        let (_, _, _, service) = makeServiceWithInMemoryDoubles()
+        await assertThrowsValidationError(reason: "The provider connection does not exist.") {
+            _ = try await service.update(
+                updateRequest(),
+                for: ProviderIdentity(),
+                endpoint: "https://api.example.com/v2",
+                model: nil
+            )
+        }
+    }
+
+    func testUpdate_StoredCredentialIsKept() async throws {
+        let (_, credentialStorage, configurationRepository, service) = makeServiceWithInMemoryDoubles()
+        let connection = try await service.configure(request())
+        let storedReference = try? await configurationRepository.value(
+            for: referenceKey(for: connection.identity),
+            at: .providerSettings
+        )
+        let reference = try XCTUnwrap(storedReference)
+        let before = try await credentialStorage.credential(for: reference)
+
+        try await service.update(
+            updateRequest(),
+            for: connection.identity,
+            endpoint: "https://api.example.com/v2",
+            model: nil
+        )
+
+        let after = try await credentialStorage.credential(for: reference)
+        XCTAssertEqual(before, after)
     }
 
     // MARK: Sendability

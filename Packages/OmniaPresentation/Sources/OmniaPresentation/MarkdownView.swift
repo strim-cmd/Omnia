@@ -51,7 +51,7 @@ public struct MarkdownView: View {
                 Text(code)
                     .font(.system(.body, design: .monospaced))
                     .textSelection(.enabled)
-                    .padding(16)
+                    .padding(OmniaTheme.Spacing.lg)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .background(codeBlockBackgroundColor)
                     .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))

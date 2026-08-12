@@ -135,7 +135,8 @@ public struct CompositionRoot: Sendable {
         let providerConnectionService = ProviderConnectionService(
             providerRepository: providerRepository,
             credentialStorage: credentialStorage,
-            configurationRepository: configurationRepository
+            configurationRepository: configurationRepository,
+            lifecycleService: lifecycleService
         )
         let sendMessageUseCase = SendMessageUseCase(
             streamingContract: binding,

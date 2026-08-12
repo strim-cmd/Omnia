@@ -1,4 +1,5 @@
 import OmniaApplication
+import OmniaFoundation
 import XCTest
 @testable import OmniaPresentation
 
@@ -9,6 +10,23 @@ final class SettingsStateTests: XCTestCase {
             identity: ProviderIdentity(),
             displayName: name,
             state: .ready
+        )
+    }
+
+    private func editing(
+        identity: ProviderIdentity = ProviderIdentity(),
+        displayName: String = "Example Provider",
+        currentEndpoint: String = "https://api.example.com/v1",
+        currentModel: String = "omniroute:gpt-4o"
+    ) -> SettingsState.Editing {
+        SettingsState.Editing(
+            identity: identity,
+            displayName: displayName,
+            capabilities: ProviderCapabilities(capabilities: [.textGeneration, .conversation]),
+            limits: ProviderLimits(maxRequestsPerMinute: 60),
+            version: SemanticVersion(major: 1, minor: 0, patch: 0),
+            currentEndpoint: currentEndpoint,
+            currentModel: currentModel
         )
     }
 
@@ -52,79 +70,27 @@ final class SettingsStateTests: XCTestCase {
         XCTAssertNil(state.editing)
     }
 
-    func testEditCondition_ReflectsTheEndpointEditFlow() {
+    func testEditCondition_ReflectsTheProviderEditFlow() {
         let identity = ProviderIdentity()
-        let editing = SettingsState.Editing(
-            identity: identity,
-            displayName: "Example Provider",
-            currentEndpoint: "https://api.example.com/v1"
-        )
+        let editing = self.editing(identity: identity)
         let state = SettingsState(connections: [], editing: editing)
         XCTAssertEqual(state.editing, editing)
         XCTAssertEqual(state.editing?.identity, identity)
         XCTAssertEqual(state.editing?.displayName, "Example Provider")
+        XCTAssertEqual(
+            state.editing?.capabilities,
+            ProviderCapabilities(capabilities: [.textGeneration, .conversation])
+        )
+        XCTAssertEqual(state.editing?.limits, ProviderLimits(maxRequestsPerMinute: 60))
+        XCTAssertEqual(state.editing?.version, SemanticVersion(major: 1, minor: 0, patch: 0))
         XCTAssertEqual(state.editing?.currentEndpoint, "https://api.example.com/v1")
+        XCTAssertEqual(state.editing?.currentModel, "omniroute:gpt-4o")
     }
 
-    func testEditCondition_CurrentEndpointDefaultsToEmptyWhenNoneIsRecorded() {
-        let editing = SettingsState.Editing(
-            identity: ProviderIdentity(),
-            displayName: "Example Provider",
-            currentEndpoint: ""
-        )
+    func testEditCondition_EndpointAndModelDefaultToEmptyWhenNoneIsRecorded() {
+        let editing = self.editing(currentEndpoint: "", currentModel: "")
         XCTAssertEqual(editing.currentEndpoint, "")
-    }
-
-    // MARK: Model-edit condition
-
-    func testCreation_EditingModelDefaultsToNil() {
-        let state = SettingsState(connections: [])
-        XCTAssertNil(state.editingModel)
-    }
-
-    func testModelEditCondition_ReflectsTheModelEditFlow() {
-        let identity = ProviderIdentity()
-        let editingModel = SettingsState.ModelEditing(
-            identity: identity,
-            displayName: "Example Provider",
-            currentModel: "omniroute:gpt-4o"
-        )
-        let state = SettingsState(connections: [], editingModel: editingModel)
-        XCTAssertEqual(state.editingModel, editingModel)
-        XCTAssertEqual(state.editingModel?.identity, identity)
-        XCTAssertEqual(state.editingModel?.displayName, "Example Provider")
-        XCTAssertEqual(state.editingModel?.currentModel, "omniroute:gpt-4o")
-    }
-
-    func testModelEditCondition_CurrentModelDefaultsToEmptyWhenNoneIsRecorded() {
-        let editingModel = SettingsState.ModelEditing(
-            identity: ProviderIdentity(),
-            displayName: "Example Provider",
-            currentModel: ""
-        )
-        XCTAssertEqual(editingModel.currentModel, "")
-    }
-
-    func testEquality_DifferentModelEditConditionIsNotEqual() {
-        let editingModel = SettingsState.ModelEditing(
-            identity: ProviderIdentity(),
-            displayName: "Example Provider",
-            currentModel: "omniroute:gpt-4o"
-        )
-        let a = SettingsState(connections: [])
-        let b = SettingsState(connections: [], editingModel: editingModel)
-        XCTAssertNotEqual(a, b)
-    }
-
-    func testEquality_ModelEditingEqualToItself() {
-        let editingModel = SettingsState.ModelEditing(
-            identity: ProviderIdentity(),
-            displayName: "Example Provider",
-            currentModel: "omniroute:gpt-4o"
-        )
-        let a = SettingsState(connections: [], editingModel: editingModel)
-        let b = SettingsState(connections: [], editingModel: editingModel)
-        XCTAssertEqual(a, b)
+        XCTAssertEqual(editing.currentModel, "")
     }
 
     func testFailure_ApplicationValidationError() {
@@ -160,22 +126,13 @@ final class SettingsStateTests: XCTestCase {
     }
 
     func testEquality_DifferentEditConditionIsNotEqual() {
-        let editing = SettingsState.Editing(
-            identity: ProviderIdentity(),
-            displayName: "Example Provider",
-            currentEndpoint: "https://api.example.com/v1"
-        )
         let a = SettingsState(connections: [])
-        let b = SettingsState(connections: [], editing: editing)
+        let b = SettingsState(connections: [], editing: self.editing())
         XCTAssertNotEqual(a, b)
     }
 
     func testEquality_EditingEqualToItself() {
-        let editing = SettingsState.Editing(
-            identity: ProviderIdentity(),
-            displayName: "Example Provider",
-            currentEndpoint: "https://api.example.com/v1"
-        )
+        let editing = self.editing()
         let a = SettingsState(connections: [], editing: editing)
         let b = SettingsState(connections: [], editing: editing)
         XCTAssertEqual(a, b)

@@ -1,15 +1,25 @@
 import OmniaDomain
 
-/// The provider connection application service: configure, list, remove, and
-/// record the OpenAI-compatible endpoint and optional model of provider
-/// connections — the provider flows of the Settings module (DES-011 §3.4,
-/// §3.9, §3.10).
+/// The provider connection application service: configure, list, remove, update
+/// the declaration of, and record the OpenAI-compatible endpoint and optional
+/// model of provider connections — the provider flows of the Settings module
+/// (DES-011 §3.4, §3.9, §3.10).
 ///
 /// The service orchestrates the frozen `ProviderRepository`, the
 /// `CredentialStorageProtocol`, and the `ConfigurationRepository` for the
 /// credential reference (DES-009 §3.5, §3.6, §3.7). It owns no business rules:
 /// the provider aggregate and its lifecycle are the Domain's (ARC-002,
 /// ADR-0001), and the service only sequences the operations.
+///
+/// The service also wires the lifecycle: a connection configured during a
+/// running session is registered in the `ProviderLifecycleService` and
+/// transitioned to ready, and the ready state is persisted back — so the
+/// persisted provider state the settings and conversation surfaces read agrees
+/// with the runtime lifecycle that actually serves requests, and a provider
+/// that is actually available renders available without waiting for the next
+/// `prepare()` (DES-013 §3.3). The lifecycle service is delivered by the
+/// Composition Root and is the same instance the runtime provider binding and
+/// selection read.
 ///
 /// The credential is stored by reference through the Domain credential storage
 /// and never persists in, or enters any representation of, the connection, the
@@ -29,16 +39,20 @@ public struct ProviderConnectionService: Sendable {
     private let providerRepository: any ProviderRepository
     private let credentialStorage: any CredentialStorageProtocol
     private let configurationRepository: any ConfigurationRepository
+    private let lifecycleService: ProviderLifecycleService
 
-    /// Creates a provider connection service over the given Domain contracts.
+    /// Creates a provider connection service over the given Domain contracts
+    /// and the lifecycle service its configured connections are wired into.
     public init(
         providerRepository: any ProviderRepository,
         credentialStorage: any CredentialStorageProtocol,
-        configurationRepository: any ConfigurationRepository
+        configurationRepository: any ConfigurationRepository,
+        lifecycleService: ProviderLifecycleService
     ) {
         self.providerRepository = providerRepository
         self.credentialStorage = credentialStorage
         self.configurationRepository = configurationRepository
+        self.lifecycleService = lifecycleService
     }
 
     /// Configures a new provider connection for `request` (DES-011 §3.4).
@@ -50,6 +64,14 @@ public struct ProviderConnectionService: Sendable {
     /// level. Input is validated at the boundary before any domain operation
     /// (ARC-009): an empty display name, an empty capability set, and an empty
     /// credential are rejected with the typed application error of DES-011 §3.6.
+    ///
+    /// The connection is wired into the running session: it is registered in the
+    /// lifecycle service and transitioned to ready, and the ready state is
+    /// persisted back to the repository — so the provider is immediately
+    /// servable by selection and the runtime binding, and the settings and
+    /// conversation surfaces render it available without waiting for the next
+    /// `prepare()` (DES-013 §3.3). The transition chain is the same legal chain
+    /// `prepare()` drives, idempotent across relaunch.
     ///
     /// Provider, credential, and configuration failures surface as their Domain
     /// errors, never wrapped (DES-009 §3.9).
@@ -73,6 +95,7 @@ public struct ProviderConnectionService: Sendable {
             for: Self.credentialReferenceKey(for: identity),
             at: .providerSettings
         )
+        try await makeReady(connection)
         return connection
     }
 
@@ -150,6 +173,65 @@ public struct ProviderConnectionService: Sendable {
         try await configurationRepository.remove(key, at: .providerSettings)
         try await configurationRepository.remove(Self.endpointKey(for: identity), at: .providerSettings)
         try await configurationRepository.remove(Self.modelKey(for: identity), at: .providerSettings)
+    }
+
+    /// Updates the declaration of the provider connection with `identity` —
+    /// the unified provider-edit flow of the providers surface (DES-011 §3.1):
+    /// the connection's declared display name, capabilities, limits, and
+    /// version are replaced with `request`'s, and its OpenAI-compatible
+    /// endpoint and optional model are recorded — mirroring the connection form
+    /// (DES-011 §3.9, §3.10).
+    ///
+    /// The connection declaration is user-owned connection configuration
+    /// (ARC-005) and the lifecycle state is preserved: the persisted provider
+    /// keeps its current state (a ready provider stays ready), and the lifecycle
+    /// service's provider is replaced with the edited connection in the same
+    /// state, so selection and the runtime binding keep serving it. The
+    /// credential is never touched — editing a connection never requires
+    /// re-entering the secret, and the stored credential is kept by reference
+    /// (ARC-001, ARC-005).
+    ///
+    /// Input is validated at the boundary before any write (ARC-009): an empty
+    /// display name and an empty capability set are rejected; the endpoint is
+    /// validated with the same rule as `updateEndpoint(_:for:)`; and `model` —
+    /// when given — with the same rule as `updateModel(_:for:)`. `nil` (or an
+    /// empty trimmed) model records no model, removing any previously recorded
+    /// one, so the provider falls back to the app-edge default. Updating a
+    /// connection that is not stored is rejected with the typed application
+    /// error of DES-011 §3.6.
+    public func update(
+        _ request: ProviderUpdateRequest,
+        for identity: ProviderIdentity,
+        endpoint: String,
+        model: String?
+    ) async throws -> ProviderConnection {
+        try Self.validateUpdate(request)
+        let validatedEndpoint = try Self.validatedEndpoint(endpoint)
+        let validatedModel = try model.map(Self.validatedModel)
+        guard let existing = try await providerRepository.provider(with: identity) else {
+            throw ApplicationValidationError.invalid(
+                reason: "The provider connection does not exist."
+            )
+        }
+        let connection = ProviderConnection(
+            identity: identity,
+            capabilities: request.capabilities,
+            metadata: ProviderMetadata(displayName: request.displayName),
+            limits: request.limits,
+            version: request.version
+        )
+        try await providerRepository.save(existing.replacingConnection(connection))
+        await lifecycleService.update(connection)
+        try await updateEndpoint(validatedEndpoint, for: identity)
+        if let validatedModel {
+            try await updateModel(validatedModel, for: identity)
+        } else {
+            try await configurationRepository.remove(
+                Self.modelKey(for: identity),
+                at: .providerSettings
+            )
+        }
+        return connection
     }
 
     /// The provider-settings configuration key that records the credential
@@ -313,6 +395,39 @@ public struct ProviderConnectionService: Sendable {
         let secretIsEmpty = request.credential.withValue { $0.isEmpty }
         guard !secretIsEmpty else {
             throw ApplicationValidationError.invalid(reason: "The credential is empty.")
+        }
+    }
+
+    /// Validates an update request at the boundary (ARC-009, DES-011 §3.6):
+    /// the display name must be non-empty and the capability set non-empty —
+    /// the connection declaration must remain complete. The credential is never
+    /// validated here: editing a connection never requires re-entering it
+    /// (ARC-001, ARC-005).
+    private static func validateUpdate(_ request: ProviderUpdateRequest) throws {
+        let trimmedName = request.displayName.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedName.isEmpty else {
+            throw ApplicationValidationError.invalid(reason: "The display name is empty.")
+        }
+        guard !request.capabilities.capabilities.isEmpty else {
+            throw ApplicationValidationError.invalid(
+                reason: "The provider must declare at least one capability."
+            )
+        }
+    }
+
+    /// Wires a freshly configured connection into the running session (DES-013
+    /// §3.3): it is registered in the lifecycle service and transitioned through
+    /// the legal chain to ready, and the ready state is persisted back to the
+    /// repository — the same idempotent chain `prepare()` drives, so a provider
+    /// that is actually available renders available immediately, not only after
+    /// the next launch.
+    private func makeReady(_ connection: ProviderConnection) async throws {
+        let identity = await lifecycleService.register(connection)
+        try await lifecycleService.transition(identity, to: .validated)
+        try await lifecycleService.transition(identity, to: .initializing)
+        try await lifecycleService.transition(identity, to: .ready)
+        if let readyProvider = await lifecycleService.provider(with: identity) {
+            try await providerRepository.save(readyProvider)
         }
     }
 }

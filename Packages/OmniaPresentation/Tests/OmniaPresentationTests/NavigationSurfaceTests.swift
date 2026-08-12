@@ -186,7 +186,8 @@ private func makeSettingsSurface() -> SettingsSurface {
         connectionService: ProviderConnectionService(
             providerRepository: InMemoryProviderRepository(),
             credentialStorage: InMemoryCredentialStorage(),
-            configurationRepository: InMemoryConfigurationRepository()
+            configurationRepository: InMemoryConfigurationRepository(),
+            lifecycleService: ProviderLifecycleService()
         ),
         configurationService: ConfigurationService(
             configurationRepository: InMemoryConfigurationRepository(),
@@ -296,7 +297,8 @@ final class NavigationSurfaceTests: XCTestCase {
                 connectionService: ProviderConnectionService(
                     providerRepository: providerRepository,
                     credentialStorage: InMemoryCredentialStorage(),
-                    configurationRepository: InMemoryConfigurationRepository()
+                    configurationRepository: InMemoryConfigurationRepository(),
+                    lifecycleService: ProviderLifecycleService()
                 ),
                 configurationService: ConfigurationService(
                     configurationRepository: InMemoryConfigurationRepository(),
@@ -325,7 +327,8 @@ final class NavigationSurfaceTests: XCTestCase {
                 connectionService: ProviderConnectionService(
                     providerRepository: providerRepository,
                     credentialStorage: InMemoryCredentialStorage(),
-                    configurationRepository: InMemoryConfigurationRepository()
+                    configurationRepository: InMemoryConfigurationRepository(),
+                    lifecycleService: ProviderLifecycleService()
                 ),
                 configurationService: ConfigurationService(
                     configurationRepository: InMemoryConfigurationRepository(),

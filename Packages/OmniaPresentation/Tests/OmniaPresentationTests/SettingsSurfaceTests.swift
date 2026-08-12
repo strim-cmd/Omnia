@@ -231,7 +231,8 @@ private func makeSurface(
         connectionService: ProviderConnectionService(
             providerRepository: providerRepository,
             credentialStorage: credentialStorage,
-            configurationRepository: configurationRepository
+            configurationRepository: configurationRepository,
+            lifecycleService: ProviderLifecycleService()
         ),
         configurationService: ConfigurationService(
             configurationRepository: configurationRepository,

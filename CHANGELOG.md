@@ -67,11 +67,38 @@ Public repository release readiness. No product behavior or API changes.
 
 ## [Unreleased]
 
-UX audit (issue #154) — core-flow correctness, accessibility, validation,
-draft preservation, destructive-action protection, and retry/continue paths in
-the presentation layer:
+Release-preparation scope — the provider surface and lifecycle redesign (providers
+and settings as distinct destinations, a unified provider connection form, real
+lifecycle-driven availability, and per-provider model routing) plus the UX audit
+(issue #154) — core-flow correctness, accessibility, validation, draft
+preservation, destructive-action protection, and retry/continue paths in the
+presentation layer:
 
 ### Added
+
+- Providers and Settings are now distinct destinations: a dedicated Providers
+  surface manages provider connections while Settings holds application settings,
+  the navigation state carries each route, and the side drawer stays available on
+  every pushed screen (UI issues 1, 2).
+- Provider configuration uses one unified connection form for both adding and
+  editing a connection, pre-filled with the connection's recorded declaration,
+  endpoint, and model (UI issue 3).
+- The provider add button is hidden while the connection form is open — compose
+  or edit — so the screen never offers a second form next to the one shown (UI
+  issue 4).
+- Provider availability is driven by real lifecycle state: configure and update
+  transition connections through the explicit lifecycle, the ready state is
+  persisted and re-registered on launch, and the rendered availability reflects
+  that state rather than configuration existence (UI issue 5).
+- The message composer is adaptive: a compact single-line control that grows
+  naturally with multi-line drafts instead of a permanently tall fixed area (UI
+  issue 6).
+- Dark Mode actually switches the interface between light and dark and persists
+  through relaunches through the `appearance.darkMode` configuration key, which
+  remains the single source of truth (UI issue 7).
+- The conversation list presents its own header with the screen title; navigation
+  between destinations is driven by the centralized navigation state and the side
+  drawer (UX audit V5, S3).
 
 - The conversation screen now lets you choose which configured provider connection serves a conversation: the provider selector — a native pull-down menu listing Automatic and each connection, with not-ready connections shown disabled — carries your explicit choice into the next message through the frozen selection request, honors the selection policy (a non-selectable choice is skipped and announced, never silently dropped), and preserves it across launches through the typed configuration (UX audit iteration V2).
 - Shared presentation components (banner/empty-state markup) have been consolidated, ensuring visual consistency and reducing the risk of drift (UX audit V2).
@@ -92,12 +119,13 @@ the presentation layer:
   into the reply — no duplicate user message is appended, the completed reply
   is persisted, and a second interruption preserves the content again, never
   discarded (UX audit U7).
-- A provider connection row now offers an Edit Endpoint action alongside
-  Remove: the endpoint editor is pre-filled with the recorded endpoint and
-  records the updated endpoint through the frozen provider endpoint surface,
-  so a non-ready provider connection offers a way to retry or edit instead of
-  only Remove; a malformed endpoint shows the typed failure and a failed update
-  keeps the editor open with its input retained (UX audit U7).
+- A provider connection row now offers an Edit Provider action alongside
+  Remove: the unified connection form is pre-filled with the connection's
+  recorded declaration, endpoint, and model, and saving records the change
+  through the frozen provider surface — so a non-ready provider connection
+  offers a way to edit instead of only Remove; a malformed value shows the typed
+  failure and a failed update keeps the form open with its input retained (UX
+  audit U7).
 - VoiceOver now reads every message bubble — user, assistant, and
   streaming/interrupted — as one logical element with the role followed by the
   content, consistently (UX audit A3).

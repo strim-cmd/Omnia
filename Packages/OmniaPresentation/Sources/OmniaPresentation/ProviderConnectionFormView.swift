@@ -4,37 +4,52 @@ import OmniaApplication
 import OmniaFoundation
 import SwiftUI
 
-/// The SwiftUI connection-form intent of the settings surface (DES-012 §3.4):
-/// the user's declaration of a new provider connection — display name,
-/// capabilities, limits, version, the endpoint, the optional model, and the
-/// credential entered by the user — translated into the frozen
-/// `ConfigureProviderRequest`, the declared endpoint, and the declared model,
-/// and handed to `SettingsSurface.configure`. The view renders the compose form
-/// and translates intent; it owns no business logic (ARC-002). The interface is
-/// generic and never changes per provider (`PRODUCT_PRINCIPLES` — Provider
-/// Independence).
+/// The SwiftUI connection-form intent of the providers surface (DES-012 §3.4,
+/// new_design.md §7): the unified provider form — compose and provider-edit —
+/// collecting the display name, capabilities, limits, version, endpoint, and
+/// the optional model of a provider connection, and, in compose, the credential
+/// entered by the user. In compose the form translates the declaration into the
+/// frozen `ConfigureProviderRequest`, the declared endpoint, and the declared
+/// model, handed to `SettingsSurface.configure`; in provider-edit the same form
+/// is presented pre-filled with the connection's current declaration, endpoint,
+/// and model, and translates the edited declaration into the frozen
+/// `ProviderUpdateRequest`, handed to `SettingsSurface.update` — one Edit
+/// Provider action replaces the separate endpoint and model editors. The view
+/// renders the form and translates intent; it owns no business logic (ARC-002).
+/// The interface is generic and never changes per provider
+/// (`PRODUCT_PRINCIPLES` — Provider Independence).
 ///
-/// The credential boundary is honored: the entered secret lives only in the
-/// secure text field and is passed into the frozen `ConfigureProviderRequest`,
-/// whose storage by reference is the service's concern (DES-011 §3.4,
-/// ARC-005); the field is cleared on submit, and the secret is never
-/// persisted, logged, or rendered by the view (ARC-001, ARC-005).
+/// The credential boundary is honored: in compose, the entered secret lives
+/// only in the secure text field and is passed into the frozen
+/// `ConfigureProviderRequest`, whose storage by reference is the service's
+/// concern (DES-011 §3.4, ARC-005); the field is cleared on submit, and the
+/// secret is never persisted, logged, or rendered by the view (ARC-001,
+/// ARC-005). In provider-edit the credential field is not presented — editing a
+/// connection never requires re-entering the secret, and the stored credential
+/// is kept by reference (ARC-001, ARC-005).
 ///
 /// The endpoint and the optional model are collected with the connection
 /// declaration and recorded by the settings surface through the service's
 /// endpoint and model surfaces; they are connection configuration the user owns
-/// (ARC-005) and never enter the `ConfigureProviderRequest` or any Domain
-/// aggregate (DES-011 §3.9, §3.10, ARC-004). An empty model is allowed and
-/// records no model, so the provider falls back to the app-edge default model.
+/// (ARC-005) and never enter the `ConfigureProviderRequest`,
+/// `ProviderUpdateRequest`, or any Domain aggregate (DES-011 §3.9, §3.10,
+/// ARC-004). An empty model is allowed and records no model, so the provider
+/// falls back to the app-edge default model.
 ///
 /// The view is Apple-platform code, isolated behind platform availability; it
 /// is not exercised by the Linux test environment (§3.7) and is verified by
 /// review against `project UI standards`.
 @available(iOS 15.0, macOS 12.0, *)
 public struct ProviderConnectionFormView: View {
-    /// Translates the submit intent with the composed request, the declared
-    /// endpoint, and the declared model.
+    /// The provider-edit condition when the form is editing a connection, or
+    /// `nil` when it is composing a new one.
+    public let editing: SettingsState.Editing?
+    /// Translates the compose-submit intent with the composed request, the
+    /// declared endpoint, and the declared model.
     public let onConfigure: (ConfigureProviderRequest, String, String) -> Void
+    /// Translates the edit-submit intent with the edited declaration, the
+    /// declared endpoint, and the declared model.
+    public let onUpdate: (ProviderUpdateRequest, String, String) -> Void
     /// Translates the cancel intent.
     public let onCancel: () -> Void
 
@@ -48,13 +63,32 @@ public struct ProviderConnectionFormView: View {
     @State private var model = ""
     @State private var credentialSecret = ""
 
-    /// Creates a provider connection form over the given intent callbacks.
+    /// Creates a provider connection form over the given intent callbacks,
+    /// pre-filled with the connection's current declaration when editing.
     public init(
+        editing: SettingsState.Editing? = nil,
         onConfigure: @escaping (ConfigureProviderRequest, String, String) -> Void,
+        onUpdate: @escaping (ProviderUpdateRequest, String, String) -> Void,
         onCancel: @escaping () -> Void
     ) {
+        self.editing = editing
         self.onConfigure = onConfigure
+        self.onUpdate = onUpdate
         self.onCancel = onCancel
+        _displayName = State(initialValue: editing?.displayName ?? "")
+        _selectedCapabilities = State(
+            initialValue: editing?.capabilities.capabilities
+                ?? [.textGeneration, .conversation, .streaming]
+        )
+        _maxRequestsPerMinute = State(
+            initialValue: editing?.limits.maxRequestsPerMinute.map(String.init) ?? ""
+        )
+        _versionMajor = State(initialValue: editing.map { String($0.version.major) } ?? "1")
+        _versionMinor = State(initialValue: editing.map { String($0.version.minor) } ?? "0")
+        _versionPatch = State(initialValue: editing.map { String($0.version.patch) } ?? "0")
+        _endpoint = State(initialValue: editing?.currentEndpoint ?? "")
+        _model = State(initialValue: editing?.currentModel ?? "")
+        _credentialSecret = State(initialValue: "")
     }
 
     public var body: some View {
@@ -69,21 +103,17 @@ public struct ProviderConnectionFormView: View {
             .padding(OmniaTheme.Spacing.lg)
         }
         .background(OmniaTheme.Colors.background)
-        .navigationTitle(Localized.configureProvider)
-        .toolbar {
-            ToolbarItem(placement: .cancellationAction) {
-                Button(Localized.cancel, action: onCancel)
-            }
-            ToolbarItem(placement: .confirmationAction) {
-                Button(Localized.save, action: submit)
-                    .disabled(!canSubmit)
-                    .accessibilityLabel(Text(Localized.saveProviderConnection))
-            }
-        }
     }
 
-    /// The connection section: the display name, endpoint, model, and credential
-    /// fields (new_design.md §14).
+    /// Whether the form edits a connection rather than composing a new one.
+    private var isEditing: Bool {
+        editing != nil
+    }
+
+    /// The connection section: the display name, endpoint, model, and — in
+    /// compose — credential fields (new_design.md §14). In provider-edit the
+    /// credential field is not presented: editing a connection never requires
+    /// re-entering the secret (ARC-001, ARC-005).
     private var connectionSection: some View {
         OmniaCard {
             VStack(alignment: .leading, spacing: OmniaTheme.Spacing.md) {
@@ -137,22 +167,24 @@ public struct ProviderConnectionFormView: View {
                     .keyboardType(.URL)
                     .textInputAutocapitalization(.never)
                     #endif
-                SecureField(Localized.apiKey, text: $credentialSecret)
-                    .font(OmniaTheme.Typography.body)
-                    .foregroundStyle(OmniaTheme.Colors.textPrimary)
-                    .tint(OmniaTheme.Colors.accent)
-                    .autocorrectionDisabled()
-                    .textFieldStyle(.plain)
-                    .padding(OmniaTheme.Spacing.sm)
-                    .background(OmniaTheme.Colors.elevatedSurface)
-                    .clipShape(RoundedRectangle(cornerRadius: OmniaTheme.Radii.medium, style: .continuous))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: OmniaTheme.Radii.medium, style: .continuous)
-                            .stroke(OmniaTheme.Colors.border, lineWidth: 0.5)
-                    )
-                    #if os(iOS)
-                    .textInputAutocapitalization(.never)
-                    #endif
+                if !isEditing {
+                    SecureField(Localized.apiKey, text: $credentialSecret)
+                        .font(OmniaTheme.Typography.body)
+                        .foregroundStyle(OmniaTheme.Colors.textPrimary)
+                        .tint(OmniaTheme.Colors.accent)
+                        .autocorrectionDisabled()
+                        .textFieldStyle(.plain)
+                        .padding(OmniaTheme.Spacing.sm)
+                        .background(OmniaTheme.Colors.elevatedSurface)
+                        .clipShape(RoundedRectangle(cornerRadius: OmniaTheme.Radii.medium, style: .continuous))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: OmniaTheme.Radii.medium, style: .continuous)
+                                .stroke(OmniaTheme.Colors.border, lineWidth: 0.5)
+                        )
+                        #if os(iOS)
+                        .textInputAutocapitalization(.never)
+                        #endif
+                }
             }
         }
     }
@@ -244,41 +276,63 @@ public struct ProviderConnectionFormView: View {
         }
     }
 
-    /// Submits the declaration as a frozen `ConfigureProviderRequest`, the
-    /// declared endpoint, and the declared model (DES-012 §3.4): the display
-    /// name trimmed, the declared capabilities, the stated limits and version,
-    /// the endpoint, the optional model, and the entered credential. An empty
-    /// model is allowed — it records no model, so the provider falls back to
-    /// the app-edge default. The credential field is cleared on submit
-    /// (ARC-005). `canSubmit` guarantees the numeric fields are valid, so the
-    /// saved request never contains a silently coerced value.
+    /// Submits the form (DES-012 §3.4): in compose, as a frozen
+    /// `ConfigureProviderRequest`, the declared endpoint, and the declared
+    /// model — the display name trimmed, the declared capabilities, the stated
+    /// limits and version, the endpoint, the optional model, and the entered
+    /// credential (the field cleared on submit, ARC-005); in provider-edit, as
+    /// a frozen `ProviderUpdateRequest` — the same declaration without a
+    /// credential, since editing never re-enters the secret — with the declared
+    /// endpoint and model. An empty model is allowed — it records no model, so
+    /// the provider falls back to the app-edge default. `canSubmit` guarantees
+    /// the numeric fields are valid, so the submitted values never contain a
+    /// silently coerced value.
     private func submit() {
         guard canSubmit else { return }
-        self.onConfigure(
-            ConfigureProviderRequest(
-                displayName: trimmedDisplayName,
-                capabilities: ProviderCapabilities(capabilities: selectedCapabilities),
-                limits: ProviderLimits(maxRequestsPerMinute: parsedLimit),
-                version: SemanticVersion(
-                    major: parsedVersionMajor ?? 0,
-                    minor: parsedVersionMinor ?? 0,
-                    patch: parsedVersionPatch ?? 0
-                ),
-                credential: Credential(secret: credentialSecret)
-            ),
-            trimmedEndpoint,
-            trimmedModel
+        let declaration = {
+            ProviderCapabilities(capabilities: selectedCapabilities)
+        }
+        let limits = ProviderLimits(maxRequestsPerMinute: parsedLimit)
+        let version = SemanticVersion(
+            major: parsedVersionMajor ?? 0,
+            minor: parsedVersionMinor ?? 0,
+            patch: parsedVersionPatch ?? 0
         )
+        if isEditing {
+            self.onUpdate(
+                ProviderUpdateRequest(
+                    displayName: trimmedDisplayName,
+                    capabilities: declaration(),
+                    limits: limits,
+                    version: version
+                ),
+                trimmedEndpoint,
+                trimmedModel
+            )
+        } else {
+            self.onConfigure(
+                ConfigureProviderRequest(
+                    displayName: trimmedDisplayName,
+                    capabilities: declaration(),
+                    limits: limits,
+                    version: version,
+                    credential: Credential(secret: credentialSecret)
+                ),
+                trimmedEndpoint,
+                trimmedModel
+            )
+        }
         credentialSecret = ""
     }
 
     /// The submit is enabled when the declaration is complete — a display
-    /// name, at least one capability, an endpoint, and a credential — and the
-    /// numeric fields are valid, so an incomplete or invalid declaration never
-    /// reaches the service.
+    /// name, at least one capability, an endpoint, and, in compose, a
+    /// credential (provider-edit keeps the stored credential by reference) —
+    /// and the numeric fields are valid, so an incomplete or invalid
+    /// declaration never reaches the service.
     private var canSubmit: Bool {
         !trimmedDisplayName.isEmpty && !selectedCapabilities.isEmpty
-            && !trimmedEndpoint.isEmpty && !credentialSecret.isEmpty
+            && !trimmedEndpoint.isEmpty && (isEditing || !credentialSecret.isEmpty)
             && limitIsValid && versionIsValid
     }
 

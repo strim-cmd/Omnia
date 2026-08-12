@@ -14,8 +14,10 @@ import SwiftUI
 /// interface — the brand header, the navigation rows, and the compact Dark Mode
 /// card the bottom area carries (new_design.md §8, COMPONENTS.md — ThemeToggle).
 /// Selection state is rendered from the frozen `NavigationState.Route` of the
-/// shell (ARC-007): the providers and settings rows present the same existing
-/// destination, so both render as selected when the settings route is active.
+/// shell (ARC-007): the providers row routes to the provider-management
+/// destination and the settings row to the application-settings destination —
+/// two distinct routes, each rendered as selected only when its own
+/// destination is active.
 ///
 /// The view is Apple-platform code, isolated behind platform availability; it
 /// is not exercised by the Linux test environment (§3.7) and is verified by
@@ -134,7 +136,7 @@ public struct SideMenuView: View {
     }
 
     private var isProvidersSelected: Bool {
-        currentRoute == .settings
+        currentRoute == .providers
     }
 
     private var isSettingsSelected: Bool {
@@ -206,7 +208,7 @@ public struct SideMenuView: View {
                 }
             }
             .padding(.horizontal, OmniaTheme.Spacing.md)
-            .padding(.vertical, 10)
+            .padding(.vertical, OmniaTheme.Spacing.sm)
             .contentShape(RoundedRectangle(cornerRadius: OmniaTheme.Radii.medium, style: .continuous))
             .background(
                 selected
@@ -216,6 +218,7 @@ public struct SideMenuView: View {
             )
         }
         .buttonStyle(.plain)
+        .frame(minHeight: 44)
         .accessibilityAddTraits(selected ? .isSelected : [])
     }
 
@@ -250,7 +253,8 @@ public struct SideMenuView: View {
                 .accessibilityLabel(Text(Localized.darkMode))
         }
         .padding(.horizontal, OmniaTheme.Spacing.md)
-        .padding(.vertical, 10)
+        .padding(.vertical, OmniaTheme.Spacing.sm)
+        .frame(minHeight: 44)
         .background(
             OmniaTheme.Colors.elevatedSurface,
             in: RoundedRectangle(cornerRadius: OmniaTheme.Radii.medium, style: .continuous)

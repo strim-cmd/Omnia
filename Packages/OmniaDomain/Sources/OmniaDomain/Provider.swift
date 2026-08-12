@@ -36,6 +36,30 @@ public struct Provider: Sendable {
         self.lifecycle = Lifecycle(initialState: .registered, legalTransitions: Self.legalTransitions)
     }
 
+    /// Creates a provider aggregate for `connection` in the lifecycle's current
+    /// state.
+    private init(connection: ProviderConnection, lifecycle: Lifecycle<ProviderState>) {
+        self.connection = connection
+        self.lifecycle = lifecycle
+    }
+
+    /// Returns a provider with `connection` replacing the declared connection,
+    /// preserving the current lifecycle state.
+    ///
+    /// The provider's declaration is user-owned connection configuration
+    /// (ARC-005); replacing it is a new aggregate value, never an in-place
+    /// mutation (ARC-001, ARC-003). The lifecycle state is preserved — a
+    /// connection whose declaration is edited mid-session does not drop back to
+    /// `registered`, so its availability and the runtime binding are unchanged.
+    /// Observers are not carried over: the lifecycle service drives transitions
+    /// directly, so a fresh observer set is expected (DES-007).
+    public func replacingConnection(_ connection: ProviderConnection) -> Provider {
+        Provider(
+            connection: connection,
+            lifecycle: Lifecycle(initialState: lifecycle.currentState, legalTransitions: Self.legalTransitions)
+        )
+    }
+
     /// The provider's stable identity.
     public var identity: ProviderIdentity {
         connection.identity

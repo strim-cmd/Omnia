@@ -175,8 +175,9 @@ public struct SettingsSurface: Sendable {
     }
 
     /// Returns the provider connection's recorded OpenAI-compatible endpoint,
-    /// or `nil` when none is recorded — the value the endpoint editor pre-fills
-    /// (DES-012 §3.4, DES-011 §3.9, UX audit U7).
+    /// or `nil` when none is recorded — the value the unified provider form
+    /// pre-fills when editing a connection (DES-012 §3.4, DES-011 §3.9, UX
+    /// audit U7).
     ///
     /// The endpoint is connection configuration the user owns (ARC-005);
     /// failures surface as the Domain `RepositoryError`, never wrapped (DES-011
@@ -216,6 +217,37 @@ public struct SettingsSurface: Sendable {
         for identity: ProviderIdentity
     ) async throws -> String? {
         try await connectionService.model(for: identity)
+    }
+
+    /// Updates the declaration of the provider connection with `identity` and
+    /// records its OpenAI-compatible endpoint and optional model — the
+    /// provider-edit intent of the providers surface (DES-012 §3.4): the same
+    /// connection form as compose, submitted as the frozen `ProviderUpdateRequest`
+    /// (DES-011 §3.1).
+    ///
+    /// The edited declaration, the endpoint, and the model are connection
+    /// configuration the user owns (ARC-005); the endpoint and model never
+    /// enter the `ProviderUpdateRequest` or any rendered state (DES-011 §3.9,
+    /// §3.10, ARC-001, ARC-004, ARC-005). The lifecycle state is preserved by
+    /// the service — a ready provider stays ready, so availability and the
+    /// runtime binding are unchanged. Input is validated at the service
+    /// boundary before any write; `nil` records no model, so the provider
+    /// falls back to the app-edge default (DES-011 §3.10). Failures surface as
+    /// they are — `ApplicationValidationError`, and the Domain `RepositoryError`
+    /// and `CredentialStorageError` — never wrapped (DES-011 §3.6, DES-009
+    /// §3.9).
+    public func update(
+        _ request: ProviderUpdateRequest,
+        for identity: ProviderIdentity,
+        endpoint: String,
+        model: String?
+    ) async throws -> ProviderConnection {
+        try await connectionService.update(
+            request,
+            for: identity,
+            endpoint: endpoint,
+            model: model
+        )
     }
 
     /// Stores `value` for `key` at `level`, replacing any previously stored

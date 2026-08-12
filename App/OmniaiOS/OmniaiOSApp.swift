@@ -104,7 +104,7 @@ private struct LaunchFailureView: View {
                 .foregroundStyle(.secondary)
             Text(message)
                 .multilineTextAlignment(.center)
-            Button(String(localized: "try_again"), action: onRetry)
+            Button(Localized.tryAgain, action: onRetry)
         }
         .padding()
         .frame(maxWidth: .infinity, maxHeight: .infinity)

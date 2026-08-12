@@ -10,11 +10,11 @@ import AppKit
 #endif
 
 /// The SwiftUI rendering of the navigation surface (DES-012 §3.5): the shell
-/// that hosts and routes between the conversation, settings, and about
-/// surfaces — the conversation list is the root destination, selecting a
+/// that hosts and routes between the conversation, providers, settings, and
+/// about surfaces — the conversation list is the root destination, selecting a
 /// conversation opens the conversation screen, and the list reaches the
-/// settings and about surfaces. The view renders state and translates intent;
-/// it owns no business logic (ARC-002, ARC-007).
+/// providers, settings, and about surfaces. The view renders state and
+/// translates intent; it owns no business logic (ARC-002, ARC-007).
 ///
 /// The shell is composed over the `NavigationSurface` seam: it hosts the
 /// conversation list, conversation screen, settings, and about surfaces the
@@ -45,15 +45,15 @@ public struct RootView: View {
     /// §8): the drawer is a slide-in overlay opened by the conversation list's
     /// menu button and closed by its dim backdrop or a row selection.
     @State private var isMenuPresented = false
-    /// Whether the shell forces the dark color scheme (new_design.md §8,
+    /// Whether the shell presents the dark color scheme (new_design.md §8,
     /// COMPONENTS.md — ThemeToggle): presented as the drawer's Dark Mode toggle
-    /// and applied as the shell's preferred color scheme. When the toggle is
-    /// off the shell follows the system scheme, so the product's dark identity
-    /// remains the default (new_design.md §13). The value is shell presentation
-    /// state, restored at launch and recorded on change through the typed
-    /// configuration store (DES-011 §3.5) — never a Domain or Application
+    /// and applied as the shell's preferred color scheme. Dark is the product's
+    /// main visual identity and the first-launch default (new_design.md §13);
+    /// turning the toggle off presents the light scheme. The value is shell
+    /// presentation state, restored at launch and recorded on change through the
+    /// typed configuration store (DES-011 §3.5) — never a Domain or Application
     /// concept (ARC-002).
-    @State private var isDarkMode = false
+    @State private var isDarkMode = true
     /// The ready-to-render conversation list state.
     @State private var listState: ConversationListState?
     /// The conversation the conversation screen presents.
@@ -95,9 +95,10 @@ public struct RootView: View {
 
     /// The typed configuration key of the shell's dark-mode choice, stored at
     /// the user-owned workspace level (DES-011 §3.5). Like the provider
-    /// selection key, it is the shell's own configuration vocabulary — the
-    /// presence of a stored `true` means dark mode, and it is not among the
-    /// `ConfigurationKey<String>` rows the settings surface presents.
+    /// selection key, it is the shell's own configuration vocabulary — a stored
+    /// `true` means the dark scheme and a stored `false` means the light scheme,
+    /// and it is not among the `ConfigurationKey<String>` rows the settings
+    /// surface presents.
     private static let darkModeKey = ConfigurationKey<Bool>("appearance.darkMode")
 
     public var body: some View {
@@ -130,6 +131,8 @@ public struct RootView: View {
                         switch destination.wrappedValue {
                         case .conversation(let identity):
                             conversationScreen(for: identity)
+                        case .providers:
+                            providersScreen
                         case .settings:
                             settingsScreen
                         case .about:
@@ -164,7 +167,7 @@ public struct RootView: View {
             }
         }
         .animation(OmniaTheme.Motion.drawer, value: isMenuPresented)
-        .preferredColorScheme(isDarkMode ? .dark : nil)
+        .preferredColorScheme(isDarkMode ? .dark : .light)
     }
 
     /// The presented navigation drawer: the dim backdrop that closes it and the
@@ -187,7 +190,7 @@ public struct RootView: View {
                     closeMenu(route: .conversationList)
                 },
                 onOpenProviders: {
-                    closeMenu(route: .settings)
+                    closeMenu(route: .providers)
                 },
                 onOpenSettings: {
                     closeMenu(route: .settings)
@@ -227,6 +230,8 @@ public struct RootView: View {
                     return nil
                 case .conversationScreen(let conversation):
                     return .conversation(conversation)
+                case .providers:
+                    return .providers
                 case .settings:
                     return .settings
                 case .about:
@@ -249,10 +254,9 @@ public struct RootView: View {
             onRetry: retry,
             onCopy: copy(at:),
             onSelectProvider: { selectProvider($0.identity) },
-            onOpenSettings: openSettingsFromConversation,
+            onOpenProviders: openProvidersFromConversation,
             onOpenMenu: presentMenu
         )
-        .navigationTitle(title(for: identity))
         .onDisappear {
             streamingTask?.cancel()
             streamingTask = nil
@@ -281,22 +285,34 @@ public struct RootView: View {
             SettingsView(
                 state: settingsState,
                 isDarkMode: $isDarkMode,
-                onCompose: presentConnectionForm,
-                onCancel: dismissConnectionForm,
-                onConfigure: configure,
-                onEditProvider: editProvider,
-                onEditModel: editModel,
-                onUpdateEndpoint: updateEndpoint,
-                onUpdateModel: updateModel,
-                onCancelEndpointEdit: cancelEndpointEdit,
-                onCancelModelEdit: cancelModelEdit,
-                onRemove: remove,
                 onOpenAbout: openAbout,
                 onOpenMenu: presentMenu
             )
         } else {
             loadingState
-                .navigationTitle(Localized.settings)
+        }
+    }
+
+    /// The providers surface: the provider-connection management destination of
+    /// the shell (new_design.md §7), distinct from the application-settings
+    /// destination — configure, edit, and remove provider connections over the
+    /// settings state's compose and provider-edit conditions (DES-012 §3.4).
+    @ViewBuilder
+    private var providersScreen: some View {
+        if let settingsState {
+            ProvidersView(
+                state: settingsState,
+                onCompose: presentConnectionForm,
+                onCancel: dismissConnectionForm,
+                onConfigure: configure,
+                onEditProvider: editProvider,
+                onUpdateProvider: updateProvider,
+                onCancelEdit: cancelProviderEdit,
+                onRemove: remove,
+                onOpenMenu: presentMenu
+            )
+        } else {
+            loadingState
         }
     }
 
@@ -304,17 +320,6 @@ public struct RootView: View {
     /// shell (new_design.md §8).
     private var aboutScreen: some View {
         AboutView(workspaceName: Localized.workspace, onOpenMenu: presentMenu)
-    }
-
-    /// The navigation title of the conversation screen: the conversation's
-    /// display title, derived by the presentation value type (DES-012 §3.1),
-    /// with a fallback for a conversation without content.
-    private func title(for identity: ConversationIdentity) -> String {
-        guard let conversation = presentedConversation, conversation.identity == identity else {
-            return Localized.newConversation
-        }
-        let title = ConversationListItem(conversation: conversation).displayTitle
-        return title.isEmpty ? Localized.newConversation : title
     }
 
     // MARK: Loading
@@ -367,14 +372,13 @@ public struct RootView: View {
 
     /// Restores the persisted dark-mode choice through the settings surface and
     /// applies it to the shell's color scheme (DES-011 §3.5). When no choice
-    /// was ever stored the shell keeps its current behavior — the system scheme
-    /// with the dark-first token identity (new_design.md §13). A failure to
-    /// read the choice surfaces as the settings failure — presented as it is,
-    /// never silent (ARC-001).
+    /// was ever stored the shell presents its first-launch default — the dark
+    /// identity (new_design.md §13). A failure to read the choice surfaces as
+    /// the settings failure — presented as it is, never silent (ARC-001).
     @MainActor
     private func resolveDarkModeAppearance() async {
         do {
-            isDarkMode = try await surface.settings.resolved(for: Self.darkModeKey) ?? false
+            isDarkMode = try await surface.settings.resolved(for: Self.darkModeKey) ?? true
         } catch is CancellationError {
             return
         } catch {
@@ -383,19 +387,15 @@ public struct RootView: View {
     }
 
     /// Records the shell's dark-mode choice through the settings surface at the
-    /// user-owned workspace level (DES-011 §3.5, ARC-005): the presence of a
-    /// stored `true` means dark mode; turning it off removes the stored choice,
-    /// so the app returns to the system scheme default. The write is driven by
-    /// the shared binding — the drawer and the settings toggle alike. A failure
-    /// surfaces as the settings failure — never silent (ARC-001).
+    /// user-owned workspace level (DES-011 §3.5, ARC-005): a stored `true`
+    /// presents the dark scheme and a stored `false` presents the light scheme,
+    /// restored on the next launch. The write is driven by the shared binding —
+    /// the drawer and the settings toggle alike. A failure surfaces as the
+    /// settings failure — never silent (ARC-001).
     private func persistDarkModeAppearance(_ dark: Bool) {
         Task { @MainActor in
             do {
-                if dark {
-                    try await surface.settings.store(true, for: Self.darkModeKey, at: .workspaceOverride)
-                } else {
-                    try await surface.settings.remove(Self.darkModeKey, at: .workspaceOverride)
-                }
+                try await surface.settings.store(dark, for: Self.darkModeKey, at: .workspaceOverride)
             } catch is CancellationError {
                 return
             } catch {
@@ -728,11 +728,12 @@ public struct RootView: View {
         navigation = NavigationState(currentRoute: .about)
     }
 
-    /// Translates the open-settings intent of the conversation screen's
-    /// provider banners — the existing `.settings` route of the navigation
-    /// structure, reached through the shell's normal routing (DES-012 §3.5).
-    private func openSettingsFromConversation() {
-        navigation = NavigationState(currentRoute: .settings)
+    /// Translates the open-providers intent of the conversation screen's
+    /// provider banners — the provider-management destination of the navigation
+    /// structure, where a connection is added or its state corrected, reached
+    /// through the shell's normal routing (DES-012 §3.5).
+    private func openProvidersFromConversation() {
+        navigation = NavigationState(currentRoute: .providers)
     }
 
     /// Translates the new-chat intent of the drawer: the shell returns to the
@@ -787,17 +788,19 @@ public struct RootView: View {
         }
     }
 
-    /// Translates the endpoint-edit intent: the connection's recorded endpoint
-    /// is resolved through the settings surface and the endpoint-edit condition
-    /// of the settings state is presented — the editor pre-filled with the
-    /// current endpoint, so a provider connection offers a way to edit instead
-    /// of only Remove (UX audit U7). The condition holds only the configured
-    /// connection state and the recorded endpoint, never a credential
-    /// (ARC-001, ARC-005).
+    /// Translates the provider-edit intent: the connection's recorded endpoint
+    /// and model are resolved through the settings surface and the
+    /// provider-edit condition of the settings state is presented — the same
+    /// connection form as compose, pre-filled with the connection's current
+    /// declaration, endpoint, and model, so a provider connection offers a way
+    /// to edit instead of only Remove (UX audit U7). The condition holds only
+    /// the configured connection state and the recorded endpoint and model,
+    /// never a credential (ARC-001, ARC-005).
     private func editProvider(_ item: ProviderConnectionListItem) {
         Task { @MainActor in
             do {
                 let endpoint = try await surface.settings.endpoint(for: item.identity)
+                let model = try await surface.settings.model(for: item.identity)
                 guard let current = settingsState else { return }
                 settingsState = SettingsState(
                     connections: current.connections,
@@ -806,60 +809,10 @@ public struct RootView: View {
                     editing: SettingsState.Editing(
                         identity: item.identity,
                         displayName: item.displayName,
-                        currentEndpoint: endpoint ?? ""
-                    )
-                )
-            } catch {
-                settingsState = failingSettingsState(error)
-            }
-        }
-    }
-
-    /// Translates the endpoint-update intent: the updated endpoint is recorded
-    /// through the settings surface — validated at the service boundary before
-    /// any write (DES-011 §3.9, ARC-009) — and the settings state reloads, so
-    /// the endpoint editor closes and the connection row reflects the change.
-    private func updateEndpoint(_ identity: ProviderIdentity, _ endpoint: String) {
-        Task { @MainActor in
-            do {
-                try await surface.settings.updateEndpoint(endpoint, for: identity)
-                await loadSettings()
-            } catch {
-                settingsState = failingSettingsState(error)
-            }
-        }
-    }
-
-    /// Translates the cancel intent of the endpoint editor.
-    private func cancelEndpointEdit() {
-        guard let current = settingsState else { return }
-        settingsState = SettingsState(
-            connections: current.connections,
-            configuration: current.configuration,
-            isComposing: false,
-            editing: nil
-        )
-    }
-
-    /// Translates the model-edit intent: the connection's recorded model is
-    /// resolved through the settings surface and the model-edit condition of
-    /// the settings state is presented — the editor pre-filled with the
-    /// current model, mirroring the endpoint editor's retry/edit affordance.
-    /// The condition holds only the configured connection state and the
-    /// recorded model, never a credential (ARC-001, ARC-005).
-    private func editModel(_ item: ProviderConnectionListItem) {
-        Task { @MainActor in
-            do {
-                let model = try await surface.settings.model(for: item.identity)
-                guard let current = settingsState else { return }
-                settingsState = SettingsState(
-                    connections: current.connections,
-                    configuration: current.configuration,
-                    isComposing: false,
-                    editing: nil,
-                    editingModel: SettingsState.ModelEditing(
-                        identity: item.identity,
-                        displayName: item.displayName,
+                        capabilities: item.capabilities,
+                        limits: item.limits,
+                        version: item.version,
+                        currentEndpoint: endpoint ?? "",
                         currentModel: model ?? ""
                     )
                 )
@@ -869,15 +822,29 @@ public struct RootView: View {
         }
     }
 
-    /// Translates the model-update intent: the updated model is recorded
-    /// through the settings surface — validated at the service boundary before
-    /// any write (DES-011 §3.10, ARC-009) — and the settings state reloads, so
-    /// the model editor closes and the connection's recorded model reflects
-    /// the change.
-    private func updateModel(_ identity: ProviderIdentity, _ model: String) {
+    /// Translates the provider-update intent: the edited declaration, the
+    /// declared endpoint, and the optional model are recorded through the
+    /// settings surface — validated at the service boundary before any write
+    /// (DES-011 §3.1, §3.9, §3.10, ARC-009) — the lifecycle state is preserved
+    /// by the service, and the settings state reloads, so the edit form closes
+    /// and the connection row reflects the change. An empty model records no
+    /// model, so the provider falls back to the app-edge default (DES-011
+    /// §3.10).
+    private func updateProvider(
+        _ identity: ProviderIdentity,
+        _ request: ProviderUpdateRequest,
+        _ endpoint: String,
+        _ model: String
+    ) {
         Task { @MainActor in
             do {
-                try await surface.settings.updateModel(model, for: identity)
+                let trimmedModel = model.trimmingCharacters(in: .whitespacesAndNewlines)
+                _ = try await surface.settings.update(
+                    request,
+                    for: identity,
+                    endpoint: endpoint,
+                    model: trimmedModel.isEmpty ? nil : trimmedModel
+                )
                 await loadSettings()
             } catch {
                 settingsState = failingSettingsState(error)
@@ -885,15 +852,14 @@ public struct RootView: View {
         }
     }
 
-    /// Translates the cancel intent of the model editor.
-    private func cancelModelEdit() {
+    /// Translates the cancel intent of the provider-edit form.
+    private func cancelProviderEdit() {
         guard let current = settingsState else { return }
         settingsState = SettingsState(
             connections: current.connections,
             configuration: current.configuration,
             isComposing: false,
-            editing: nil,
-            editingModel: nil
+            editing: nil
         )
     }
 
@@ -902,10 +868,8 @@ public struct RootView: View {
     /// compose condition is preserved: a failed configure keeps the
     /// connection form presented with its input retained, so the failure is
     /// shown inside the form and no declaration is lost (UX audit U3). The
-    /// endpoint-edit condition is preserved: a failed endpoint update keeps
-    /// the endpoint editor presented with its input retained (UX audit U7).
-    /// The model-edit condition is preserved: a failed model update keeps the
-    /// model editor presented with its input retained.
+    /// provider-edit condition is preserved: a failed provider update keeps
+    /// the edit form presented with its input retained.
     private func failingSettingsState(_ error: any Error) -> SettingsState {
         let failure: SettingsState.Failure = switch error {
         case let error as ApplicationValidationError: .application(error)
@@ -918,7 +882,6 @@ public struct RootView: View {
             configuration: settingsState?.configuration ?? [],
             isComposing: settingsState?.isComposing ?? false,
             editing: settingsState?.editing,
-            editingModel: settingsState?.editingModel,
             failure: failure
         )
     }
@@ -931,6 +894,7 @@ public struct RootView: View {
 /// surface.
 private enum Destination: Hashable {
     case conversation(ConversationIdentity)
+    case providers
     case settings
     case about
 
@@ -939,6 +903,8 @@ private enum Destination: Hashable {
         switch self {
         case .conversation(let conversation):
             return .conversationScreen(conversation: conversation)
+        case .providers:
+            return .providers
         case .settings:
             return .settings
         case .about:

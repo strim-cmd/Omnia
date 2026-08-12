@@ -16,7 +16,6 @@
 "capabilities" = "Capabilities";
 "clear_search" = "Clear search";
 "configuration" = "Configuration";
-"configure_provider" = "Configure Provider";
 "connection" = "Connection";
 "conversation" = "Conversation";
 "conversations" = "Conversations";
@@ -30,15 +29,13 @@
 "disabled" = "Disabled";
 "dislike" = "Dislike";
 "display_name" = "Display Name";
-"edit_endpoint" = "Edit Endpoint";
-"edit_model" = "Edit Model";
+"edit_provider" = "Edit Provider";
 "embeddings" = "Embeddings";
 "endpoint" = "Endpoint";
 "enter_whole_number_or_empty" = "Enter a whole number, or leave empty for no limit.";
 "error" = "Error";
 "image_generation" = "Image Generation";
 "initializing" = "Initializing";
-"interrupted" = "Interrupted";
 "jump_to_latest" = "Jump to Latest";
 "like" = "Like";
 "limits" = "Limits";
@@ -46,9 +43,8 @@
 "loading_provider_selection" = "Loading provider selection";
 "major" = "Major";
 "max_requests_per_minute" = "Max Requests per Minute";
-"message" = "Message";
-"message_placeholder" = "Message Omnia...";
 "menu" = "Menu";
+"message_placeholder" = "Message Omnia...";
 "minor" = "Minor";
 "model" = "Model";
 "more" = "More";
@@ -61,7 +57,7 @@
 "no_configuration_values" = "No configuration values.";
 "omnia_is_thinking" = "Omnia is thinking";
 "omnia_is_typing" = "Omnia is typing";
-"open_settings" = "Open Settings";
+"open_providers" = "Open Providers";
 "patch" = "Patch";
 "provider_selection_current" = "Provider selection. Current: %@";
 "providers" = "Providers";
@@ -71,7 +67,6 @@
 "regenerate" = "Regenerate";
 "registered" = "Registered";
 "remove" = "Remove";
-"remove_provider_confirmation" = "This will permanently remove the connection and its stored credential.";
 "remove_provider_connection" = "Remove Provider Connection?";
 "remove_provider_connection_confirmation" = "This will permanently remove the connection and its stored credential.";
 "removed" = "Removed";
@@ -81,9 +76,6 @@
 "response_interrupted_retry" = "The response was interrupted. Please try again.";
 "response_processing_failed" = "The response could not be processed. Check your connection settings.";
 "retry" = "Retry";
-"save" = "Save";
-"save_endpoint" = "Save Endpoint";
-"save_model" = "Save Model";
 "save_provider_connection" = "Save Provider Connection";
 "search_conversations" = "Search conversations...";
 "send" = "Send";
@@ -98,11 +90,10 @@
 "thinking" = "Thinking";
 "today" = "Today";
 "tool_calling" = "Tool Calling";
+"try_again" = "Try Again";
 "unavailable" = "Unavailable";
 "unexpected_error" = "An unexpected error occurred. Please try again.";
 "untitled_conversation" = "Untitled Conversation";
-"update_endpoint" = "Update the endpoint %@ connects to.";
-"update_model" = "Update the model %@ uses.";
 "validated" = "Validated";
 "version" = "Version";
 "version_parts_non_negative" = "Each version part must be a non-negative whole number.";

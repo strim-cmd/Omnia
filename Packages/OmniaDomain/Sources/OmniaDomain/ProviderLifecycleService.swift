@@ -58,6 +58,21 @@ public actor ProviderLifecycleService {
         try provider.transition(to: state)
     }
 
+    /// Replaces the provider with `connection.identity`'s declared connection
+    /// with `connection`, preserving its current lifecycle state; registers the
+    /// connection fresh when the identity is unknown.
+    ///
+    /// The edited declaration is user-owned connection configuration (ARC-005)
+    /// and the lifecycle state survives the replacement, so the provider stays
+    /// servable and its availability is unchanged (DES-009 §3.2).
+    public func update(_ connection: ProviderConnection) {
+        guard let current = providers[connection.identity] else {
+            providers[connection.identity] = Provider(connection: connection)
+            return
+        }
+        providers[connection.identity] = current.replacingConnection(connection)
+    }
+
     /// Returns the identities of the providers known to the service.
     public func allProviders() -> [ProviderIdentity] {
         Array(providers.keys)

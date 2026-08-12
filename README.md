@@ -219,7 +219,7 @@ Recent work:
 
 Current state:
 
-> The integrated branch is green on the Linux build environment — 1057 tests across all six packages, 0 failures (OmniaFoundation 136, OmniaDomain 319, OmniaApplication 177, OmniaInfrastructure 187, OmniaPresentation 199, OmniaApp 39). The SwiftUI view layer is Apple-platform code isolated behind `canImport(SwiftUI)` and is verified by review and by Apple-platform builds; a physical macOS/iOS launch verification remains a pending platform-specific step (DES-013 §3.6).
+> The integrated branch is green on the Linux build environment — 1058 tests across all six packages, 0 failures (OmniaFoundation 136, OmniaDomain 323, OmniaApplication 188, OmniaInfrastructure 187, OmniaPresentation 183, OmniaApp 41). The SwiftUI view layer is Apple-platform code isolated behind `canImport(SwiftUI)` and is verified by review and by Apple-platform builds; a physical macOS/iOS launch verification remains a pending platform-specific step (DES-013 §3.6).
 
 ---
 

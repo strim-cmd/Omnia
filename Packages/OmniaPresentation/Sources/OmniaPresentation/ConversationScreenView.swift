@@ -45,10 +45,10 @@ public struct ConversationScreenView: View {
     public let onCopy: (Int) -> Void
     /// Translates the provider selection intent.
     public let onSelectProvider: (ProviderConnectionListItem) -> Void
-    /// Translates the open-settings intent of the provider banners — the
-    /// empty and unavailable provider rows route to the settings surface
+    /// Translates the open-providers intent of the provider banners — the
+    /// empty and unavailable provider rows route to the providers surface
     /// through the shell's normal navigation (UX audit P2).
-    public let onOpenSettings: () -> Void
+    public let onOpenProviders: () -> Void
     /// Translates the open-menu intent: the navigation drawer is presented.
     public let onOpenMenu: () -> Void
 
@@ -89,7 +89,7 @@ public struct ConversationScreenView: View {
         onRetry: @escaping () -> Void,
         onCopy: @escaping (Int) -> Void,
         onSelectProvider: @escaping (ProviderConnectionListItem) -> Void,
-        onOpenSettings: @escaping () -> Void,
+        onOpenProviders: @escaping () -> Void,
         onOpenMenu: @escaping () -> Void
     ) {
         self.state = state
@@ -100,7 +100,7 @@ public struct ConversationScreenView: View {
         self.onRetry = onRetry
         self.onCopy = onCopy
         self.onSelectProvider = onSelectProvider
-        self.onOpenSettings = onOpenSettings
+        self.onOpenProviders = onOpenProviders
         self.onOpenMenu = onOpenMenu
     }
 
@@ -321,7 +321,7 @@ public struct ConversationScreenView: View {
 
     /// The empty provider state: no provider connection is configured, so the
     /// conversation cannot be served; the row states it plainly and its Open
-    /// Settings button routes to the settings surface to add a connection
+    /// Providers button routes to the providers surface to add a connection
     /// (UX audit V2, P2).
     private var emptyProviderSelector: some View {
         HStack(spacing: OmniaTheme.Spacing.sm) {
@@ -333,10 +333,10 @@ public struct ConversationScreenView: View {
                 .foregroundStyle(OmniaTheme.Colors.textSecondary)
             Spacer()
             OmniaButton(
-                title: Localized.openSettings,
-                systemImage: "gearshape",
+                title: Localized.openProviders,
+                systemImage: "globe",
                 style: .secondary,
-                action: onOpenSettings
+                action: onOpenProviders
             )
         }
         .padding(.horizontal, OmniaTheme.Spacing.lg)
@@ -412,7 +412,7 @@ public struct ConversationScreenView: View {
 
     /// The unavailable provider banner: the selected provider is not available
     /// (e.g., its credential is invalid), so the conversation cannot be served;
-    /// its Open Settings button routes to the settings surface (UX audit V2, P2).
+    /// its Open Providers button routes to the providers surface (UX audit V2, P2).
     private func unavailableProviderBanner(_ item: ProviderConnectionListItem) -> some View {
         HStack(spacing: OmniaTheme.Spacing.sm) {
             Image(systemName: "exclamationmark.triangle")
@@ -423,10 +423,10 @@ public struct ConversationScreenView: View {
                 .foregroundStyle(OmniaTheme.Colors.textSecondary)
             Spacer()
             OmniaButton(
-                title: Localized.openSettings,
-                systemImage: "gearshape",
+                title: Localized.openProviders,
+                systemImage: "globe",
                 style: .secondary,
-                action: onOpenSettings
+                action: onOpenProviders
             )
         }
         .padding(.horizontal, OmniaTheme.Spacing.lg)
