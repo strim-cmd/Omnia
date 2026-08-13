@@ -42,13 +42,23 @@ private final class CancellationProbe: @unchecked Sendable {
 }
 
 private final class InvocationProbe: @unchecked Sendable {
+    let invocations: AsyncStream<Int>
+    private let continuation: AsyncStream<Int>.Continuation
     private let lock = NSLock()
     private var invocationCount = 0
 
+    init() {
+        let pair = AsyncStream<Int>.makeStream()
+        invocations = pair.stream
+        continuation = pair.continuation
+    }
+
     func record() {
-        lock.withLock {
+        let count = lock.withLock {
             invocationCount += 1
+            return invocationCount
         }
+        continuation.yield(count)
     }
 
     var count: Int {
@@ -284,6 +294,7 @@ final class ConversationGenerationCoordinatorTests: XCTestCase {
         let source = ControlledGeneration()
         let invocations = InvocationProbe()
         var iterator = events.events.makeAsyncIterator()
+        var invocationIterator = invocations.invocations.makeAsyncIterator()
         let factory: ConversationGenerationCoordinator.StreamFactory = {
             invocations.record()
             return source.stream
@@ -297,6 +308,8 @@ final class ConversationGenerationCoordinatorTests: XCTestCase {
         )
         XCTAssertNotNil(first)
         _ = try await nextEvent(from: &iterator)
+        let firstInvocation = await invocationIterator.next()
+        XCTAssertEqual(firstInvocation, 1)
         let second = await coordinator.start(
             for: conversation,
             initialState: generationState("duplicate"),
