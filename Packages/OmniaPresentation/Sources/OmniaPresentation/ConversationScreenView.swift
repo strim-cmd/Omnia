@@ -181,12 +181,10 @@ public struct ConversationScreenView: View {
         }
     }
 
-    /// The custom top bar of the screen: the menu button, the conversation
-    /// title, and the compose button (new_design.md §5, CHAT.md) — the
-    /// hamburger/menu on the leading side opens the navigation drawer, "New
-    /// Conversation" centered, and the compose icon on the trailing side stays
-    /// inert exactly like the back affordance it replaces — navigation is owned
-    /// by the shell, and only the menu intent is wired here (CHAT.md).
+    /// The custom top bar of the screen: the menu button and centered
+    /// conversation title. Creating a conversation belongs to the conversation
+    /// list; this active-chat surface keeps an equal trailing layout spacer
+    /// instead of exposing a redundant, inert compose control.
     private var customTopBar: some View {
         HStack {
             OmniaIconButton(systemImage: "line.3.horizontal", size: 36, action: onOpenMenu)
@@ -197,8 +195,9 @@ public struct ConversationScreenView: View {
                 .foregroundStyle(OmniaTheme.Colors.textPrimary)
                 .lineLimit(1)
             Spacer()
-            OmniaIconButton(systemImage: "square.and.pencil", size: 36, action: {})
-                .accessibilityLabel(Text(Localized.newConversation))
+            Color.clear
+                .frame(width: 36, height: 36)
+                .accessibilityHidden(true)
         }
         .padding(.horizontal, OmniaTheme.Spacing.lg)
         .padding(.vertical, OmniaTheme.Spacing.sm)
@@ -219,14 +218,22 @@ public struct ConversationScreenView: View {
                 action: {}
             )
             .accessibilityLabel(Text(Localized.attachment))
+            .frame(width: 40, height: 40)
 
-            TextField("", text: $draft, prompt: Text(Localized.messagePlaceholder), axis: .vertical)
+            TextField(
+                "",
+                text: $draft,
+                prompt: Text(Localized.messagePlaceholder)
+                    .foregroundStyle(OmniaTheme.Colors.textMuted),
+                axis: .vertical
+            )
                 .font(OmniaTheme.Typography.body)
                 .foregroundStyle(OmniaTheme.Colors.textPrimary)
                 .tint(OmniaTheme.Colors.accent)
                 .autocorrectionDisabled()
                 .textFieldStyle(.plain)
                 .lineLimit(1...6)
+                .frame(minHeight: 40, alignment: .center)
                 .focused($isComposerFocused)
 
             if isStreaming {

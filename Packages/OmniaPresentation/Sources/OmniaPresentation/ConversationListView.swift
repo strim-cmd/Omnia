@@ -161,9 +161,9 @@ public struct ConversationListView: View {
             .textCase(.uppercase)
     }
 
-    /// The conversation rows over a plain, separator-free List, so the swipe
-    /// delete affordance of the list contract is preserved while the rows read
-    /// as premium cards, not standard list rows (new_design.md §6).
+    /// Conversation cards inside full-width native List rows. Horizontal
+    /// spacing belongs to the content, leaving the system swipe surface flush
+    /// with the screen edge like the Messages conversation list.
     private var list: some View {
         List {
             if state.isEmpty {
@@ -184,16 +184,24 @@ public struct ConversationListView: View {
                     )
                 ForEach(filteredItems, id: \.identity) { item in
                     row(item)
+                        .padding(.horizontal, OmniaTheme.Spacing.lg)
                         .listRowBackground(Color.clear)
                         .listRowSeparator(.hidden)
                         .listRowInsets(
                             EdgeInsets(
                                 top: OmniaTheme.Spacing.xs,
-                                leading: OmniaTheme.Spacing.lg,
+                                leading: 0,
                                 bottom: OmniaTheme.Spacing.xs,
-                                trailing: OmniaTheme.Spacing.lg
+                                trailing: 0
                             )
                         )
+                        .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                            Button(role: .destructive) {
+                                pendingDeletion = item.identity
+                            } label: {
+                                Label(Localized.delete, systemImage: "trash")
+                            }
+                        }
                 }
             }
         }
@@ -249,13 +257,6 @@ public struct ConversationListView: View {
         .buttonStyle(.plain)
         .accessibilityElement(children: .combine)
         .contextMenu {
-            Button(role: .destructive) {
-                pendingDeletion = item.identity
-            } label: {
-                Label(Localized.delete, systemImage: "trash")
-            }
-        }
-        .swipeActions(edge: .trailing, allowsFullSwipe: false) {
             Button(role: .destructive) {
                 pendingDeletion = item.identity
             } label: {

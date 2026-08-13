@@ -19,7 +19,8 @@ let package = Package(
     targets: [
         .target(
             name: "OmniaPresentation",
-            dependencies: ["OmniaApplication", "OmniaFoundation"]
+            dependencies: ["OmniaApplication", "OmniaFoundation"],
+            resources: [.process("Resources")]
         ),
         .testTarget(
             name: "OmniaPresentationTests",
