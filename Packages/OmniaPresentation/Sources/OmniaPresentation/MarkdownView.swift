@@ -33,7 +33,6 @@ public struct MarkdownView: View {
                 segment(content.segments[index])
             }
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
         .accessibilityElement(children: .contain)
     }
 

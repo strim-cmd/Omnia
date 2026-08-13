@@ -563,14 +563,12 @@ public struct ConversationScreenView: View {
     @ViewBuilder
     private func messageBubble(_ message: MessagePresentation, index: Int) -> some View {
         if message.role == .user {
-            HStack {
-                Spacer(minLength: 48)
+            AdaptiveMessageBubbleRowLayout(edge: .trailing) {
                 userBubble(message)
             }
         } else {
-            HStack {
+            AdaptiveMessageBubbleRowLayout(edge: .leading) {
                 assistantBubble(message, index: index)
-                Spacer(minLength: 48)
             }
         }
     }
@@ -583,8 +581,8 @@ public struct ConversationScreenView: View {
                 Text(content.accessibilityText)
                     .font(OmniaTheme.Typography.body)
                     .foregroundStyle(Color.white)
+                    .fixedSize(horizontal: false, vertical: true)
                     .padding(OmniaTheme.Spacing.md)
-                    .frame(maxWidth: .infinity, alignment: .trailing)
                     .background(
                         LinearGradient(
                             colors: [
@@ -609,7 +607,6 @@ public struct ConversationScreenView: View {
                 MarkdownView(content: content)
                     .foregroundStyle(OmniaTheme.Colors.textPrimary)
                     .padding(OmniaTheme.Spacing.md)
-                    .frame(maxWidth: OmniaTheme.maxBubbleWidth, alignment: .leading)
                     .background(OmniaTheme.Colors.surface, in: RoundedRectangle(cornerRadius: OmniaTheme.Radii.bubble, style: .continuous))
                     .overlay(
                         RoundedRectangle(cornerRadius: OmniaTheme.Radii.bubble, style: .continuous)
@@ -651,15 +648,13 @@ public struct ConversationScreenView: View {
     @ViewBuilder
     private var streamingBubble: some View {
         if case .active(let partialContent) = state.streamingCondition, !partialContent.isEmpty {
-            HStack {
+            AdaptiveMessageBubbleRowLayout(edge: .leading) {
                 assistantBubble(MessagePresentation(role: .assistant, content: MarkdownContent(markdown: partialContent)), index: -1)
-                Spacer(minLength: 48)
             }
         } else if case .interrupted(let partialContent) = state.streamingCondition {
             VStack(alignment: .leading, spacing: 6) {
-                HStack {
+                AdaptiveMessageBubbleRowLayout(edge: .leading) {
                     assistantBubble(MessagePresentation(role: .assistant, content: MarkdownContent(markdown: partialContent)), index: -1)
-                    Spacer(minLength: 48)
                 }
                 OmniaButton(
                     title: Localized.retry,
@@ -955,6 +950,83 @@ public struct ConversationScreenView: View {
                 return Localized.responseInterruptedRetry
             }
         }
+    }
+}
+
+/// A full-width message row that proposes at most 80% of its readable width
+/// to the bubble group, then places the group's intrinsic result on the role's
+/// edge. Short content therefore remains compact while long content wraps at
+/// the same proportional cap on every supported window size.
+private struct AdaptiveMessageBubbleRowLayout: Layout {
+    enum Edge {
+        case leading
+        case trailing
+    }
+
+    private let edge: Edge
+    init(edge: Edge) {
+        self.edge = edge
+    }
+
+    func sizeThatFits(
+        proposal: ProposedViewSize,
+        subviews: Subviews,
+        cache: inout ()
+    ) -> CGSize {
+        guard let subview = subviews.first else { return .zero }
+        guard let availableWidth = proposal.width else {
+            return subview.sizeThatFits(proposal)
+        }
+        let bubbleSize = measuredBubble(
+            subview,
+            availableWidth: availableWidth,
+            proposedHeight: proposal.height
+        )
+        return CGSize(width: availableWidth, height: bubbleSize.height)
+    }
+
+    func placeSubviews(
+        in bounds: CGRect,
+        proposal: ProposedViewSize,
+        subviews: Subviews,
+        cache: inout ()
+    ) {
+        guard let subview = subviews.first else { return }
+        let bubbleSize = measuredBubble(
+            subview,
+            availableWidth: bounds.width,
+            proposedHeight: proposal.height
+        )
+        let x: CGFloat
+        switch edge {
+        case .leading:
+            x = bounds.minX
+        case .trailing:
+            x = bounds.maxX - bubbleSize.width
+        }
+        subview.place(
+            at: CGPoint(x: x, y: bounds.minY),
+            anchor: .topLeading,
+            proposal: ProposedViewSize(bubbleSize)
+        )
+    }
+
+    private func measuredBubble(
+        _ subview: LayoutSubview,
+        availableWidth: CGFloat,
+        proposedHeight: CGFloat?
+    ) -> CGSize {
+        let maximumWidth = MessageBubbleWidthPolicy.maximumWidth(for: availableWidth)
+        let measured = subview.sizeThatFits(
+            ProposedViewSize(width: maximumWidth, height: proposedHeight)
+        )
+        return CGSize(
+            width: MessageBubbleWidthPolicy.resolvedWidth(
+                measuredWidth: measured.width,
+                availableWidth: availableWidth
+            ),
+            height: measured.height
+        )
     }
 }
 
