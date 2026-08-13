@@ -61,22 +61,7 @@ public struct SendMessageUseCase: Sendable {
     public func send(
         _ request: SendMessageRequest
     ) async throws -> AsyncThrowingStream<StreamingUpdate, Error> {
-        try validate(request)
-        guard var conversation = try await conversationRepository.conversation(with: request.conversation) else {
-            throw ApplicationValidationError.invalid(reason: "The conversation is not stored.")
-        }
-        try conversation.append(request.message)
-        try await conversationRepository.save(conversation)
-        let selection = await selectionService.select(
-            requiredCapability: .streaming,
-            userSelection: request.userSelection,
-            workspacePreference: request.workspacePreference,
-            capabilityPreference: request.capabilityPreference
-        )
-        guard case let .selected(provider: _, model: model) = selection else {
-            throw CapabilityError.providerUnavailable
-        }
-        try conversation.beginStreaming()
+        let (conversation, model) = try await prepareSend(request)
         return makeStream(initialConversation: conversation, model: model)
     }
 
@@ -96,7 +81,65 @@ public struct SendMessageUseCase: Sendable {
     public func resume(
         _ conversation: ConversationIdentity
     ) async throws -> AsyncThrowingStream<StreamingUpdate, Error> {
-        guard var conversation = try await conversationRepository.conversation(with: conversation) else {
+        let (conversation, model) = try await prepareResume(conversation)
+        return makeStream(initialConversation: conversation, model: model)
+    }
+
+    /// Performs a send in the caller's task, delivering each update only after
+    /// the Domain aggregate has applied it. Cancellation does not return until
+    /// the interrupted partial response has been persisted.
+    public func performSend(
+        _ request: SendMessageRequest,
+        onUpdate: @escaping @Sendable (StreamingUpdate) async -> Void
+    ) async throws {
+        let (conversation, model) = try await prepareSend(request)
+        try await consume(
+            initialConversation: conversation,
+            model: model,
+            onUpdate: onUpdate
+        )
+    }
+
+    /// Performs a resume in the caller's task with the same cancellation and
+    /// persistence ordering guarantees as `performSend`.
+    public func performResume(
+        _ conversation: ConversationIdentity,
+        onUpdate: @escaping @Sendable (StreamingUpdate) async -> Void
+    ) async throws {
+        let (conversation, model) = try await prepareResume(conversation)
+        try await consume(
+            initialConversation: conversation,
+            model: model,
+            onUpdate: onUpdate
+        )
+    }
+
+    private func prepareSend(
+        _ request: SendMessageRequest
+    ) async throws -> (Conversation, ModelReference) {
+        try validate(request)
+        guard var conversation = try await conversationRepository.conversation(with: request.conversation) else {
+            throw ApplicationValidationError.invalid(reason: "The conversation is not stored.")
+        }
+        try conversation.append(request.message)
+        try await conversationRepository.save(conversation)
+        let selection = await selectionService.select(
+            requiredCapability: .streaming,
+            userSelection: request.userSelection,
+            workspacePreference: request.workspacePreference,
+            capabilityPreference: request.capabilityPreference
+        )
+        guard case let .selected(provider: _, model: model) = selection else {
+            throw CapabilityError.providerUnavailable
+        }
+        try conversation.beginStreaming()
+        return (conversation, model)
+    }
+
+    private func prepareResume(
+        _ identity: ConversationIdentity
+    ) async throws -> (Conversation, ModelReference) {
+        guard var conversation = try await conversationRepository.conversation(with: identity) else {
             throw ApplicationValidationError.invalid(reason: "The conversation is not stored.")
         }
         guard case .interrupted = conversation.streamingState else {
@@ -109,7 +152,7 @@ public struct SendMessageUseCase: Sendable {
             throw CapabilityError.providerUnavailable
         }
         try conversation.beginStreaming()
-        return makeStream(initialConversation: conversation, model: model)
+        return (conversation, model)
     }
 
     /// Validates the request at the application boundary (ARC-009, DES-011 §3.6).
@@ -127,48 +170,15 @@ public struct SendMessageUseCase: Sendable {
     ) -> AsyncThrowingStream<StreamingUpdate, Error> {
         AsyncThrowingStream { continuation in
             let task = Task {
-                var conversation = initialConversation
-                let request = StreamingRequest(
-                    identity: CapabilityRequestIdentity(),
-                    history: conversation.history,
-                    model: model
-                )
                 do {
-                    let capabilityStream = try await streamingContract.stream(request)
-                    var terminated = false
-                    for try await update in capabilityStream {
-                        try await apply(update, to: &conversation)
-                        if case .completion = update {
-                            terminated = true
-                        } else if case .interruption = update {
-                            terminated = true
-                        }
-                        guard !Task.isCancelled else {
-                            try? await interruptAndPersist(&conversation)
-                            return
-                        }
+                    try await consume(
+                        initialConversation: initialConversation,
+                        model: model
+                    ) { update in
                         continuation.yield(update)
                     }
-                    guard terminated else {
-                        // The stream ended without a terminal event; the Domain
-                        // declares this failure and its preserved partial
-                        // content (DES-009 §3.11.4).
-                        let partial = conversation.partialContent ?? ""
-                        try? await interruptAndPersist(&conversation)
-                        guard !Task.isCancelled else { return }
-                        continuation.finish(
-                            throwing: CapabilityError.streamingInterrupted(partialContent: partial)
-                        )
-                        return
-                    }
-                    guard !Task.isCancelled else { return }
                     continuation.finish()
-                } catch is CancellationError {
-                    try? await interruptAndPersist(&conversation)
-                    guard !Task.isCancelled else { return }
-                    continuation.finish(throwing: CancellationError())
                 } catch {
-                    try? await preserveForFailure(&conversation, error: error)
                     guard !Task.isCancelled else { return }
                     continuation.finish(throwing: error)
                 }
@@ -176,6 +186,52 @@ public struct SendMessageUseCase: Sendable {
             continuation.onTermination = { _ in
                 task.cancel()
             }
+        }
+    }
+
+    /// Consumes provider updates in the current task. Terminal persistence is
+    /// completed before the update is delivered, while cancellation persists
+    /// an interruption before returning to the caller.
+    private func consume(
+        initialConversation: Conversation,
+        model: ModelReference,
+        onUpdate: @escaping @Sendable (StreamingUpdate) async -> Void
+    ) async throws {
+        var conversation = initialConversation
+        let request = StreamingRequest(
+            identity: CapabilityRequestIdentity(),
+            history: conversation.history,
+            model: model
+        )
+        do {
+            let capabilityStream = try await streamingContract.stream(request)
+            for try await update in capabilityStream {
+                try Task.checkCancellation()
+                try await apply(update, to: &conversation)
+                switch update {
+                case .completion, .interruption:
+                    await onUpdate(update)
+                    return
+                case .contentDelta:
+                    try Task.checkCancellation()
+                    await onUpdate(update)
+                }
+            }
+            try Task.checkCancellation()
+            let partial = conversation.partialContent ?? ""
+            throw CapabilityError.streamingInterrupted(partialContent: partial)
+        } catch is CancellationError {
+            try? await interruptAndPersist(&conversation)
+            await onUpdate(
+                .interruption(
+                    identity: request.identity,
+                    partialContent: conversation.partialContent ?? ""
+                )
+            )
+            throw CancellationError()
+        } catch {
+            try? await preserveForFailure(&conversation, error: error)
+            throw error
         }
     }
 

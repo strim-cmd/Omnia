@@ -92,6 +92,23 @@ public struct ConversationScreenSurface: Sendable {
         perform({ try await useCase.send(request) }, rendering: history)
     }
 
+    /// Performs a send in the caller's task. This is the session coordinator's
+    /// structured-concurrency path: cancellation returns only after the
+    /// Application use case has persisted the interrupted partial response.
+    public func performSend(
+        _ request: SendMessageRequest,
+        rendering history: [MessagePresentation] = [],
+        onState: @escaping @Sendable (ConversationScreenState) async -> Void
+    ) async throws {
+        try await performInCurrentTask(
+            { onUpdate in
+                try await useCase.performSend(request, onUpdate: onUpdate)
+            },
+            rendering: history,
+            onState: onState
+        )
+    }
+
     /// Resumes the interrupted response of a conversation and renders the
     /// Domain `StreamingUpdate` events incrementally as `ConversationScreenState`
     /// snapshots (UX audit U7, DES-012 §3.3, DES-011 §3.3).
@@ -121,6 +138,58 @@ public struct ConversationScreenSurface: Sendable {
             rendering: history,
             startingPartial: partialContent
         )
+    }
+
+    /// Performs a resume in the caller's task with structured cancellation and
+    /// interrupted-response persistence ordering.
+    public func performResume(
+        _ conversation: ConversationIdentity,
+        from partialContent: String,
+        rendering history: [MessagePresentation] = [],
+        onState: @escaping @Sendable (ConversationScreenState) async -> Void
+    ) async throws {
+        try await performInCurrentTask(
+            { onUpdate in
+                try await useCase.performResume(conversation, onUpdate: onUpdate)
+            },
+            rendering: history,
+            startingPartial: partialContent,
+            onState: onState
+        )
+    }
+
+    /// Renders a send-message operation while keeping its whole cancellation
+    /// and persistence chain in the coordinator-owned task.
+    private func performInCurrentTask(
+        _ start: @escaping @Sendable (
+            @escaping @Sendable (StreamingUpdate) async -> Void
+        ) async throws -> Void,
+        rendering history: [MessagePresentation],
+        startingPartial: String = "",
+        onState: @escaping @Sendable (ConversationScreenState) async -> Void
+    ) async throws {
+        let renderer = StreamingStateRenderer(
+            history: history,
+            partialContent: startingPartial
+        )
+        do {
+            try await start { update in
+                await onState(renderer.state(for: update))
+            }
+        } catch is CancellationError {
+            throw CancellationError()
+        } catch {
+            guard let failure = Self.failure(from: error) else {
+                throw error
+            }
+            let reportedPartial: String?
+            if case CapabilityError.streamingInterrupted(let content) = error {
+                reportedPartial = content
+            } else {
+                reportedPartial = nil
+            }
+            await onState(renderer.failureState(failure, reportedPartial: reportedPartial))
+        }
     }
 
     /// Performs the given send-message use-case operation and renders the
@@ -205,7 +274,20 @@ public struct ConversationScreenSurface: Sendable {
                         continuation.finish(throwing: error)
                         return
                     }
-                    continuation.yield(ConversationScreenState(messages: history, failure: failure))
+                    if case CapabilityError.streamingInterrupted(let content) = error {
+                        partialContent = Self.reconciledPartial(
+                            current: partialContent,
+                            to: content
+                        )
+                    }
+                    let condition: ConversationScreenState.StreamingCondition? = partialContent.isEmpty
+                        ? nil
+                        : .interrupted(partialContent: partialContent)
+                    continuation.yield(ConversationScreenState(
+                        messages: history,
+                        streamingCondition: condition,
+                        failure: failure
+                    ))
                     continuation.finish()
                 }
             }
@@ -240,6 +322,64 @@ public struct ConversationScreenSurface: Sendable {
             return .credentialStorage(error)
         default:
             return nil
+        }
+    }
+
+    /// Serial renderer used by the structured operation callback. The callback
+    /// is `@Sendable`, so accumulated partial content is actor-isolated rather
+    /// than captured mutable state.
+    private actor StreamingStateRenderer {
+        let history: [MessagePresentation]
+        var partialContent: String
+
+        init(history: [MessagePresentation], partialContent: String) {
+            self.history = history
+            self.partialContent = partialContent
+        }
+
+        func state(for update: StreamingUpdate) -> ConversationScreenState {
+            switch update {
+            case .contentDelta(_, let content):
+                partialContent += content
+                return ConversationScreenState(
+                    messages: history,
+                    streamingCondition: .active(partialContent: partialContent)
+                )
+            case .completion(_, let message):
+                return ConversationScreenState(
+                    messages: history + [MessagePresentation(message: message)],
+                    streamingCondition: .complete
+                )
+            case .interruption(_, let content):
+                partialContent = ConversationScreenSurface.reconciledPartial(
+                    current: partialContent,
+                    to: content
+                )
+                return ConversationScreenState(
+                    messages: history,
+                    streamingCondition: .interrupted(partialContent: partialContent)
+                )
+            }
+        }
+
+        func failureState(
+            _ failure: ConversationScreenState.Failure,
+            reportedPartial: String?
+        ) -> ConversationScreenState {
+            if let reportedPartial {
+                partialContent = ConversationScreenSurface.reconciledPartial(
+                    current: partialContent,
+                    to: reportedPartial
+                )
+            }
+            let condition: ConversationScreenState.StreamingCondition? = partialContent.isEmpty
+                ? nil
+                : .interrupted(partialContent: partialContent)
+            return ConversationScreenState(
+                messages: history,
+                streamingCondition: condition,
+                failure: failure
+            )
         }
     }
 }

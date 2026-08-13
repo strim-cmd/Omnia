@@ -77,6 +77,9 @@ public struct ConversationScreenView: View {
     /// The waveform pulse of the streaming indicator, toggled so the bars
     /// animate while a stream is active or thinking (new_design.md §5).
     @State private var waveformPulse = false
+    /// Whether the composer owns keyboard focus. Focus is presentation-only:
+    /// dismissing it never mutates the bound draft.
+    @FocusState private var isComposerFocused: Bool
 
     /// Creates a conversation screen view over the given state and intent
     /// callbacks.
@@ -128,6 +131,12 @@ public struct ConversationScreenView: View {
                         }
                         .padding(OmniaTheme.Spacing.lg)
                     }
+                    .scrollDismissesKeyboard(.interactively)
+                    .simultaneousGesture(
+                        TapGesture().onEnded {
+                            isComposerFocused = false
+                        }
+                    )
                     .coordinateSpace(name: scrollCoordinateSpace)
                     .background(
                         GeometryReader { geometry in
@@ -217,7 +226,8 @@ public struct ConversationScreenView: View {
                 .tint(OmniaTheme.Colors.accent)
                 .autocorrectionDisabled()
                 .textFieldStyle(.plain)
-                .frame(minHeight: 50, maxHeight: 150)
+                .lineLimit(1...6)
+                .focused($isComposerFocused)
 
             if isStreaming {
                 OmniaIconButton(

@@ -9,11 +9,20 @@ private let providerA = "00000000-0000-0000-0000-000000000001"
 private final class InMemoryConversationRepository: ConversationRepository, @unchecked Sendable {
     private let lock = NSLock()
     private var storage: [ConversationIdentity: Conversation] = [:]
+    let saves: AsyncStream<Conversation>
+    private let savesContinuation: AsyncStream<Conversation>.Continuation
+
+    init() {
+        let pair = AsyncStream<Conversation>.makeStream()
+        saves = pair.stream
+        savesContinuation = pair.continuation
+    }
 
     func save(_ conversation: Conversation) async throws {
         lock.withLock {
             storage[conversation.identity] = conversation
         }
+        savesContinuation.yield(conversation)
     }
 
     func conversation(with identity: ConversationIdentity) async throws -> Conversation? {
@@ -506,7 +515,11 @@ final class ConversationScreenSurfaceTests: XCTestCase {
 
         stream = nil
 
-        let state = await pollInterruptedState(identity: conversation.identity, repository: repository)
+        var saves = repository.saves.makeAsyncIterator()
+        let state = await nextInterruptedState(
+            identity: conversation.identity,
+            from: &saves
+        )
         XCTAssertEqual(state, .interrupted(partialContent: "Par"))
     }
 
@@ -620,16 +633,15 @@ final class ConversationScreenSurfaceTests: XCTestCase {
         )
     }
 
-    private func pollInterruptedState(
+    private func nextInterruptedState(
         identity: ConversationIdentity,
-        repository: InMemoryConversationRepository
+        from saves: inout AsyncStream<Conversation>.Iterator
     ) async -> ConversationStreamingState? {
-        for _ in 0..<200 {
-            if let conversation = try? await repository.conversation(with: identity),
+        while let conversation = await saves.next() {
+            if conversation.identity == identity,
                case .interrupted = conversation.streamingState {
                 return conversation.streamingState
             }
-            try? await Task.sleep(nanoseconds: 10_000_000)
         }
         return nil
     }

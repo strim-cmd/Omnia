@@ -30,6 +30,7 @@ import AppKit
 /// review against `project UI standards`. It requires NavigationStack (iOS 16,
 /// macOS 13); the hosted screens are available from iOS 15 / macOS 12.
 @available(iOS 16.0, macOS 13.0, *)
+@MainActor
 public struct RootView: View {
     /// The navigation surface the shell hosts.
     public let surface: NavigationSurface
@@ -56,12 +57,12 @@ public struct RootView: View {
     @State private var isDarkMode = true
     /// The ready-to-render conversation list state.
     @State private var listState: ConversationListState?
-    /// The conversation the conversation screen presents.
-    @State private var presentedConversation: Conversation?
-    /// The ready-to-render conversation screen state.
-    @State private var screenState: ConversationScreenState?
+    /// Ready-to-render conversation screen states keyed by conversation
+    /// identity. Navigation chooses which entry is visible; asynchronous loads
+    /// and generation updates can never overwrite a different conversation.
+    @State private var conversationStates: [ConversationIdentity: ConversationScreenState] = [:]
     /// The in-progress composer drafts of the conversations, keyed by
-    /// identity: the rendered draft lives in `screenState.draft`, and this
+    /// identity: the rendered draft lives in its keyed conversation state, and this
     /// store lets an unsent draft survive leaving and returning to a
     /// conversation (UX audit U4).
     @State private var conversationDrafts: [ConversationIdentity: String] = [:]
@@ -71,8 +72,10 @@ public struct RootView: View {
     /// restored from the persisted configuration and changed from the
     /// conversation screen's provider selector (UX audit V2).
     @State private var selectedProvider: ProviderIdentity?
-    /// The streaming task of the active send-message flow.
-    @State private var streamingTask: Task<Void, Never>?
+    /// The session-lived owner of conversation generation. Its operations and
+    /// latest states are keyed by conversation identity, so view and route
+    /// changes affect observation only and never cancel provider work.
+    @State private var generationCoordinator = ConversationGenerationCoordinator()
 
     /// Creates the navigation shell over the given navigation surface,
     /// workspace, and configuration keys.
@@ -147,14 +150,7 @@ public struct RootView: View {
                 }
                 .task(id: navigation.currentRoute) {
                     guard navigation.currentRoute == .conversationList else { return }
-                    streamingTask?.cancel()
-                    streamingTask = nil
                     await loadConversationList()
-                }
-                .onChange(of: providerSelection) { selection in
-                    if let screenState {
-                        self.screenState = screenState.replacingProviderSelection(selection)
-                    }
                 }
                 .onChange(of: isDarkMode) { dark in
                     persistDarkModeAppearance(dark)
@@ -246,8 +242,8 @@ public struct RootView: View {
 
     private func conversationScreen(for identity: ConversationIdentity) -> some View {
         ConversationScreenView(
-            state: screenState ?? ConversationScreenState(messages: []),
-            draft: draftBinding,
+            state: rendering(conversationStates[identity] ?? ConversationScreenState(messages: [])),
+            draft: draftBinding(for: identity),
             onSend: send,
             onCancel: cancel,
             onRegenerate: regenerate(at:),
@@ -257,24 +253,24 @@ public struct RootView: View {
             onOpenProviders: openProvidersFromConversation,
             onOpenMenu: presentMenu
         )
-        .onDisappear {
-            streamingTask?.cancel()
-            streamingTask = nil
-        }
     }
 
     /// A binding to the rendered draft of the presented conversation's state:
-    /// typing edits `screenState.draft` directly and records the in-progress
+    /// typing edits the keyed state's draft directly and records the in-progress
     /// draft per conversation, so an unsent draft is never lost when the
     /// conversation is left and reopened (UX audit U4).
-    private var draftBinding: Binding<String> {
+    private func draftBinding(for identity: ConversationIdentity) -> Binding<String> {
         Binding(
-            get: { screenState?.draft ?? "" },
+            get: {
+                conversationStates[identity]?.draft
+                    ?? conversationDrafts[identity]
+                    ?? ""
+            },
             set: { draft in
-                if case .conversationScreen(let identity) = navigation.currentRoute {
-                    conversationDrafts[identity] = draft
-                }
-                screenState = screenState?.replacingDraft(draft)
+                conversationDrafts[identity] = draft
+                let state = conversationStates[identity]
+                    ?? ConversationScreenState(messages: [])
+                conversationStates[identity] = state.replacingDraft(draft)
             }
         )
     }
@@ -451,8 +447,12 @@ public struct RootView: View {
         Task { @MainActor in
             do {
                 let conversation = try await surface.conversationList.create(in: workspace)
-                presentedConversation = conversation
-                screenState = rendering(surface.conversationScreen.load(conversation))
+                let loaded = surface.conversationScreen.load(conversation)
+                let coordinated = await generationCoordinator.state(
+                    for: conversation.identity,
+                    loading: loaded
+                )
+                conversationStates[conversation.identity] = coordinated
                     .replacingDraft(conversationDrafts[conversation.identity] ?? "")
                 guard case .conversationList = navigation.currentRoute else { return }
                 navigation = NavigationState(
@@ -473,8 +473,9 @@ public struct RootView: View {
         Task { @MainActor in
             do {
                 guard let conversation = try await surface.conversationList.select(identity) else { return }
-                presentedConversation = conversation
-                screenState = rendering(surface.conversationScreen.load(conversation))
+                let loaded = surface.conversationScreen.load(conversation)
+                let coordinated = await generationCoordinator.state(for: identity, loading: loaded)
+                conversationStates[identity] = coordinated
                     .replacingDraft(conversationDrafts[identity] ?? "")
                 guard case .conversationList = navigation.currentRoute else { return }
                 navigation = NavigationState(
@@ -493,7 +494,9 @@ public struct RootView: View {
     private func deleteConversation(_ identity: ConversationIdentity) {
         Task { @MainActor in
             do {
+                await generationCoordinator.discard(identity)
                 try await surface.conversationList.delete(identity)
+                conversationStates[identity] = nil
                 conversationDrafts[identity] = nil
                 await loadConversationList()
             } catch let error as RepositoryError {
@@ -519,16 +522,21 @@ public struct RootView: View {
             message: message,
             userSelection: selectedProvider
         )
-        let history = (screenState?.messages ?? []) + [MessagePresentation(message: message)]
-        streamingTask = Task { @MainActor in
-            do {
-                for try await state in surface.conversationScreen.send(request, rendering: history) {
-                    screenState = rendering(state).replacingDraft(conversationDrafts[identity] ?? "")
-                }
-            } catch {
-                if error is CancellationError { return }
-                await presentUnexpectedStreamFailure()
-            }
+        let history = (conversationStates[identity]?.messages ?? [])
+            + [MessagePresentation(message: message)]
+        let conversationScreen = surface.conversationScreen
+        startGeneration(
+            for: identity,
+            initialState: ConversationScreenState(
+                messages: history,
+                streamingCondition: .thinking
+            )
+        ) { consume in
+            try await conversationScreen.performSend(
+                request,
+                rendering: history,
+                onState: consume
+            )
         }
     }
 
@@ -538,12 +546,10 @@ public struct RootView: View {
     /// discarded (ARC-001) — so the screen announces the interruption and the
     /// Stop affordance gives way to the composer (UX audit A4).
     private func cancel() {
-        streamingTask?.cancel()
-        streamingTask = nil
-        guard let state = screenState, case .active(let partialContent) = state.streamingCondition else {
-            return
+        guard case .conversationScreen(let identity) = navigation.currentRoute else { return }
+        Task { @MainActor in
+            _ = await generationCoordinator.cancel(identity)
         }
-        screenState = state.replacingStreamingCondition(.interrupted(partialContent: partialContent))
     }
 
     /// Translates the regenerate intent of an assistant message at the given
@@ -555,7 +561,7 @@ public struct RootView: View {
     /// prompt already in the history (UX audit U7).
     private func regenerate(at index: Int) {
         guard case .conversationScreen(let identity) = navigation.currentRoute,
-              let messages = screenState?.messages,
+              let messages = conversationStates[identity]?.messages,
               messages.indices.contains(index),
               let promptIndex = messages[...index].lastIndex(where: { $0.role == .user })
         else {
@@ -568,15 +574,19 @@ public struct RootView: View {
             userSelection: selectedProvider
         )
         let history = Array(messages.prefix(promptIndex + 1))
-        streamingTask = Task { @MainActor in
-            do {
-                for try await state in surface.conversationScreen.send(request, rendering: history) {
-                    screenState = rendering(state).replacingDraft(conversationDrafts[identity] ?? "")
-                }
-            } catch {
-                if error is CancellationError { return }
-                await presentUnexpectedStreamFailure()
-            }
+        let conversationScreen = surface.conversationScreen
+        startGeneration(
+            for: identity,
+            initialState: ConversationScreenState(
+                messages: history,
+                streamingCondition: .thinking
+            )
+        ) { consume in
+            try await conversationScreen.performSend(
+                request,
+                rendering: history,
+                onState: consume
+            )
         }
     }
 
@@ -587,23 +597,29 @@ public struct RootView: View {
     /// the last user message (UX audit V2).
     private func retry() {
         guard case .conversationScreen(let identity) = navigation.currentRoute,
-              let messages = screenState?.messages
+              let state = conversationStates[identity]
         else {
             return
         }
+        let messages = state.messages
         // An interrupted stream resumes through the surface: a resume does not
         // add a user message, and the preserved partial content continues in
         // the reply (ConversationScreenSurface.resume).
-        if case .interrupted(let partialContent) = screenState?.streamingCondition {
-            streamingTask = Task { @MainActor in
-                do {
-                    for try await state in surface.conversationScreen.resume(identity, from: partialContent, rendering: messages) {
-                        screenState = rendering(state).replacingDraft(conversationDrafts[identity] ?? "")
-                    }
-                } catch {
-                    if error is CancellationError { return }
-                    await presentUnexpectedStreamFailure()
-                }
+        if case .interrupted(let partialContent) = state.streamingCondition {
+            let conversationScreen = surface.conversationScreen
+            startGeneration(
+                for: identity,
+                initialState: ConversationScreenState(
+                    messages: messages,
+                    streamingCondition: .active(partialContent: partialContent)
+                )
+            ) { consume in
+                try await conversationScreen.performResume(
+                    identity,
+                    from: partialContent,
+                    rendering: messages,
+                    onState: consume
+                )
             }
             return
         }
@@ -624,24 +640,59 @@ public struct RootView: View {
                 userSelection: selectedProvider
             )
             let history = Array(messages.prefix(lastUserIndex + 1))
-            streamingTask = Task { @MainActor in
-                do {
-                    for try await state in surface.conversationScreen.send(request, rendering: history) {
-                        screenState = rendering(state).replacingDraft(conversationDrafts[identity] ?? "")
-                    }
-                } catch {
-                    if error is CancellationError { return }
-                    await presentUnexpectedStreamFailure()
-                }
+            let conversationScreen = surface.conversationScreen
+            startGeneration(
+                for: identity,
+                initialState: ConversationScreenState(
+                    messages: history,
+                    streamingCondition: .thinking
+                )
+            ) { consume in
+                try await conversationScreen.performSend(
+                    request,
+                    rendering: history,
+                    onState: consume
+                )
             }
         }
+    }
+
+    /// Starts a conversation-keyed generation operation and observes it only
+    /// while its conversation is the rendered route. The coordinator retains
+    /// both the operation and its latest state across route changes.
+    private func startGeneration(
+        for identity: ConversationIdentity,
+        initialState: ConversationScreenState,
+        perform: @escaping ConversationGenerationCoordinator.GenerationOperation
+    ) {
+        Task { @MainActor in
+            _ = await generationCoordinator.start(
+                for: identity,
+                initialState: initialState,
+                perform: perform
+            ) { conversation, state in
+                presentGenerationState(state, for: conversation)
+            }
+        }
+    }
+
+    /// Applies a generation update only to its keyed conversation state.
+    /// Off-screen updates remain available on return and cannot bleed into
+    /// whichever conversation is currently displayed.
+    private func presentGenerationState(
+        _ state: ConversationScreenState,
+        for identity: ConversationIdentity
+    ) {
+        conversationStates[identity] = state
+            .replacingDraft(conversationDrafts[identity] ?? "")
     }
 
     /// Translates the copy intent of an assistant message at the given index:
     /// its plain text is copied to the platform pasteboard — the user's own
     /// content (ARC-005).
     private func copy(at index: Int) {
-        guard let messages = screenState?.messages,
+        guard case .conversationScreen(let identity) = navigation.currentRoute,
+              let messages = conversationStates[identity]?.messages,
               messages.indices.contains(index),
               let text = messages[index].content?.accessibilityText
         else {
@@ -676,26 +727,6 @@ public struct RootView: View {
                 settingsState = failingSettingsState(error)
             }
         }
-    }
-
-    /// Presents an unexpected stream failure as a terminal failure on the
-    /// screen: the conversation is reloaded — the Domain preserved the partial
-    /// content as interrupted, which the screen renders as incomplete, never
-    /// discarded (ARC-001, DES-009 §3.11.4) — and a `.unexpected` failure state
-    /// is set on it, so the interruption reason is visible and distinct from a
-    /// user-initiated cancellation, never silent (UX audit S1, ARC-001).
-    @MainActor
-    private func presentUnexpectedStreamFailure() async {
-        guard case .conversationScreen(let identity) = navigation.currentRoute else { return }
-        guard let conversation = try? await surface.conversationList.select(identity) else { return }
-        presentedConversation = conversation
-        let loaded = surface.conversationScreen.load(conversation)
-        screenState = rendering(ConversationScreenState(
-            messages: loaded.messages,
-            draft: conversationDrafts[identity] ?? "",
-            streamingCondition: loaded.streamingCondition,
-            failure: .unexpected
-        ))
     }
 
     // MARK: Settings intents
