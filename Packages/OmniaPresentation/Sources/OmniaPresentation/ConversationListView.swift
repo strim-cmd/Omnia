@@ -40,6 +40,9 @@ public struct ConversationListView: View {
     /// A full swipe never deletes: the confirm step is explicit and the
     /// system confirmation dialog is the accessibility path (UX audit U5).
     @State private var pendingDeletion: ConversationIdentity?
+    /// The one conversation whose card is settled left to expose the circular
+    /// delete affordance. Opening or tapping elsewhere closes the prior row.
+    @State private var revealedConversation: ConversationIdentity?
     /// The search query filtering the presented rows — purely presentational
     /// (new_design.md §6).
     @State private var query = ""
@@ -161,9 +164,9 @@ public struct ConversationListView: View {
             .textCase(.uppercase)
     }
 
-    /// Conversation cards inside full-width native List rows. Horizontal
-    /// spacing belongs to the content, leaving the system swipe surface flush
-    /// with the screen edge like the Messages conversation list.
+    /// Conversation cards inside full-width List rows. The card itself moves
+    /// over the normal list background to expose one independent circular
+    /// destructive action; no full-height swipe-action slab is rendered.
     private var list: some View {
         List {
             if state.isEmpty {
@@ -183,8 +186,16 @@ public struct ConversationListView: View {
                         )
                     )
                 ForEach(filteredItems, id: \.identity) { item in
-                    row(item)
-                        .padding(.horizontal, OmniaTheme.Spacing.lg)
+                    ConversationSwipeRevealRow(
+                        identity: item.identity,
+                        revealedConversation: $revealedConversation,
+                        onDelete: {
+                            revealedConversation = nil
+                            pendingDeletion = item.identity
+                        }
+                    ) {
+                        row(item)
+                    }
                         .listRowBackground(Color.clear)
                         .listRowSeparator(.hidden)
                         .listRowInsets(
@@ -195,18 +206,16 @@ public struct ConversationListView: View {
                                 trailing: 0
                             )
                         )
-                        .swipeActions(edge: .trailing, allowsFullSwipe: false) {
-                            Button(role: .destructive) {
-                                pendingDeletion = item.identity
-                            } label: {
-                                Label(Localized.delete, systemImage: "trash")
-                            }
-                        }
                 }
             }
         }
         .listStyle(.plain)
         .scrollContentBackground(.hidden)
+        .simultaneousGesture(
+            TapGesture().onEnded {
+                closeRevealedConversation()
+            }
+        )
         .overlay {
             if state.isEmpty {
                 emptyState
@@ -230,7 +239,11 @@ public struct ConversationListView: View {
 
     private func row(_ item: ConversationListItem) -> some View {
         Button {
-            onSelect(item.identity)
+            if revealedConversation == nil {
+                onSelect(item.identity)
+            } else {
+                closeRevealedConversation()
+            }
         } label: {
             OmniaCard {
                 HStack(spacing: OmniaTheme.Spacing.md) {
@@ -256,12 +269,23 @@ public struct ConversationListView: View {
         }
         .buttonStyle(.plain)
         .accessibilityElement(children: .combine)
+        .accessibilityAction(named: Text(Localized.delete)) {
+            revealedConversation = nil
+            pendingDeletion = item.identity
+        }
         .contextMenu {
             Button(role: .destructive) {
                 pendingDeletion = item.identity
             } label: {
                 Label(Localized.delete, systemImage: "trash")
             }
+        }
+    }
+
+    private func closeRevealedConversation() {
+        guard revealedConversation != nil else { return }
+        withAnimation(.spring(response: 0.28, dampingFraction: 0.86)) {
+            revealedConversation = nil
         }
     }
 
@@ -314,6 +338,106 @@ public struct ConversationListView: View {
                 return Localized.storageUnavailable
             }
         }
+    }
+}
+
+/// A single-purpose swipe container for a conversation card. Only a
+/// horizontal-dominant drag contributes offset, so the enclosing List keeps
+/// ownership of ordinary vertical scrolling.
+private struct ConversationSwipeRevealRow<Content: View>: View {
+    let identity: ConversationIdentity
+    @Binding var revealedConversation: ConversationIdentity?
+    let onDelete: () -> Void
+    let content: Content
+
+    @GestureState private var dragTranslation: CGFloat = 0
+
+    init(
+        identity: ConversationIdentity,
+        revealedConversation: Binding<ConversationIdentity?>,
+        onDelete: @escaping () -> Void,
+        @ViewBuilder content: () -> Content
+    ) {
+        self.identity = identity
+        self._revealedConversation = revealedConversation
+        self.onDelete = onDelete
+        self.content = content()
+    }
+
+    private var isOpen: Bool {
+        revealedConversation == identity
+    }
+
+    private var offset: CGFloat {
+        ConversationSwipeBehavior.offset(
+            isOpen: isOpen,
+            dragTranslation: dragTranslation
+        )
+    }
+
+    private var revealProgress: CGFloat {
+        min(1, max(0, -offset / ConversationSwipeBehavior.revealDistance))
+    }
+
+    var body: some View {
+        ZStack(alignment: .trailing) {
+            Button(action: onDelete) {
+                Image(systemName: "trash")
+                    .font(.system(size: 20, weight: .semibold))
+                    .foregroundStyle(OmniaTheme.Colors.userBubbleText)
+                    .frame(
+                        width: ConversationSwipeBehavior.actionDiameter,
+                        height: ConversationSwipeBehavior.actionDiameter
+                    )
+                    .background(OmniaTheme.Colors.error, in: Circle())
+            }
+            .buttonStyle(.plain)
+            .contentShape(Circle())
+            .padding(.trailing, ConversationSwipeBehavior.trailingMargin)
+            .opacity(revealProgress)
+            .allowsHitTesting(isOpen)
+            .accessibilityHidden(!isOpen)
+            .accessibilityLabel(Text(Localized.delete))
+
+            content
+                .offset(x: offset)
+        }
+        .contentShape(Rectangle())
+        .simultaneousGesture(horizontalDrag)
+    }
+
+    private var horizontalDrag: some Gesture {
+        DragGesture(minimumDistance: 10, coordinateSpace: .local)
+            .updating($dragTranslation) { value, translation, _ in
+                guard let horizontal = ConversationSwipeBehavior.horizontalTranslation(
+                    width: value.translation.width,
+                    height: value.translation.height
+                ) else { return }
+                translation = horizontal
+            }
+            .onChanged { value in
+                guard ConversationSwipeBehavior.horizontalTranslation(
+                    width: value.translation.width,
+                    height: value.translation.height
+                ) != nil else { return }
+                guard let revealedConversation, revealedConversation != identity else { return }
+                withAnimation(.spring(response: 0.28, dampingFraction: 0.86)) {
+                    self.revealedConversation = nil
+                }
+            }
+            .onEnded { value in
+                guard let horizontal = ConversationSwipeBehavior.horizontalTranslation(
+                    width: value.translation.width,
+                    height: value.translation.height
+                ) else { return }
+                let shouldOpen = ConversationSwipeBehavior.settlesOpen(
+                    wasOpen: isOpen,
+                    dragTranslation: horizontal
+                )
+                withAnimation(.spring(response: 0.28, dampingFraction: 0.86)) {
+                    revealedConversation = shouldOpen ? identity : nil
+                }
+            }
     }
 }
 

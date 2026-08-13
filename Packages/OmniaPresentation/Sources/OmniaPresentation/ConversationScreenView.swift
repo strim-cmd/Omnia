@@ -204,71 +204,89 @@ public struct ConversationScreenView: View {
         .background(OmniaTheme.Colors.background.opacity(0.8))
     }
 
-    /// The compact composer of the screen: the attachment button, the message
-    /// field, and the send/stop button — a single control roughly 50–60 pt tall
-    /// on one line that expands only as needed (new_design.md §5). The send
-    /// button is enabled whenever the draft is non-empty; a whitespace-only
-    /// draft stays enabled and is refused at send time (new_design.md §5).
+    /// The compact composer: an independent 44-point attachment circle beside
+    /// a 46-point input capsule whose trailing edge contains the 34-point
+    /// send/stop circle. The capsule expands only as multiline input needs it.
     private var composer: some View {
-        HStack(alignment: .bottom, spacing: OmniaTheme.Spacing.xs) {
+        HStack(alignment: .bottom, spacing: OmniaTheme.Spacing.sm) {
             OmniaIconButton(
                 systemImage: "paperclip",
                 tint: OmniaTheme.Colors.textSecondary,
-                size: 36,
+                size: 44,
+                background: OmniaTheme.Colors.elevatedSurface,
                 action: {}
             )
             .accessibilityLabel(Text(Localized.attachment))
-            .frame(width: 40, height: 40)
-
-            TextField(
-                "",
-                text: $draft,
-                prompt: Text(Localized.messagePlaceholder)
-                    .foregroundColor(OmniaTheme.Colors.textMuted),
-                axis: .vertical
+            .frame(width: 44, height: 44)
+            .overlay(
+                Circle()
+                    .stroke(OmniaTheme.Colors.border, lineWidth: 0.5)
             )
-                .font(OmniaTheme.Typography.body)
-                .foregroundStyle(OmniaTheme.Colors.textPrimary)
-                .tint(OmniaTheme.Colors.accent)
-                .autocorrectionDisabled()
-                .textFieldStyle(.plain)
-                .lineLimit(1...6)
-                .frame(minHeight: 40, alignment: .center)
-                .focused($isComposerFocused)
+            .padding(.bottom, 1)
 
-            if isStreaming {
-                OmniaIconButton(
-                    systemImage: "stop.circle.fill",
-                    tint: OmniaTheme.Colors.accent,
-                    size: 40,
-                    action: onCancel
+            ZStack(alignment: .bottomTrailing) {
+                TextField(
+                    "",
+                    text: $draft,
+                    prompt: Text(Localized.messagePlaceholder)
+                        .foregroundColor(OmniaTheme.Colors.textMuted),
+                    axis: .vertical
                 )
-                .accessibilityLabel(Text(Localized.stop))
-            } else {
-                OmniaIconButton(
-                    systemImage: "arrow.up.circle.fill",
-                    tint: draft.isEmpty ? OmniaTheme.Colors.textMuted : OmniaTheme.Colors.accent,
-                    size: 40,
-                    action: submit
-                )
-                .accessibilityLabel(Text(Localized.send))
-                .disabled(draft.isEmpty)
+                    .font(OmniaTheme.Typography.body)
+                    .foregroundStyle(OmniaTheme.Colors.textPrimary)
+                    .tint(OmniaTheme.Colors.accent)
+                    .autocorrectionDisabled()
+                    .textFieldStyle(.plain)
+                    .lineLimit(1...6)
+                    .frame(minHeight: 46, alignment: .center)
+                    .padding(.leading, OmniaTheme.Spacing.md)
+                    .padding(.trailing, 50)
+                    .focused($isComposerFocused)
+
+                composerActionButton
+                    .padding(1)
             }
+            .background(OmniaTheme.Colors.elevatedSurface, in: Capsule())
+            .overlay(
+                Capsule()
+                    .stroke(OmniaTheme.Colors.border, lineWidth: 0.5)
+            )
+            .shadow(color: OmniaTheme.Shadows.composer, radius: 10, x: 0, y: 4)
         }
-        .padding(.horizontal, OmniaTheme.Spacing.lg)
-        .padding(.vertical, OmniaTheme.Spacing.xs)
-        .background(
-            OmniaTheme.Colors.elevatedSurface,
-            in: RoundedRectangle(cornerRadius: OmniaTheme.Radii.composer, style: .continuous)
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: OmniaTheme.Radii.composer, style: .continuous)
-                .stroke(OmniaTheme.Colors.border, lineWidth: 0.5)
-        )
-        .shadow(color: OmniaTheme.Shadows.composer, radius: 10, x: 0, y: 4)
         .padding(.horizontal, OmniaTheme.Spacing.lg)
         .padding(.top, OmniaTheme.Spacing.sm)
         .padding(.bottom, OmniaTheme.Spacing.md)
+    }
+
+    private var composerActionButton: some View {
+        Button(action: isStreaming ? onCancel : submit) {
+            ZStack {
+                Circle()
+                    .fill(composerActionFill)
+                    .frame(width: 34, height: 34)
+                Image(systemName: isStreaming ? "stop.fill" : "arrow.up")
+                    .font(.system(size: 15, weight: .bold))
+                    .foregroundStyle(composerActionForeground)
+            }
+            .frame(width: 44, height: 44)
+            .contentShape(Circle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(Text(isStreaming ? Localized.stop : Localized.send))
+        .disabled(!isStreaming && draft.isEmpty)
+    }
+
+    private var composerActionFill: Color {
+        if isStreaming || !draft.isEmpty {
+            return OmniaTheme.Colors.accent
+        }
+        return OmniaTheme.Colors.textMuted.opacity(0.18)
+    }
+
+    private var composerActionForeground: Color {
+        isStreaming || !draft.isEmpty
+            ? OmniaTheme.Colors.userBubbleText
+            : OmniaTheme.Colors.textMuted
     }
 
     private var isStreaming: Bool {
