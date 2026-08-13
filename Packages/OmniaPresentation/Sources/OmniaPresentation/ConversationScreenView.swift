@@ -224,7 +224,7 @@ public struct ConversationScreenView: View {
                 "",
                 text: $draft,
                 prompt: Text(Localized.messagePlaceholder)
-                    .foregroundStyle(OmniaTheme.Colors.textMuted),
+                    .foregroundColor(OmniaTheme.Colors.textMuted),
                 axis: .vertical
             )
                 .font(OmniaTheme.Typography.body)
