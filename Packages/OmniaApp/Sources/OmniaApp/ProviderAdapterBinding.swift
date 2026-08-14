@@ -93,7 +93,8 @@ internal struct ProviderAdapterBinding: TextGenerationContract, ConversationCont
             from: TextGenerationRequest(
                 identity: request.identity,
                 prompt: request.prompt,
-                model: request.model
+                model: request.model,
+                provider: request.provider
             )
         )
     }
@@ -104,7 +105,9 @@ internal struct ProviderAdapterBinding: TextGenerationContract, ConversationCont
             ConversationRequest(
                 identity: request.identity,
                 history: request.history,
-                model: request.model
+                model: request.model,
+                provider: request.provider,
+                resolvedAttachments: request.resolvedAttachments
             )
         )
     }
@@ -115,7 +118,9 @@ internal struct ProviderAdapterBinding: TextGenerationContract, ConversationCont
             StreamingRequest(
                 identity: request.identity,
                 history: request.history,
-                model: request.model
+                model: request.model,
+                provider: request.provider,
+                resolvedAttachments: request.resolvedAttachments
             )
         )
     }

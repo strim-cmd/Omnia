@@ -53,19 +53,31 @@ private final class InMemoryConfigurationRepository: ConfigurationRepository, @u
 private final class FakeProviderAdapter: TextGenerationContract, ConversationContract, StreamingContract, @unchecked Sendable {
     private let lock = NSLock()
     private var recordedModels: [String] = []
+    private var recordedTextRequests: [TextGenerationRequest] = []
+    private var recordedConversationRequests: [ConversationRequest] = []
+    private var recordedStreamingRequests: [StreamingRequest] = []
 
     func generateText(from request: TextGenerationRequest) async throws -> TextGenerationResponse {
-        lock.withLock { recordedModels.append(request.model.name) }
+        lock.withLock {
+            recordedModels.append(request.model.name)
+            recordedTextRequests.append(request)
+        }
         return TextGenerationResponse(text: "generated reply")
     }
 
     func sendMessage(_ request: ConversationRequest) async throws -> ConversationResponse {
-        lock.withLock { recordedModels.append(request.model.name) }
+        lock.withLock {
+            recordedModels.append(request.model.name)
+            recordedConversationRequests.append(request)
+        }
         return ConversationResponse(message: Message(role: .assistant, content: "assistant reply"))
     }
 
     func stream(_ request: StreamingRequest) async throws -> AsyncThrowingStream<StreamingUpdate, Error> {
-        lock.withLock { recordedModels.append(request.model.name) }
+        lock.withLock {
+            recordedModels.append(request.model.name)
+            recordedStreamingRequests.append(request)
+        }
         return AsyncThrowingStream { continuation in
             continuation.yield(
                 .completion(
@@ -79,6 +91,18 @@ private final class FakeProviderAdapter: TextGenerationContract, ConversationCon
 
     var models: [String] {
         lock.withLock { recordedModels }
+    }
+
+    var textRequests: [TextGenerationRequest] {
+        lock.withLock { recordedTextRequests }
+    }
+
+    var conversationRequests: [ConversationRequest] {
+        lock.withLock { recordedConversationRequests }
+    }
+
+    var streamingRequests: [StreamingRequest] {
+        lock.withLock { recordedStreamingRequests }
     }
 }
 
@@ -105,6 +129,10 @@ private final class RecordingAdapterFactory: @unchecked Sendable {
 
     var adapterModels: [String] {
         adapter.models
+    }
+
+    var capturedAdapter: FakeProviderAdapter {
+        adapter
     }
 }
 
@@ -861,6 +889,131 @@ final class ProviderAdapterBindingTests: XCTestCase {
         XCTAssertEqual(factory.calls.count, 1)
         XCTAssertEqual(factory.calls[0].endpoint, URL(string: "https://second.example.com/v1"))
         XCTAssertEqual(factory.adapterModels, [modelReference.name])
+        XCTAssertEqual(factory.capturedAdapter.streamingRequests.first?.provider, second)
+    }
+
+    func testStreamForwardsResolvedAttachmentsAndHistoryToTheAdapter() async throws {
+        let attachment = imageAttachment()
+        let resolved = ResolvedAttachment(
+            attachment: attachment,
+            payload: .image(data: Data([1, 2, 3]), mediaType: "image/png")
+        )
+        let history = [
+            Message(role: .system, content: "You are concise."),
+            Message(role: .user, content: "Describe", attachments: [attachment]),
+        ]
+        let (binding, factory, _) = try await makeBinding()
+        let request = StreamingRequest(
+            identity: CapabilityRequestIdentity(),
+            history: history,
+            model: modelReference,
+            resolvedAttachments: [resolved]
+        )
+
+        let stream = try await binding.stream(request)
+        for try await _ in stream {}
+
+        let forwarded = try XCTUnwrap(factory.capturedAdapter.streamingRequests.first)
+        XCTAssertEqual(forwarded.identity, request.identity)
+        XCTAssertEqual(forwarded.history, history)
+        XCTAssertEqual(forwarded.model, modelReference)
+        XCTAssertEqual(forwarded.resolvedAttachments, [resolved])
+    }
+
+    func testSendMessageForwardsResolvedAttachmentsAndHistoryToTheAdapter() async throws {
+        let attachment = imageAttachment()
+        let resolved = ResolvedAttachment(
+            attachment: attachment,
+            payload: .image(data: Data([1, 2, 3]), mediaType: "image/png")
+        )
+        let history = [Message(role: .user, content: "Describe", attachments: [attachment])]
+        let (binding, factory, _) = try await makeBinding()
+        let request = ConversationRequest(
+            identity: CapabilityRequestIdentity(),
+            history: history,
+            model: modelReference,
+            resolvedAttachments: [resolved]
+        )
+
+        _ = try await binding.sendMessage(request)
+
+        let forwarded = try XCTUnwrap(factory.capturedAdapter.conversationRequests.first)
+        XCTAssertEqual(forwarded.identity, request.identity)
+        XCTAssertEqual(forwarded.history, history)
+        XCTAssertEqual(forwarded.model, modelReference)
+        XCTAssertEqual(forwarded.resolvedAttachments, [resolved])
+    }
+
+    func testExplicitProviderIsPreservedInTheForwardedRequests() async throws {
+        let provider = ProviderIdentity()
+        let (binding, factory, _) = try await makeBinding(providerIdentity: provider)
+        let streaming = StreamingRequest(
+            identity: CapabilityRequestIdentity(),
+            history: [Message(role: .user, content: "Hello")],
+            model: modelReference,
+            provider: provider
+        )
+        let conversation = ConversationRequest(
+            identity: CapabilityRequestIdentity(),
+            history: [Message(role: .user, content: "Hello")],
+            model: modelReference,
+            provider: provider
+        )
+        let generation = TextGenerationRequest(
+            identity: CapabilityRequestIdentity(),
+            prompt: "Hello",
+            model: modelReference,
+            provider: provider
+        )
+
+        let stream = try await binding.stream(streaming)
+        for try await _ in stream {}
+        _ = try await binding.sendMessage(conversation)
+        _ = try await binding.generateText(from: generation)
+
+        XCTAssertEqual(factory.capturedAdapter.streamingRequests.first?.provider, provider)
+        XCTAssertEqual(factory.capturedAdapter.conversationRequests.first?.provider, provider)
+        XCTAssertEqual(factory.capturedAdapter.textRequests.first?.provider, provider)
+    }
+
+    func testTextOnlyRequestsAreForwardedUnchanged() async throws {
+        let history = [Message(role: .user, content: "Hello")]
+        let (binding, factory, _) = try await makeBinding()
+        let streaming = StreamingRequest(
+            identity: CapabilityRequestIdentity(),
+            history: history,
+            model: modelReference
+        )
+        let conversation = ConversationRequest(
+            identity: CapabilityRequestIdentity(),
+            history: history,
+            model: modelReference
+        )
+        let generation = TextGenerationRequest(
+            identity: CapabilityRequestIdentity(),
+            prompt: "Hello",
+            model: modelReference
+        )
+
+        let stream = try await binding.stream(streaming)
+        for try await _ in stream {}
+        _ = try await binding.sendMessage(conversation)
+        _ = try await binding.generateText(from: generation)
+
+        XCTAssertEqual(factory.capturedAdapter.streamingRequests, [streaming])
+        XCTAssertEqual(factory.capturedAdapter.conversationRequests, [conversation])
+        XCTAssertEqual(factory.capturedAdapter.textRequests, [generation])
+    }
+
+    private func imageAttachment() -> MessageAttachment {
+        MessageAttachment(
+            identity: AttachmentIdentity(),
+            fileName: "photo.png",
+            mediaType: "image/png",
+            kind: .image,
+            byteCount: 3,
+            storageKey: "opaque-key.png"
+        )
     }
 
     private func assertThrowsProviderUnavailable(
