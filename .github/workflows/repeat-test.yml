@@ -1,0 +1,65 @@
+name: Test Repeat (discard cancellation)
+
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: test-repeat
+  cancel-in-progress: false
+
+jobs:
+  repeat:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Repeat isolated failing test 25x
+        run: |
+          set -euo pipefail
+          for i in $(seq 1 25); do
+            (cd Packages/OmniaPresentation && swift test --filter ConversationGenerationCoordinatorTests.testDiscardAll_AwaitsAndForgetsEveryActiveConversation > "$RUNNER_TEMP/iso.log" 2>&1) \
+              || { echo "::error::isolated test failed on iteration $i"; cat "$RUNNER_TEMP/iso.log"; exit 1; }
+            echo "isolated test iteration $i passed"
+          done
+
+      - name: Repeat ConversationGenerationCoordinatorTests suite 10x
+        run: |
+          set -euo pipefail
+          for i in $(seq 1 10); do
+            (cd Packages/OmniaPresentation && swift test --filter ConversationGenerationCoordinatorTests > "$RUNNER_TEMP/suite.log" 2>&1) \
+              || { echo "::error::coordinator suite failed on iteration $i"; cat "$RUNNER_TEMP/suite.log"; exit 1; }
+            echo "coordinator suite iteration $i passed"
+          done
+
+      - name: Full OmniaPresentation suite
+        run: |
+          set -euo pipefail
+          (cd Packages/OmniaPresentation && swift test > "$RUNNER_TEMP/presentation.log" 2>&1) \
+            || { cat "$RUNNER_TEMP/presentation.log"; echo "::error::OmniaPresentation suite failed"; exit 1; }
+          if grep -qE 'error:|warning:|with [1-9][0-9]* failures' "$RUNNER_TEMP/presentation.log"; then
+            cat "$RUNNER_TEMP/presentation.log"
+            echo "::error::OmniaPresentation reported errors, warnings, or failing tests"
+            exit 1
+          fi
+          grep -E 'Executed [0-9]+ tests' "$RUNNER_TEMP/presentation.log" | tail -1
+
+      - name: Six packages + root
+        run: |
+          set -euo pipefail
+          for p in OmniaFoundation OmniaDomain OmniaApplication OmniaInfrastructure OmniaPresentation OmniaApp; do
+            (cd "Packages/$p" && swift test > "$RUNNER_TEMP/p-$p.log" 2>&1) \
+              || { cat "$RUNNER_TEMP/p-$p.log"; echo "::error::$p swift test failed"; exit 1; }
+            if grep -qE 'error:|warning:|with [1-9][0-9]* failures' "$RUNNER_TEMP/p-$p.log"; then
+              cat "$RUNNER_TEMP/p-$p.log"
+              echo "::error::$p reported errors, warnings, or failing tests"
+              exit 1
+            fi
+            echo "$p passed"
+          done
+          swift test > "$RUNNER_TEMP/root.log" 2>&1 || { cat "$RUNNER_TEMP/root.log"; echo "::error::root swift test failed"; exit 1; }
+          if grep -qE 'error:|warning:|with [1-9][0-9]* failures' "$RUNNER_TEMP/root.log"; then
+            cat "$RUNNER_TEMP/root.log"
+            echo "::error::root package reported errors, warnings, or failing tests"
+            exit 1
+          fi
+          echo "root passed"
