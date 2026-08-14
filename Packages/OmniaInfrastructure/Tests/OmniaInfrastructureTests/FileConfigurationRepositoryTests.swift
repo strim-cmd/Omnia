@@ -95,6 +95,24 @@ final class FileConfigurationRepositoryTests: XCTestCase {
         XCTAssertEqual(secondLoaded, 1000)
     }
 
+    func testRemoveAll_RemovesConfigurationDocumentsAndPreservesUnrelatedFiles() async throws {
+        let repository = makeRepository()
+        let first = ConfigurationKey<Int>("retryCount")
+        let second = ConfigurationKey<String>("modelName")
+        try await repository.store(3, for: first, at: .globalDefault)
+        try await repository.store("gpt-4", for: second, at: .providerSettings)
+        let unrelated = directoryURL.appendingPathComponent("keep.txt")
+        try Data("keep".utf8).write(to: unrelated)
+
+        try await repository.removeAll()
+
+        let firstValue = try await repository.value(for: first, at: .globalDefault)
+        let secondValue = try await repository.value(for: second, at: .providerSettings)
+        XCTAssertNil(firstValue)
+        XCTAssertNil(secondValue)
+        XCTAssertTrue(FileManager.default.fileExists(atPath: unrelated.path))
+    }
+
     func testStore_RoundTripsCredentialReferencePointer() async throws {
         let repository = makeRepository()
         let key = ConfigurationKey<CredentialReference>("providerCredential")

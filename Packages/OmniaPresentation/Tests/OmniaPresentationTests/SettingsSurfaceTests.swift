@@ -245,7 +245,8 @@ private func makeProductionSurface(
     providerRepository: some ProviderRepository,
     credentialStorage: some CredentialStorageProtocol,
     configurationRepository: some ConfigurationRepository,
-    validationService: ProviderValidationService
+    validationService: ProviderValidationService,
+    dataManagementService: DataManagementService? = nil
 ) -> SettingsSurface {
     let lifecycleService = ProviderLifecycleService()
     let configurationService = ConfigurationService(
@@ -271,8 +272,14 @@ private func makeProductionSurface(
             },
             discoverModels: { _ in [] }
         ),
-        validationService: validationService
+        validationService: validationService,
+        dataManagementService: dataManagementService
     )
+}
+
+private actor ClearDataProbe {
+    private(set) var count = 0
+    func record() { count += 1 }
 }
 
 private func provider(
@@ -291,6 +298,27 @@ private func provider(
 }
 
 final class SettingsSurfaceTests: XCTestCase {
+
+    func testClearData_InvokesTheComposedDestructiveCapability() async throws {
+        let probe = ClearDataProbe()
+        let surface = makeProductionSurface(
+            providerRepository: InMemoryProviderRepository(),
+            credentialStorage: InMemoryCredentialStorage(),
+            configurationRepository: InMemoryConfigurationRepository(),
+            validationService: ProviderValidationService(
+                testCandidate: { _, _, _ in [] },
+                testExisting: { _, _, _ in [] }
+            ),
+            dataManagementService: DataManagementService {
+                await probe.record()
+            }
+        )
+
+        try await surface.clearData()
+
+        let count = await probe.count
+        XCTAssertEqual(count, 1)
+    }
 
     private let modelKey = ConfigurationKey<String>("model")
 

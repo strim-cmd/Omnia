@@ -34,6 +34,9 @@ public struct ConversationListView: View {
     public let onDelete: (ConversationIdentity) -> Void
     /// Translates an explicit user rename.
     public let onRename: (ConversationIdentity, String) -> Void
+    /// Whether first-launch provider setup is the useful empty-state action.
+    public let showsProviderSetup: Bool
+    public let onAddProvider: () -> Void
     /// Translates the open-menu intent: the navigation drawer is presented.
     public let onOpenMenu: () -> Void
 
@@ -61,6 +64,8 @@ public struct ConversationListView: View {
         onSelect: @escaping (ConversationIdentity) -> Void,
         onDelete: @escaping (ConversationIdentity) -> Void,
         onRename: @escaping (ConversationIdentity, String) -> Void = { _, _ in },
+        showsProviderSetup: Bool = false,
+        onAddProvider: @escaping () -> Void = {},
         onOpenMenu: @escaping () -> Void = {}
     ) {
         self.state = state
@@ -68,6 +73,8 @@ public struct ConversationListView: View {
         self.onSelect = onSelect
         self.onDelete = onDelete
         self.onRename = onRename
+        self.showsProviderSetup = showsProviderSetup
+        self.onAddProvider = onAddProvider
         self.onOpenMenu = onOpenMenu
     }
 
@@ -382,11 +389,23 @@ public struct ConversationListView: View {
     }
 
     private var emptyState: some View {
-        EmptyStateView(
-            title: Localized.startNewConversation,
-            description: Localized.startNewConversationDescription,
-            systemImage: "bubble.left.and.bubble.right"
-        )
+        Group {
+            if showsProviderSetup {
+                EmptyStateView(
+                    title: Localized.addFirstProvider,
+                    description: Localized.addFirstProviderDescription,
+                    systemImage: "externaldrive.connected.to.line.below",
+                    actionTitle: Localized.addProvider,
+                    action: onAddProvider
+                )
+            } else {
+                EmptyStateView(
+                    title: Localized.startNewConversation,
+                    description: Localized.startNewConversationDescription,
+                    systemImage: "bubble.left.and.bubble.right"
+                )
+            }
+        }
     }
 
     private func failureBanner(_ failure: RepositoryError) -> some View {

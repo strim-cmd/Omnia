@@ -577,6 +577,8 @@ final class ProviderConnectionServiceTests: XCTestCase {
             _ = try await service.configure(request())
         }
         XCTAssertEqual(configurationRepository.storeCallCount, 0)
+        let providers = try? await providerRepository.allProviders()
+        XCTAssertTrue(providers?.isEmpty == true)
     }
 
     func testConfigure_ReferenceRecordFailureSurfacesAsRepositoryError() async {
@@ -592,6 +594,9 @@ final class ProviderConnectionServiceTests: XCTestCase {
         }
         XCTAssertEqual(providerRepository.saveCallCount, 1)
         XCTAssertEqual(credentialStorage.storeCallCount, 1)
+        XCTAssertEqual(credentialStorage.removeCallCount, 1)
+        let providers = try? await providerRepository.allProviders()
+        XCTAssertTrue(providers?.isEmpty == true)
     }
 
     // MARK: Configure — endpoint collection
@@ -678,6 +683,9 @@ final class ProviderConnectionServiceTests: XCTestCase {
         }
         XCTAssertEqual(providerRepository.saveCallCount, 1)
         XCTAssertEqual(credentialStorage.storeCallCount, 1)
+        XCTAssertEqual(credentialStorage.removeCallCount, 1)
+        let providers = try? await providerRepository.allProviders()
+        XCTAssertTrue(providers?.isEmpty == true)
     }
 
     // MARK: List
@@ -785,6 +793,30 @@ final class ProviderConnectionServiceTests: XCTestCase {
         XCTAssertNil(storedProvider)
     }
 
+    func testRemove_WithDanglingReferenceStillRemovesProviderAndReference() async throws {
+        let (providerRepository, credentialStorage, configurationRepository, service) =
+            makeServiceWithInMemoryDoubles()
+        let connection = try await service.configure(request())
+        let key = referenceKey(for: connection.identity)
+        let storedReference = try await configurationRepository.value(
+            for: key,
+            at: .providerSettings
+        )
+        let reference = try XCTUnwrap(storedReference)
+        try await credentialStorage.removeCredential(for: reference)
+
+        try await service.remove(connection.identity)
+
+        let storedProvider = try await providerRepository.provider(with: connection.identity)
+        let remainingReference = try await configurationRepository.value(
+            for: key,
+            at: .providerSettings
+        )
+        XCTAssertNil(storedProvider)
+        XCTAssertNil(remainingReference)
+        XCTAssertEqual(credentialStorage.removeCallCount, 2)
+    }
+
     func testRemove_CredentialRemovalFailureSurfacesAsCredentialStorageError() async throws {
         let providerRepository = InMemoryProviderRepository()
         let configurationRepository = InMemoryConfigurationRepository()
@@ -817,12 +849,19 @@ final class ProviderConnectionServiceTests: XCTestCase {
             configurationRepository: configurationRepository
         )
         let connection = try await service.configure(request())
+        let storedReference = try await configurationRepository.value(
+            for: referenceKey(for: connection.identity),
+            at: .providerSettings
+        )
+        let reference = try XCTUnwrap(storedReference)
 
         await assertSurfacesRepositoryError {
             try await service.remove(connection.identity)
         }
         let storedProvider = try await providerRepository.provider(with: connection.identity)
         XCTAssertNotNil(storedProvider)
+        let restoredCredential = try await credentialStorage.credential(for: reference)
+        XCTAssertEqual(restoredCredential, Credential(secret: secretValue))
     }
 
     func testRemove_ReferenceReadFailureSurfacesAsRepositoryError() async throws {
@@ -1113,6 +1152,29 @@ final class ProviderConnectionServiceTests: XCTestCase {
         }
         XCTAssertEqual(providerRepository.saveCallCount, 1)
         XCTAssertEqual(credentialStorage.storeCallCount, 1)
+        XCTAssertEqual(credentialStorage.removeCallCount, 1)
+        let providers = try? await providerRepository.allProviders()
+        XCTAssertTrue(providers?.isEmpty == true)
+    }
+
+    func testRemove_UnregistersTheRuntimeProviderOnlyAfterSuccessfulDeletion() async throws {
+        let lifecycle = ProviderLifecycleService()
+        let (providerRepository, credentialStorage, configurationRepository, _) =
+            makeServiceWithInMemoryDoubles()
+        let service = makeService(
+            providerRepository: providerRepository,
+            credentialStorage: credentialStorage,
+            configurationRepository: configurationRepository,
+            lifecycleService: lifecycle
+        )
+        let connection = try await service.configure(request())
+        let readyState = await lifecycle.state(of: connection.identity)
+        XCTAssertEqual(readyState, .ready)
+
+        try await service.remove(connection.identity)
+
+        let removedState = await lifecycle.state(of: connection.identity)
+        XCTAssertNil(removedState)
     }
 
     // MARK: Update

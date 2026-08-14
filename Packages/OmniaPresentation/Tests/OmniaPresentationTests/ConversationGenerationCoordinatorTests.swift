@@ -406,4 +406,37 @@ final class ConversationGenerationCoordinatorTests: XCTestCase {
         sourceA.finish()
         sourceB.finish()
     }
+
+    func testDiscardAll_AwaitsAndForgetsEveryActiveConversation() async throws {
+        let coordinator = ConversationGenerationCoordinator()
+        let conversationA = ConversationIdentity()
+        let conversationB = ConversationIdentity()
+        let sourceA = ControlledGeneration()
+        let sourceB = ControlledGeneration()
+        var iterator = events.events.makeAsyncIterator()
+
+        _ = await coordinator.start(
+            for: conversationA,
+            initialState: generationState("A"),
+            makeStream: { sourceA.stream },
+            observer: observer
+        )
+        _ = try await nextEvent(from: &iterator)
+        _ = await coordinator.start(
+            for: conversationB,
+            initialState: generationState("B"),
+            makeStream: { sourceB.stream },
+            observer: observer
+        )
+        _ = try await nextEvent(from: &iterator)
+
+        await coordinator.discardAll()
+
+        let generatingA = await coordinator.isGenerating(conversationA)
+        let generatingB = await coordinator.isGenerating(conversationB)
+        XCTAssertFalse(generatingA)
+        XCTAssertFalse(generatingB)
+        XCTAssertEqual(sourceA.cancellations.count, 1)
+        XCTAssertEqual(sourceB.cancellations.count, 1)
+    }
 }

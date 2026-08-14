@@ -56,6 +56,14 @@ public struct RootView: View {
     /// typed configuration store (DES-011 §3.5) — never a Domain or Application
     /// concept (ARC-002).
     @State private var isDarkMode = true
+    /// A persisted appearance restore updates the binding without writing the
+    /// same value back (especially after Clear Data).
+    @State private var suppressNextAppearancePersistence = false
+    @State private var isClearingData = false
+    /// Latest pending durable draft write per conversation. Replacing a task
+    /// cancels a not-yet-started stale write; destructive boundaries await the
+    /// canceled task before removing data so it cannot be recreated afterward.
+    @State private var draftPersistenceTasks: [ConversationIdentity: Task<Void, Never>] = [:]
     /// The ready-to-render conversation list state.
     @State private var listState: ConversationListState?
     /// Guards rapid repeated create intents until the first operation either
@@ -130,6 +138,8 @@ public struct RootView: View {
                             onSelect: openConversation,
                             onDelete: deleteConversation,
                             onRename: renameConversation,
+                            showsProviderSetup: settingsState?.requiresProviderSetup == true,
+                            onAddProvider: beginProviderSetup,
                             onOpenMenu: presentMenu
                         )
                     } else {
@@ -169,6 +179,10 @@ public struct RootView: View {
                     await loadConversationList()
                 }
                 .onChange(of: isDarkMode) { dark in
+                    if suppressNextAppearancePersistence {
+                        suppressNextAppearancePersistence = false
+                        return
+                    }
                     persistDarkModeAppearance(dark)
                 }
             }
@@ -295,8 +309,57 @@ public struct RootView: View {
                 let state = conversationStates[identity]
                     ?? ConversationScreenState(messages: [])
                 conversationStates[identity] = state.replacingDraft(draft)
+                persistDraft(draft, for: identity)
             }
         )
+    }
+
+    private func persistDraft(_ draft: String, for identity: ConversationIdentity) {
+        guard let drafts = surface.drafts else { return }
+        draftPersistenceTasks[identity]?.cancel()
+        draftPersistenceTasks[identity] = Task { @MainActor in
+            do {
+                await Task.yield()
+                try Task.checkCancellation()
+                try await drafts.save(draft, for: identity)
+            } catch is CancellationError {
+                return
+            } catch {
+                settingsState = failingSettingsState(error)
+            }
+        }
+    }
+
+    @MainActor
+    private func removePersistedDraft(for identity: ConversationIdentity) async throws {
+        let task = draftPersistenceTasks.removeValue(forKey: identity)
+        task?.cancel()
+        await task?.value
+        try await surface.drafts?.remove(for: identity)
+    }
+
+    @MainActor
+    private func finishPendingDraftPersistence() async {
+        let tasks = Array(draftPersistenceTasks.values)
+        draftPersistenceTasks.removeAll()
+        for task in tasks { task.cancel() }
+        for task in tasks { await task.value }
+    }
+
+    @MainActor
+    private func restoreDraft(for identity: ConversationIdentity) async -> String {
+        if let cached = conversationDrafts[identity] { return cached }
+        guard let drafts = surface.drafts else { return "" }
+        do {
+            let restored = try await drafts.draft(for: identity)
+            conversationDrafts[identity] = restored
+            return restored
+        } catch {
+            // One malformed draft never makes its conversation unreachable.
+            settingsState = failingSettingsState(error)
+            conversationDrafts[identity] = ""
+            return ""
+        }
     }
 
     @ViewBuilder
@@ -307,6 +370,8 @@ public struct RootView: View {
                 isDarkMode: $isDarkMode,
                 onOpenAbout: openAbout,
                 onOpenMenu: presentMenu,
+                onOpenProviders: openProvidersFromSettings,
+                onClearData: clearData,
                 onSetDefaultModel: setDefaultModel,
                 onSetModelCapability: setModelCapability
             )
@@ -419,7 +484,10 @@ public struct RootView: View {
         do {
             let resolved = try await surface.settings.resolved(for: Self.darkModeKey) ?? true
             guard settingsLoadOperation == operation else { return }
-            isDarkMode = resolved
+            if isDarkMode != resolved {
+                suppressNextAppearancePersistence = true
+                isDarkMode = resolved
+            }
         } catch is CancellationError {
             return
         } catch {
@@ -524,9 +592,12 @@ public struct RootView: View {
     /// provider choice, then the first ready provider's first offered model.
     private func initialModelSelection() -> ProviderModelSelection? {
         guard let settingsState else { return nil }
-        if let saved = settingsState.defaultModelSelection,
-           modelSelectionIsAvailable(saved, in: settingsState) {
-            return saved
+        if let saved = settingsState.defaultModelSelection {
+            // An invalid persisted default is a correction state, not license
+            // to silently route a new conversation to another provider/model.
+            return modelSelectionIsAvailable(saved, in: settingsState)
+                ? saved
+                : nil
         }
         if let legacySelectedProvider,
            let migrated = firstModel(
@@ -631,10 +702,11 @@ public struct RootView: View {
             do {
                 guard let stored = try await surface.conversationList.select(identity) else { return }
                 let conversation = try await prepareModelSelection(for: stored)
+                let draft = await restoreDraft(for: identity)
                 let loaded = surface.conversationScreen.load(conversation)
                 let coordinated = await generationCoordinator.state(for: identity, loading: loaded)
                 conversationStates[identity] = coordinated
-                    .replacingDraft(conversationDrafts[identity] ?? "")
+                    .replacingDraft(draft)
                 guard case .conversationList = navigation.currentRoute else { return }
                 navigation = NavigationState(
                     currentRoute: .conversationScreen(conversation: identity)
@@ -657,6 +729,11 @@ public struct RootView: View {
                     try? await surface.conversationScreen.remove(attachment)
                 }
                 try await surface.conversationList.delete(identity)
+                do {
+                    try await removePersistedDraft(for: identity)
+                } catch {
+                    settingsState = failingSettingsState(error)
+                }
                 conversationStates[identity] = nil
                 conversationDrafts[identity] = nil
                 conversationModelSelections[identity] = nil
@@ -708,6 +785,13 @@ public struct RootView: View {
                 preservingDraft: text,
                 draftAttachments: attachments,
                 onAccepted: {
+                    do {
+                        try await removePersistedDraft(for: identity)
+                    } catch {
+                        await MainActor.run {
+                            settingsState = failingSettingsState(error)
+                        }
+                    }
                     await MainActor.run {
                         conversationDrafts[identity] = ""
                         if let current = conversationStates[identity] {
@@ -1083,6 +1167,36 @@ public struct RootView: View {
         navigation = NavigationState(currentRoute: .about)
     }
 
+    private func openProvidersFromSettings() {
+        navigation = NavigationState(currentRoute: .providers)
+    }
+
+    /// Executes the confirmed destructive scope, then reloads a valid empty
+    /// first-launch state in the retained workspace shell.
+    private func clearData() {
+        guard !isClearingData else { return }
+        isClearingData = true
+        Task { @MainActor in
+            defer { isClearingData = false }
+            do {
+                await finishPendingDraftPersistence()
+                await generationCoordinator.discardAll()
+                try await surface.settings.clearData()
+                conversationStates.removeAll()
+                conversationDrafts.removeAll()
+                conversationModelSelections.removeAll()
+                legacySelectedProvider = nil
+                navigation = NavigationState(currentRoute: .conversationList)
+                settingsState = nil
+                listState = nil
+                await loadSettings()
+                await loadConversationList()
+            } catch {
+                settingsState = failingSettingsState(error)
+            }
+        }
+    }
+
     /// Translates the open-providers intent of the conversation screen's
     /// provider banners — the provider-management destination of the navigation
     /// structure, where a connection is added or its state corrected, reached
@@ -1110,16 +1224,45 @@ public struct RootView: View {
         Task { @MainActor in
             do {
                 let trimmedModel = model.trimmingCharacters(in: .whitespacesAndNewlines)
-                _ = try await surface.settings.configure(
+                let wasFirstProvider = settingsState?.requiresProviderSetup == true
+                let connection = try await surface.settings.configure(
                     request,
                     endpoint: endpoint,
                     model: trimmedModel.isEmpty ? nil : trimmedModel
                 )
+                if wasFirstProvider, !trimmedModel.isEmpty {
+                    do {
+                        try await surface.settings.setDefaultModelSelection(
+                            ProviderModelSelection(
+                                provider: connection.identity,
+                                model: ModelReference(name: trimmedModel)
+                            )
+                        )
+                    } catch {
+                        // The validated provider is already durable. Close the
+                        // add form before surfacing a default-write failure so
+                        // retry cannot create a duplicate connection.
+                        await loadSettings()
+                        navigation = NavigationState(currentRoute: .conversationList)
+                        settingsState = failingSettingsState(error)
+                        return
+                    }
+                }
                 await loadSettings()
+                if wasFirstProvider {
+                    navigation = NavigationState(currentRoute: .conversationList)
+                }
             } catch {
                 settingsState = failingSettingsState(error)
             }
         }
+    }
+
+    /// First-launch empty-state path: open provider management directly in the
+    /// add form so the user never has to discover the drawer first.
+    private func beginProviderSetup() {
+        navigation = NavigationState(currentRoute: .providers)
+        presentConnectionForm()
     }
 
     /// Runs the generic endpoint/credential/model validation path. Candidate

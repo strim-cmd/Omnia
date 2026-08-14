@@ -57,6 +57,9 @@ public struct CompositionRoot: Sendable {
     public let providerValidationService: ProviderValidationService
     /// App-owned attachment staging, validation, resolution, and cleanup.
     public let attachmentService: AttachmentService
+    /// Explicit destructive cleanup used by Settings.
+    public let dataManagementService: DataManagementService
+    public let conversationDraftService: ConversationDraftService
 
     /// The send-message use case, delivered the runtime binding as its
     /// streaming contract.
@@ -127,6 +130,9 @@ public struct CompositionRoot: Sendable {
             credentialStorage: credentialStorage,
             configurationRepository: configurationRepository,
             lifecycleService: lifecycleService
+        )
+        let conversationDraftService = ConversationDraftService(
+            configurationService: configurationService
         )
         let discoverModels: @Sendable (ProviderIdentity) async throws -> [ModelReference] = {
             identity in
@@ -268,6 +274,38 @@ public struct CompositionRoot: Sendable {
                 )
             }
         )
+        let dataManagementService = DataManagementService {
+            // ConversationService owns attachment reference-aware deletion and
+            // workspace conversation membership cleanup.
+            for conversation in try await conversationRepository.allConversations() {
+                try await conversationService.delete(conversation.identity)
+            }
+            // Collection recovery deliberately preserves malformed records;
+            // explicit Clear Data removes those remaining owned documents too.
+            try await conversationRepository.removeAll()
+            // Clear Data owns the entire app credential namespace. Purging it
+            // directly also removes orphaned secrets whose provider/config JSON
+            // is malformed and therefore cannot yield a usable reference.
+            let storedProviderIdentities = try providerRepository.storedIdentities()
+            try await credentialStorage.removeAllCredentials()
+            for identity in storedProviderIdentities {
+                await lifecycleService.unregister(identity)
+            }
+            // Sweep valid, malformed, and non-canonical provider metadata;
+            // configuration references are swept below in the same operation.
+            try await providerRepository.removeAll()
+            // Keep the workspace shell usable while removing any legacy
+            // provider membership that predates the current global list flow.
+            for workspace in try await workspaceRepository.allWorkspaces() {
+                let cleared = Workspace(
+                    identity: workspace.identity,
+                    name: workspace.name
+                )
+                try await workspaceRepository.save(cleared)
+            }
+            try await attachmentService.cleanupOrphans(referencedBy: [])
+            try await configurationRepository.removeAll()
+        }
 
         self.lifecycleService = lifecycleService
         self.selectionService = selectionService
@@ -279,6 +317,8 @@ public struct CompositionRoot: Sendable {
         self.providerModelService = providerModelService
         self.providerValidationService = providerValidationService
         self.attachmentService = attachmentService
+        self.dataManagementService = dataManagementService
+        self.conversationDraftService = conversationDraftService
         self.sendMessageUseCase = sendMessageUseCase
         self.providerRepository = providerRepository
         self.conversationRepository = conversationRepository
@@ -293,8 +333,10 @@ public struct CompositionRoot: Sendable {
                 connectionService: providerConnectionService,
                 configurationService: configurationService,
                 modelService: providerModelService,
-                validationService: providerValidationService
-            )
+                validationService: providerValidationService,
+                dataManagementService: dataManagementService
+            ),
+            drafts: conversationDraftService
         )
     }
 

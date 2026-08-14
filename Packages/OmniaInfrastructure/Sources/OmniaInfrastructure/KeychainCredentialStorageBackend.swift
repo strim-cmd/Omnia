@@ -67,6 +67,19 @@ internal struct KeychainCredentialStorageBackend: CredentialStorageBackend {
         }
     }
 
+    func removeAllCredentials() async throws {
+        let query: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: "com.omnia.credentials",
+        ]
+        switch SecItemDelete(query as CFDictionary) {
+        case errSecSuccess, errSecItemNotFound:
+            return
+        default:
+            throw CredentialStorageError.storageUnavailable
+        }
+    }
+
     /// The generic-password query identifying the credential for `reference`.
     private func baseQuery(for reference: CredentialReference) -> [String: Any] {
         [

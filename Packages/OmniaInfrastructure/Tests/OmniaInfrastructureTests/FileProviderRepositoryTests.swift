@@ -131,6 +131,22 @@ final class FileProviderRepositoryTests: XCTestCase {
         XCTAssertEqual(loaded?.state, .ready)
     }
 
+    func testAllProviders_SkipsOneMalformedRecordWithoutDeletingIt() async throws {
+        let repository = makeRepository()
+        let valid = try provider(in: .ready)
+        try await repository.save(valid)
+        let malformedURL = directoryURL
+            .appendingPathComponent(ProviderIdentity().canonicalString)
+            .appendingPathExtension("json")
+        try Data("[]".utf8).write(to: malformedURL)
+
+        let providers = try await repository.allProviders()
+
+        XCTAssertEqual(providers.map(\.identity), [valid.identity])
+        XCTAssertEqual(providers.first?.state, valid.state)
+        XCTAssertTrue(FileManager.default.fileExists(atPath: malformedURL.path))
+    }
+
     // MARK: - Load absent
 
     func testProvider_WithAbsentIdentityReturnsNil() async throws {
@@ -165,6 +181,23 @@ final class FileProviderRepositoryTests: XCTestCase {
         let providers = try await repository.allProviders()
 
         XCTAssertTrue(providers.isEmpty)
+    }
+
+    func testStoredIdentities_IncludesCanonicalMalformedRecord() async throws {
+        let repository = makeRepository()
+        let valid = try provider(in: .ready)
+        let malformed = ProviderIdentity()
+        try await repository.save(valid)
+        try Data("[]".utf8).write(
+            to: directoryURL
+                .appendingPathComponent(malformed.canonicalString)
+                .appendingPathExtension("json")
+        )
+
+        XCTAssertEqual(
+            Set(try repository.storedIdentities()),
+            Set([valid.identity, malformed])
+        )
     }
 
     func testAllProviders_ReturnsProvidersInStableSortedOrder() async throws {
@@ -214,6 +247,26 @@ final class FileProviderRepositoryTests: XCTestCase {
         try await repository.save(provider)
         try await repository.delete(provider.identity)
         try await repository.delete(provider.identity)
+    }
+
+    func testRemoveAll_RemovesValidAndMalformedDocumentsButPreservesUnrelatedFiles() async throws {
+        let repository = makeRepository()
+        try await repository.save(try provider(in: .ready))
+        let malformedURL = directoryURL
+            .appendingPathComponent(ProviderIdentity().canonicalString)
+            .appendingPathExtension("json")
+        let unrelatedURL = directoryURL.appendingPathComponent("keep.txt")
+        try Data("[]".utf8).write(to: malformedURL)
+        try Data("keep".utf8).write(to: unrelatedURL)
+
+        try await repository.removeAll()
+
+        let jsonFiles = try FileManager.default.contentsOfDirectory(
+            at: directoryURL,
+            includingPropertiesForKeys: nil
+        ).filter { $0.pathExtension == "json" }
+        XCTAssertTrue(jsonFiles.isEmpty)
+        XCTAssertTrue(FileManager.default.fileExists(atPath: unrelatedURL.path))
     }
 
     // MARK: - Storage-error translation

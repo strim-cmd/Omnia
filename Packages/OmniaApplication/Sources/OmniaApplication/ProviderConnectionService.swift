@@ -78,25 +78,7 @@ public struct ProviderConnectionService: Sendable {
     public func configure(
         _ request: ConfigureProviderRequest
     ) async throws -> ProviderConnection {
-        try validate(request)
-        let identity = ProviderIdentity()
-        let reference = CredentialReference()
-        let connection = ProviderConnection(
-            identity: identity,
-            capabilities: request.capabilities,
-            metadata: ProviderMetadata(displayName: request.displayName),
-            limits: request.limits,
-            version: request.version
-        )
-        try await providerRepository.save(Provider(connection: connection))
-        try await credentialStorage.store(request.credential, for: reference)
-        try await configurationRepository.store(
-            reference,
-            for: Self.credentialReferenceKey(for: identity),
-            at: .providerSettings
-        )
-        try await makeReady(connection)
-        return connection
+        try await configureValidated(request, endpoint: nil, model: nil)
     }
 
     /// Configures a new provider connection for `request` and records its
@@ -114,10 +96,8 @@ public struct ProviderConnectionService: Sendable {
         _ request: ConfigureProviderRequest,
         endpoint: String
     ) async throws -> ProviderConnection {
-        _ = try Self.validatedEndpoint(endpoint)
-        let connection = try await configure(request)
-        try await updateEndpoint(endpoint, for: connection.identity)
-        return connection
+        let endpoint = try Self.validatedEndpoint(endpoint)
+        return try await configureValidated(request, endpoint: endpoint, model: nil)
     }
 
     /// Configures a new provider connection for `request`, records its
@@ -139,14 +119,13 @@ public struct ProviderConnectionService: Sendable {
         endpoint: String,
         model: String?
     ) async throws -> ProviderConnection {
-        _ = try Self.validatedEndpoint(endpoint)
+        let endpoint = try Self.validatedEndpoint(endpoint)
         let validatedModel = try model.map(Self.validatedModel)
-        let connection = try await configure(request)
-        try await updateEndpoint(endpoint, for: connection.identity)
-        if let validatedModel {
-            try await updateModel(validatedModel, for: connection.identity)
-        }
-        return connection
+        return try await configureValidated(
+            request,
+            endpoint: endpoint,
+            model: validatedModel
+        )
     }
 
     /// Returns the configured providers in identity order (DES-011 §3.4).
@@ -166,13 +145,78 @@ public struct ProviderConnectionService: Sendable {
     /// idempotent (DES-009 §3.5).
     public func remove(_ identity: ProviderIdentity) async throws {
         let key = Self.credentialReferenceKey(for: identity)
-        if let reference = try await configurationRepository.value(for: key, at: .providerSettings) {
-            try await credentialStorage.removeCredential(for: reference)
+        let provider = try await providerRepository.provider(with: identity)
+        let reference = try await configurationRepository.value(
+            for: key,
+            at: .providerSettings
+        )
+        let endpoint = try await configurationRepository.value(
+            for: Self.endpointKey(for: identity),
+            at: .providerSettings
+        )
+        let model = try await configurationRepository.value(
+            for: Self.modelKey(for: identity),
+            at: .providerSettings
+        )
+        let credential: Credential?
+        if let reference {
+            do {
+                credential = try await credentialStorage.credential(for: reference)
+            } catch CredentialStorageError.credentialNotFound {
+                // A dangling reference must not make provider removal a dead
+                // end. The secure-storage contract makes removal idempotent,
+                // so continue and clear the remaining metadata/reference.
+                credential = nil
+            }
+        } else {
+            credential = nil
         }
-        try await providerRepository.delete(identity)
-        try await configurationRepository.remove(key, at: .providerSettings)
-        try await configurationRepository.remove(Self.endpointKey(for: identity), at: .providerSettings)
-        try await configurationRepository.remove(Self.modelKey(for: identity), at: .providerSettings)
+
+        do {
+            if let reference {
+                try await credentialStorage.removeCredential(for: reference)
+            }
+            try await providerRepository.delete(identity)
+            try await configurationRepository.remove(key, at: .providerSettings)
+            try await configurationRepository.remove(
+                Self.endpointKey(for: identity),
+                at: .providerSettings
+            )
+            try await configurationRepository.remove(
+                Self.modelKey(for: identity),
+                at: .providerSettings
+            )
+            await lifecycleService.unregister(identity)
+        } catch {
+            // Restore the complete connection snapshot if a later delete step
+            // fails. Raw credential material remains transient and redacted.
+            if let provider { try? await providerRepository.save(provider) }
+            if let endpoint {
+                try? await configurationRepository.store(
+                    endpoint,
+                    for: Self.endpointKey(for: identity),
+                    at: .providerSettings
+                )
+            }
+            if let model {
+                try? await configurationRepository.store(
+                    model,
+                    for: Self.modelKey(for: identity),
+                    at: .providerSettings
+                )
+            }
+            if let reference {
+                try? await configurationRepository.store(
+                    reference,
+                    for: key,
+                    at: .providerSettings
+                )
+                if let credential {
+                    try? await credentialStorage.store(credential, for: reference)
+                }
+            }
+            throw error
+        }
     }
 
     /// Updates the declaration of the provider connection with `identity` —
@@ -412,6 +456,77 @@ public struct ProviderConnectionService: Sendable {
             throw ApplicationValidationError.invalid(
                 reason: "The provider must declare at least one capability."
             )
+        }
+    }
+
+    /// Persists a validated provider declaration, secret reference, optional
+    /// endpoint/model, and ready lifecycle as one rollback-safe application
+    /// operation. A failed step cannot leave a selectable provider or an
+    /// unreferenced credential behind.
+    private func configureValidated(
+        _ request: ConfigureProviderRequest,
+        endpoint: String?,
+        model: String?
+    ) async throws -> ProviderConnection {
+        try validate(request)
+        let identity = ProviderIdentity()
+        let reference = CredentialReference()
+        let connection = ProviderConnection(
+            identity: identity,
+            capabilities: request.capabilities,
+            metadata: ProviderMetadata(displayName: request.displayName),
+            limits: request.limits,
+            version: request.version
+        )
+        var providerStored = false
+        var credentialStored = false
+        do {
+            try await providerRepository.save(Provider(connection: connection))
+            providerStored = true
+            try await credentialStorage.store(request.credential, for: reference)
+            credentialStored = true
+            try await configurationRepository.store(
+                reference,
+                for: Self.credentialReferenceKey(for: identity),
+                at: .providerSettings
+            )
+            if let endpoint {
+                try await configurationRepository.store(
+                    endpoint,
+                    for: Self.endpointKey(for: identity),
+                    at: .providerSettings
+                )
+            }
+            if let model {
+                try await configurationRepository.store(
+                    model,
+                    for: Self.modelKey(for: identity),
+                    at: .providerSettings
+                )
+            }
+            try await makeReady(connection)
+            return connection
+        } catch {
+            await lifecycleService.unregister(identity)
+            try? await configurationRepository.remove(
+                Self.modelKey(for: identity),
+                at: .providerSettings
+            )
+            try? await configurationRepository.remove(
+                Self.endpointKey(for: identity),
+                at: .providerSettings
+            )
+            try? await configurationRepository.remove(
+                Self.credentialReferenceKey(for: identity),
+                at: .providerSettings
+            )
+            if credentialStored {
+                try? await credentialStorage.removeCredential(for: reference)
+            }
+            if providerStored {
+                try? await providerRepository.delete(identity)
+            }
+            throw error
         }
     }
 

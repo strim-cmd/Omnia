@@ -328,6 +328,108 @@ final class CompositionRootTests: XCTestCase {
         XCTAssertTrue(FileManager.default.fileExists(atPath: configuration.path))
     }
 
+    func testDurableDraft_RestoresAcrossCompositionRelaunchWithoutDuplication() async throws {
+        let root = try makeTemporaryRoot()
+        let identity = ConversationIdentity()
+        let first = CompositionRoot(storageRoot: root)
+        try await first.conversationDraftService.save("unfinished", for: identity)
+
+        let second = CompositionRoot(storageRoot: root)
+        let restored = try await second.conversationDraftService.draft(for: identity)
+
+        XCTAssertEqual(restored, "unfinished")
+        let configurationFiles = try FileManager.default.contentsOfDirectory(
+            at: root.appendingPathComponent("Configuration", isDirectory: true),
+            includingPropertiesForKeys: nil
+        ).filter { $0.pathExtension == "json" }
+        XCTAssertEqual(configurationFiles.count, 1)
+    }
+
+    func testClearData_RemovesChatsAttachmentsProvidersCredentialsReferencesAndSettings() async throws {
+        let root = try makeTemporaryRoot()
+        let composition = CompositionRoot(storageRoot: root)
+        let workspace = try await composition.prepare()
+        let conversation = try await composition.conversationService.createConversation(
+            in: workspace
+        )
+        try await composition.conversationDraftService.save(
+            "private draft",
+            for: conversation.identity
+        )
+        let provider = try await composition.providerConnectionService.configure(
+            makeConfigureRequest(),
+            endpoint: "https://api.example.com/v1",
+            model: modelReference.name
+        )
+        let setting = ConfigurationKey<Bool>("appearance.darkMode")
+        try await composition.configurationService.store(
+            false,
+            for: setting,
+            at: .workspaceOverride
+        )
+        _ = try await composition.attachmentService.stage(
+            [
+                AttachmentImportCandidate(
+                    data: Data("private attachment".utf8),
+                    fileName: "notes.txt"
+                ),
+            ],
+            existing: []
+        )
+        // Simulate individually malformed records left by an interrupted or
+        // pre-v1 write. List recovery skips them, but explicit Clear Data must
+        // still remove their owned documents and credential references.
+        try Data("{".utf8).write(
+            to: root
+                .appendingPathComponent("Conversations", isDirectory: true)
+                .appendingPathComponent(conversation.identity.canonicalString)
+                .appendingPathExtension("json")
+        )
+        try Data("[]".utf8).write(
+            to: root
+                .appendingPathComponent("Providers", isDirectory: true)
+                .appendingPathComponent(provider.identity.canonicalString)
+                .appendingPathExtension("json")
+        )
+
+        try await composition.dataManagementService.clearAll()
+
+        let conversations = try await composition.conversationService.conversations(in: workspace)
+        let providers = try await composition.providerConnectionService.allProviders()
+        let draft = try await composition.conversationDraftService.draft(for: conversation.identity)
+        let appearance = try await composition.configurationService.value(
+            for: setting,
+            at: .workspaceOverride
+        )
+        let retainedWorkspace = try await composition.workspaceService.workspace(with: workspace)
+        let lifecycleState = await composition.lifecycleService.state(of: provider.identity)
+        let attachmentDirectory = root.appendingPathComponent("Attachments", isDirectory: true)
+        let attachmentFiles = (try? FileManager.default.contentsOfDirectory(
+            at: attachmentDirectory,
+            includingPropertiesForKeys: nil
+        )) ?? []
+        let conversationFiles = (try? FileManager.default.contentsOfDirectory(
+            at: root.appendingPathComponent("Conversations", isDirectory: true),
+            includingPropertiesForKeys: nil
+        ))?.filter { $0.pathExtension == "json" } ?? []
+        let providerFiles = (try? FileManager.default.contentsOfDirectory(
+            at: root.appendingPathComponent("Providers", isDirectory: true),
+            includingPropertiesForKeys: nil
+        ))?.filter { $0.pathExtension == "json" } ?? []
+
+        XCTAssertTrue(conversations.isEmpty)
+        XCTAssertTrue(providers.isEmpty)
+        XCTAssertEqual(draft, "")
+        XCTAssertNil(appearance)
+        XCTAssertNotNil(retainedWorkspace)
+        XCTAssertTrue(retainedWorkspace?.conversationIdentities.isEmpty == true)
+        XCTAssertTrue(retainedWorkspace?.providerIdentities.isEmpty == true)
+        XCTAssertNil(lifecycleState)
+        XCTAssertTrue(attachmentFiles.isEmpty)
+        XCTAssertTrue(conversationFiles.isEmpty)
+        XCTAssertTrue(providerFiles.isEmpty)
+    }
+
     func testPlatformStorageRootIsInsideApplicationSupport() {
         let root = StorageLayout.platformRoot()
         let base = FileManager.default.urls(

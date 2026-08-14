@@ -12,6 +12,11 @@ final class LocalizedTests: XCTestCase {
             ("attachment", Localized.attachment),
             ("send", Localized.send),
             ("stop", Localized.stop),
+            ("add_first_provider", Localized.addFirstProvider),
+            ("clear_data", Localized.clearData),
+            ("clear_data_confirmation", Localized.clearDataConfirmation),
+            ("clear_data_scope", Localized.clearDataScope),
+            ("manage_providers", Localized.manageProviders),
         ]
 
         for (key, value) in resolvedValues {

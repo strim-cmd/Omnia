@@ -90,6 +90,21 @@ final class FileConversationRepositoryTests: XCTestCase {
         XCTAssertNil(loaded)
     }
 
+    func testAllConversations_SkipsOneMalformedRecordWithoutDeletingIt() async throws {
+        let repository = makeRepository()
+        let valid = Conversation(identity: ConversationIdentity())
+        try await repository.save(valid)
+        let malformedURL = directoryURL
+            .appendingPathComponent(ConversationIdentity().canonicalString)
+            .appendingPathExtension("json")
+        try Data("{not-json".utf8).write(to: malformedURL)
+
+        let conversations = try await repository.allConversations()
+
+        XCTAssertEqual(conversations, [valid])
+        XCTAssertTrue(FileManager.default.fileExists(atPath: malformedURL.path))
+    }
+
     // MARK: - Delete
 
     func testDelete_RemovesTheConversation() async throws {
@@ -116,6 +131,26 @@ final class FileConversationRepositoryTests: XCTestCase {
         try await repository.save(conversation)
         try await repository.delete(conversation.identity)
         try await repository.delete(conversation.identity)
+    }
+
+    func testRemoveAll_RemovesValidAndMalformedDocumentsButPreservesUnrelatedFiles() async throws {
+        let repository = makeRepository()
+        try await repository.save(Conversation(identity: ConversationIdentity()))
+        let malformedURL = directoryURL
+            .appendingPathComponent(ConversationIdentity().canonicalString)
+            .appendingPathExtension("json")
+        let unrelatedURL = directoryURL.appendingPathComponent("keep.txt")
+        try Data("{".utf8).write(to: malformedURL)
+        try Data("keep".utf8).write(to: unrelatedURL)
+
+        try await repository.removeAll()
+
+        let jsonFiles = try FileManager.default.contentsOfDirectory(
+            at: directoryURL,
+            includingPropertiesForKeys: nil
+        ).filter { $0.pathExtension == "json" }
+        XCTAssertTrue(jsonFiles.isEmpty)
+        XCTAssertTrue(FileManager.default.fileExists(atPath: unrelatedURL.path))
     }
 
     // MARK: - Storage-error translation

@@ -84,6 +84,12 @@ public final class FileConfigurationRepository: ConfigurationRepository, Sendabl
         try store.delete(key: Self.documentKey(level: level, keyName: key.name))
     }
 
+    /// Removes every persisted configuration document. This maintenance
+    /// surface is composed only into the explicit Clear Data operation.
+    public func removeAll() async throws {
+        try store.deleteAll()
+    }
+
     /// Encodes a type-erased value to its deterministic JSON text.
     ///
     /// - Throws: `RepositoryError.storageUnavailable` when the value cannot be

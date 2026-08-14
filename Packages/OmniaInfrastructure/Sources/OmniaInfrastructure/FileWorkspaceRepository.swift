@@ -44,7 +44,9 @@ public final class FileWorkspaceRepository: WorkspaceRepository, Sendable {
     public func allWorkspaces() async throws -> [Workspace] {
         var workspaces: [Workspace] = []
         for key in try store.allKeys() {
-            guard let dto: WorkspaceDTO = try store.load(key: key) else { continue }
+            guard let dto: WorkspaceDTO = try store.loadRecoveringInvalid(key: key) else {
+                continue
+            }
             workspaces.append(serializer.fromDTO(dto))
         }
         return workspaces

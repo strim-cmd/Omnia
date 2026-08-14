@@ -30,6 +30,10 @@ public struct SettingsView: View {
     public let onOpenAbout: () -> Void
     /// Translates the open-menu intent: the navigation drawer is presented.
     public let onOpenMenu: () -> Void
+    /// Opens the single provider/credential management destination.
+    public let onOpenProviders: () -> Void
+    /// Runs the confirmed Clear Data operation.
+    public let onClearData: () -> Void
     /// Persists the coherent global provider/model default.
     public let onSetDefaultModel: (ProviderModelSelection) -> Void
     /// Persists an explicit model-scoped capability fact.
@@ -38,6 +42,7 @@ public struct SettingsView: View {
         Capability,
         ModelCapabilitySupport
     ) -> Void
+    @State private var isClearDataConfirmationPresented = false
 
     /// Creates a settings view over the given state and intent callbacks.
     public init(
@@ -45,6 +50,8 @@ public struct SettingsView: View {
         isDarkMode: Binding<Bool>,
         onOpenAbout: @escaping () -> Void,
         onOpenMenu: @escaping () -> Void,
+        onOpenProviders: @escaping () -> Void = {},
+        onClearData: @escaping () -> Void = {},
         onSetDefaultModel: @escaping (ProviderModelSelection) -> Void = { _ in },
         onSetModelCapability: @escaping (
             ProviderModelSelection,
@@ -56,6 +63,8 @@ public struct SettingsView: View {
         self._isDarkMode = isDarkMode
         self.onOpenAbout = onOpenAbout
         self.onOpenMenu = onOpenMenu
+        self.onOpenProviders = onOpenProviders
+        self.onClearData = onClearData
         self.onSetDefaultModel = onSetDefaultModel
         self.onSetModelCapability = onSetModelCapability
     }
@@ -82,6 +91,14 @@ public struct SettingsView: View {
         #else
         .toolbar(.hidden, for: .navigationBar)
         #endif
+        .confirmationDialog(
+            Localized.clearData,
+            isPresented: $isClearDataConfirmationPresented
+        ) {
+            Button(Localized.clearData, role: .destructive, action: onClearData)
+        } message: {
+            Text(Localized.clearDataConfirmation)
+        }
     }
 
     /// The custom top bar of the screen: the menu button, the title, and the
@@ -111,10 +128,53 @@ public struct SettingsView: View {
     private var mainContent: some View {
         VStack(spacing: OmniaTheme.Spacing.xl) {
             configurationSection
+            providerManagementSection
             defaultModelSection
             modelCapabilitiesSection
             appearanceSection
+            dataSection
             aboutSection
+        }
+    }
+
+    private var providerManagementSection: some View {
+        VStack(alignment: .leading, spacing: OmniaTheme.Spacing.md) {
+            SectionHeader(Localized.providers)
+            Button(action: onOpenProviders) {
+                OmniaCard {
+                    HStack(spacing: OmniaTheme.Spacing.md) {
+                        Image(systemName: "externaldrive.connected.to.line.below")
+                            .foregroundStyle(OmniaTheme.Colors.textSecondary)
+                        Text(Localized.manageProviders)
+                            .foregroundStyle(OmniaTheme.Colors.textPrimary)
+                        Spacer()
+                        Image(systemName: "chevron.right")
+                            .foregroundStyle(OmniaTheme.Colors.textMuted)
+                    }
+                }
+            }
+            .buttonStyle(.plain)
+            .accessibilityAddTraits(.isButton)
+        }
+    }
+
+    private var dataSection: some View {
+        VStack(alignment: .leading, spacing: OmniaTheme.Spacing.md) {
+            SectionHeader(Localized.data)
+            OmniaCard {
+                VStack(alignment: .leading, spacing: OmniaTheme.Spacing.md) {
+                    Text(Localized.clearDataScope)
+                        .font(OmniaTheme.Typography.secondary)
+                        .foregroundStyle(OmniaTheme.Colors.textSecondary)
+                    OmniaButton(
+                        title: Localized.clearData,
+                        systemImage: "trash",
+                        style: .destructive
+                    ) {
+                        isClearDataConfirmationPresented = true
+                    }
+                }
+            }
         }
     }
 
@@ -185,12 +245,7 @@ public struct SettingsView: View {
     }
 
     private var defaultSelectionIsAvailable: Bool {
-        guard let selection = state.defaultModelSelection else { return false }
-        return state.connections.contains {
-            $0.identity == selection.provider && $0.state == .ready
-        } && state.modelCatalogs
-            .first { $0.provider == selection.provider }?
-            .models.contains { $0.selection == selection } == true
+        state.defaultModelSelectionIsAvailable
     }
 
     /// Explicit per-model overrides for the two multimodal inputs generic

@@ -21,6 +21,9 @@ internal protocol CredentialStorageBackend: Sendable {
 
     /// Removes the credential stored under `reference`, if any.
     func removeCredential(for reference: CredentialReference) async throws
+
+    /// Removes every credential in Omnia's app-owned secure-storage namespace.
+    func removeAllCredentials() async throws
 }
 
 /// The concrete `CredentialStorageProtocol` over the platform backend seam
@@ -63,5 +66,11 @@ public struct SecureCredentialStorage: CredentialStorageProtocol, Sendable {
 
     public func removeCredential(for reference: CredentialReference) async throws {
         try await backend.removeCredential(for: reference)
+    }
+
+    /// Removes every credential owned by Omnia. This concrete maintenance
+    /// surface is used only by the explicitly confirmed Clear Data operation.
+    public func removeAllCredentials() async throws {
+        try await backend.removeAllCredentials()
     }
 }

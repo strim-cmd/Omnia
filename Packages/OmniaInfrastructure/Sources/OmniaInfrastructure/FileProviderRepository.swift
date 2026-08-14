@@ -46,10 +46,24 @@ public final class FileProviderRepository: ProviderRepository, Sendable {
     public func allProviders() async throws -> [Provider] {
         var providers: [Provider] = []
         for key in try store.allKeys() {
-            guard let dto: ProviderDTO = try store.load(key: key) else { continue }
-            providers.append(try serializer.fromDTO(dto))
+            guard let dto: ProviderDTO = try store.loadRecoveringInvalid(key: key) else {
+                continue
+            }
+            do {
+                providers.append(try serializer.fromDTO(dto))
+            } catch {
+                continue
+            }
         }
         return providers
+    }
+
+    /// Returns every canonical identity represented by a provider document,
+    /// including records whose JSON or aggregate payload is malformed. This
+    /// lets explicit Clear Data locate credential references without treating
+    /// malformed provider metadata as a usable provider.
+    public func storedIdentities() throws -> [ProviderIdentity] {
+        try store.allKeys().compactMap(ProviderIdentity.init(restoring:))
     }
 
     /// Removes the stored provider with `identity`.
@@ -58,5 +72,12 @@ public final class FileProviderRepository: ProviderRepository, Sendable {
     /// idempotent.
     public func delete(_ identity: ProviderIdentity) async throws {
         try store.delete(key: identity.canonicalString)
+    }
+
+    /// Removes every stored provider document, including individually
+    /// malformed or non-canonical records. Credential material is removed by
+    /// the application service before this metadata maintenance step.
+    public func removeAll() async throws {
+        try store.deleteAll()
     }
 }

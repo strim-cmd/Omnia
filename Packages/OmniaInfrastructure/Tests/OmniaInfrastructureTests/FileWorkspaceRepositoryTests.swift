@@ -90,6 +90,21 @@ final class FileWorkspaceRepositoryTests: XCTestCase {
         XCTAssertTrue(workspaces.isEmpty)
     }
 
+    func testAllWorkspaces_SkipsOneMalformedRecordWithoutDeletingIt() async throws {
+        let repository = makeRepository()
+        let valid = Workspace(identity: WorkspaceIdentity(), name: "Valid")
+        try await repository.save(valid)
+        let malformedURL = directoryURL
+            .appendingPathComponent(WorkspaceIdentity().canonicalString)
+            .appendingPathExtension("json")
+        try Data("null".utf8).write(to: malformedURL)
+
+        let workspaces = try await repository.allWorkspaces()
+
+        XCTAssertEqual(workspaces, [valid])
+        XCTAssertTrue(FileManager.default.fileExists(atPath: malformedURL.path))
+    }
+
     func testAllWorkspaces_ReturnsWorkspacesInStableSortedOrder() async throws {
         let repository = makeRepository()
         let gamma = Workspace(identity: WorkspaceIdentity(), name: "Gamma")

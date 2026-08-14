@@ -40,6 +40,9 @@ public struct NavigationSurface: Sendable {
     /// The settings surface the shell hosts — the destination the shell reaches
     /// from the conversation list.
     public let settings: SettingsSurface
+    /// Durable text-draft storage. Optional only for isolated legacy tests;
+    /// production composition always supplies it.
+    public let drafts: ConversationDraftService?
 
     /// Creates a navigation surface over the given conversation list,
     /// conversation screen, and settings surfaces, delivered by the Composition
@@ -50,10 +53,12 @@ public struct NavigationSurface: Sendable {
     public init(
         conversationList: ConversationListSurface,
         conversationScreen: ConversationScreenSurface,
-        settings: SettingsSurface
+        settings: SettingsSurface,
+        drafts: ConversationDraftService? = nil
     ) {
         self.conversationList = conversationList
         self.conversationScreen = conversationScreen
         self.settings = settings
+        self.drafts = drafts
     }
 }

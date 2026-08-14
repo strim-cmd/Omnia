@@ -73,6 +73,12 @@ public actor ProviderLifecycleService {
         providers[connection.identity] = current.replacingConnection(connection)
     }
 
+    /// Forgets a provider after its durable connection and credential have
+    /// been removed. Unknown identities are ignored so deletion is idempotent.
+    public func unregister(_ identity: ProviderIdentity) {
+        providers[identity] = nil
+    }
+
     /// Returns the identities of the providers known to the service.
     public func allProviders() -> [ProviderIdentity] {
         Array(providers.keys)

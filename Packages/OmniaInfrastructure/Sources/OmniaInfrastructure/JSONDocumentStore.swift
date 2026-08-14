@@ -115,6 +115,38 @@ internal struct JSONDocumentStore: Sendable {
         }
     }
 
+    /// Loads a document for collection scans, isolating an individually
+    /// malformed JSON record while still surfacing file-system read failures.
+    /// The malformed file is preserved for user recovery/diagnostics; it is
+    /// never silently deleted or replaced.
+    func loadRecoveringInvalid<Document: Codable & Sendable>(
+        key: String
+    ) throws -> Document? {
+        let url = fileURL(for: key)
+        guard fileExists(at: url) else { return nil }
+        let data: Data
+        do {
+            data = try Data(contentsOf: url)
+        } catch {
+            throw RepositoryError.storageUnavailable
+        }
+        do {
+            return try JSONDecoder().decode(Document.self, from: data)
+        } catch is DecodingError {
+            return nil
+        } catch {
+            throw RepositoryError.storageUnavailable
+        }
+    }
+
+    /// Removes every JSON document owned by this store while leaving the
+    /// directory itself and unrelated files untouched.
+    func deleteAll() throws {
+        for key in try allKeys() {
+            try delete(key: key)
+        }
+    }
+
     private func createDirectoryIfNeeded() throws {
         try FileManager.default.createDirectory(
             at: directoryURL,

@@ -40,6 +40,63 @@ final class SettingsStateTests: XCTestCase {
         XCTAssertFalse(state.isComposing)
         XCTAssertNil(state.failure)
         XCTAssertFalse(state.hasError)
+        XCTAssertFalse(state.requiresProviderSetup)
+    }
+
+    func testFirstLaunch_RequiresProviderSetupUntilAConnectionExists() {
+        XCTAssertTrue(SettingsState(connections: []).requiresProviderSetup)
+        XCTAssertFalse(
+            SettingsState(connections: [connection("Ready")]).requiresProviderSetup
+        )
+    }
+
+    func testDefaultSelectionAvailability_IsProviderAndModelScoped() {
+        let provider = ProviderIdentity()
+        let selection = ProviderModelSelection(
+            provider: provider,
+            model: ModelReference(name: "model-a")
+        )
+        let state = SettingsState(
+            connections: [
+                ProviderConnectionListItem(
+                    identity: provider,
+                    displayName: "Ready",
+                    state: .ready
+                ),
+            ],
+            modelCatalogs: [
+                ProviderModelCatalog(
+                    provider: provider,
+                    models: [
+                        ModelDescriptor(selection: selection, source: .discovered),
+                    ],
+                    status: .loaded
+                ),
+            ],
+            defaultModelSelection: selection
+        )
+
+        XCTAssertTrue(state.defaultModelSelectionIsAvailable)
+        XCTAssertFalse(
+            state.modelSelectionIsAvailable(
+                ProviderModelSelection(
+                    provider: provider,
+                    model: ModelReference(name: "model-b")
+                )
+            )
+        )
+    }
+
+    func testInvalidPersistedDefault_IsExplicitlyUnavailable() {
+        let saved = ProviderModelSelection(
+            provider: ProviderIdentity(),
+            model: ModelReference(name: "removed-model")
+        )
+        let state = SettingsState(
+            connections: [connection("Another Provider")],
+            defaultModelSelection: saved
+        )
+        XCTAssertFalse(state.defaultModelSelectionIsAvailable)
     }
 
     // MARK: Configuration values

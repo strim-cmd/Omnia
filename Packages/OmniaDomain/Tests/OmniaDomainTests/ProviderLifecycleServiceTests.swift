@@ -25,6 +25,18 @@ private func makeReady(service: ProviderLifecycleService, identity: ProviderIden
 
 final class ProviderLifecycleServiceTests: XCTestCase {
 
+    func testUnregister_ForgetsProviderAndIsIdempotent() async throws {
+        let service = ProviderLifecycleService()
+        let connection = try makeConnection()
+        let identity = await service.register(connection)
+
+        await service.unregister(identity)
+        await service.unregister(identity)
+
+        let provider = await service.provider(with: identity)
+        XCTAssertNil(provider)
+    }
+
     func testRegister_AddsProviderInRegisteredState() async {
         let service = ProviderLifecycleService()
         let identity = await service.register(makeConnection())

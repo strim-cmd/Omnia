@@ -47,8 +47,16 @@ public final class FileConversationRepository: ConversationRepository, Sendable 
     public func allConversations() async throws -> [Conversation] {
         var conversations: [Conversation] = []
         for key in try store.allKeys() {
-            guard let dto: ConversationDTO = try store.load(key: key) else { continue }
-            conversations.append(try serializer.fromDTO(dto))
+            guard let dto: ConversationDTO = try store.loadRecoveringInvalid(key: key) else {
+                continue
+            }
+            do {
+                conversations.append(try serializer.fromDTO(dto))
+            } catch {
+                // A structurally valid document with invalid aggregate fields
+                // is isolated just like malformed JSON during a list scan.
+                continue
+            }
         }
         return conversations
     }
@@ -59,5 +67,12 @@ public final class FileConversationRepository: ConversationRepository, Sendable 
     /// operation is idempotent.
     public func delete(_ identity: ConversationIdentity) async throws {
         try store.delete(key: identity.canonicalString)
+    }
+
+    /// Removes every stored conversation document, including an individually
+    /// malformed record that collection recovery intentionally isolates.
+    /// This concrete maintenance surface is used only by explicit Clear Data.
+    public func removeAll() async throws {
+        try store.deleteAll()
     }
 }

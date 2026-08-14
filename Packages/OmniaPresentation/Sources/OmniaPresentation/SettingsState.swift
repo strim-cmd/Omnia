@@ -170,4 +170,28 @@ public struct SettingsState: Equatable, Sendable {
     public var hasError: Bool {
         failure != nil
     }
+
+    /// First-launch/cleared-data setup is incomplete until at least one
+    /// provider connection exists. The UI turns this deterministic state into
+    /// an Add Provider action rather than a dead empty chat.
+    public var requiresProviderSetup: Bool {
+        connections.isEmpty
+    }
+
+    /// Whether the persisted default still names a ready provider and a model
+    /// in that provider's own catalog.
+    public var defaultModelSelectionIsAvailable: Bool {
+        guard let selection = defaultModelSelection else { return false }
+        return modelSelectionIsAvailable(selection)
+    }
+
+    public func modelSelectionIsAvailable(
+        _ selection: ProviderModelSelection
+    ) -> Bool {
+        connections.contains {
+            $0.identity == selection.provider && $0.state == .ready
+        } && modelCatalogs
+            .first { $0.provider == selection.provider }?
+            .models.contains { $0.selection == selection } == true
+    }
 }

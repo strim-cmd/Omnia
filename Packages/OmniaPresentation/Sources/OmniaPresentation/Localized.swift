@@ -17,6 +17,11 @@ public enum Localized {
     public static var active: String { localized("active") }
     public static var activeProvider: String { localized("active_provider") }
     public static var addConnection: String { localized("add_connection") }
+    public static var addProvider: String { localized("add_provider") }
+    public static var addFirstProvider: String { localized("add_first_provider") }
+    public static var addFirstProviderDescription: String {
+        localized("add_first_provider_description")
+    }
     public static var allProviders: String { localized("all_providers") }
     public static var apiKey: String { localized("api_key") }
     public static var appearance: String { localized("appearance") }
@@ -29,6 +34,9 @@ public enum Localized {
     public static var cancel: String { localized("cancel") }
     public static var capabilities: String { localized("capabilities") }
     public static var clearSearch: String { localized("clear_search") }
+    public static var clearData: String { localized("clear_data") }
+    public static var clearDataConfirmation: String { localized("clear_data_confirmation") }
+    public static var clearDataScope: String { localized("clear_data_scope") }
     public static var code: String { localized("code") }
     public static var configuration: String { localized("configuration") }
     public static var connection: String { localized("connection") }
@@ -57,6 +65,7 @@ public enum Localized {
     public static var credentialNotFound: String { localized("credential_not_found") }
     public static var credentialStorageUnavailable: String { localized("credential_storage_unavailable") }
     public static var darkMode: String { localized("dark_mode") }
+    public static var data: String { localized("data") }
     public static var defaultModel: String { localized("default_model") }
     public static var selectDefaultModel: String { localized("select_default_model") }
     public static var invalidDefaultModel: String { localized("invalid_default_model") }
@@ -85,6 +94,7 @@ public enum Localized {
     public static var usingCachedModels: String { localized("using_cached_models") }
     public static var modelDiscoveryFailed: String { localized("model_discovery_failed") }
     public static var major: String { localized("major") }
+    public static var manageProviders: String { localized("manage_providers") }
     public static var maxRequestsPerMinute: String { localized("max_requests_per_minute") }
     public static var menu: String { localized("menu") }
     public static var messagePlaceholder: String { localized("message_placeholder") }

@@ -193,6 +193,16 @@ actor ConversationGenerationCoordinator {
         states[conversation] = nil
     }
 
+    /// Cancels and forgets every operation before the explicit Clear Data
+    /// boundary runs. Each worker is awaited through `discard`, so no late
+    /// terminal save can recreate a deleted conversation.
+    func discardAll() async {
+        let identities = Array(operations.keys)
+        for identity in identities {
+            await discard(identity)
+        }
+    }
+
     /// Accepts an update only from the current running operation. Terminal
     /// updates release the operation slot before notifying the observer, so a
     /// retry cannot race the old worker's final callback.

@@ -93,6 +93,28 @@ final class SecureCredentialStorageTests: XCTestCase {
         try await storage.removeCredential(for: reference)
     }
 
+    func testRemoveAllCredentials_DeletesEveryAppOwnedCredentialAndIsIdempotent() async throws {
+        let storage = makeStorage()
+        let first = CredentialReference()
+        let second = CredentialReference()
+        try await storage.store(Credential(secret: "first"), for: first)
+        try await storage.store(Credential(secret: "second"), for: second)
+
+        try await storage.removeAllCredentials()
+        try await storage.removeAllCredentials()
+
+        for reference in [first, second] {
+            do {
+                _ = try await storage.credential(for: reference)
+                XCTFail("Expected credentialNotFound after Clear Data cleanup")
+            } catch CredentialStorageError.credentialNotFound {
+                // expected
+            } catch {
+                XCTFail("Unexpected error: \(error)")
+            }
+        }
+    }
+
     // MARK: - Default backend selection
 
     func testDefaultInitializer_RoundTripsAndCleansUp() async throws {

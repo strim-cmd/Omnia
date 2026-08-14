@@ -47,6 +47,7 @@ public struct SettingsSurface: Sendable {
     private let configurationService: ConfigurationService
     private let modelService: ProviderModelService?
     private let validationService: ProviderValidationService?
+    private let dataManagementService: DataManagementService?
 
     /// Creates a settings surface over the given provider connection service
     /// and configuration service, delivered by the Composition Root (DES-012
@@ -59,6 +60,7 @@ public struct SettingsSurface: Sendable {
         self.configurationService = configurationService
         self.modelService = nil
         self.validationService = nil
+        self.dataManagementService = nil
     }
 
     /// Production initializer including M1 model discovery/defaults and Test
@@ -68,12 +70,24 @@ public struct SettingsSurface: Sendable {
         connectionService: ProviderConnectionService,
         configurationService: ConfigurationService,
         modelService: ProviderModelService,
-        validationService: ProviderValidationService
+        validationService: ProviderValidationService,
+        dataManagementService: DataManagementService? = nil
     ) {
         self.connectionService = connectionService
         self.configurationService = configurationService
         self.modelService = modelService
         self.validationService = validationService
+        self.dataManagementService = dataManagementService
+    }
+
+    /// Clears the exact app-data scope described by Settings.
+    public func clearData() async throws {
+        guard let dataManagementService else {
+            throw ApplicationValidationError.invalid(
+                reason: "Data management is unavailable."
+            )
+        }
+        try await dataManagementService.clearAll()
     }
 
     /// Composes the ready-to-render settings state (DES-012 §3.2): the provider

@@ -5,6 +5,9 @@
 "active" = "Active";
 "active_provider" = "Active Provider";
 "add_connection" = "Add Connection";
+"add_provider" = "Add Provider";
+"add_first_provider" = "Connect your first provider";
+"add_first_provider_description" = "Add an OpenAI-compatible provider, test the connection, and choose a model before starting a chat.";
 "all_providers" = "All Providers";
 "api_key" = "API Key";
 "appearance" = "Appearance";
@@ -15,6 +18,9 @@
 "cancel" = "Cancel";
 "capabilities" = "Capabilities";
 "clear_search" = "Clear search";
+"clear_data" = "Clear Data";
+"clear_data_confirmation" = "This permanently removes conversations, attachment files, provider connections and credentials, and app settings. This cannot be undone.";
+"clear_data_scope" = "Remove all conversations, attachments, provider credentials, and app settings from this device.";
 "code" = "Code";
 "configuration" = "Configuration";
 "connection" = "Connection";
@@ -41,6 +47,7 @@
 "credential_not_found" = "The stored credential could not be found. Check your connection settings.";
 "credential_storage_unavailable" = "Secure credential storage is unavailable. Please try again.";
 "dark_mode" = "Dark Mode";
+"data" = "Data";
 "default_model" = "Default Provider and Model";
 "select_default_model" = "Select a default model";
 "invalid_default_model" = "This saved default is unavailable. Choose a replacement.";
@@ -64,6 +71,7 @@
 "like" = "Like";
 "limits" = "Limits";
 "loading" = "Loading";
+"manage_providers" = "Manage Providers and Credentials";
 "loading_provider_selection" = "Loading provider selection";
 "using_configured_model" = "Discovery unavailable; using the configured model.";
 "using_cached_models" = "Showing cached models; refresh will retry automatically.";

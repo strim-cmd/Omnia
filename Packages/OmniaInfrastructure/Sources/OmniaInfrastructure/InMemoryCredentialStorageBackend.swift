@@ -23,4 +23,8 @@ internal actor InMemoryCredentialStorageBackend: CredentialStorageBackend {
     func removeCredential(for reference: CredentialReference) async throws {
         storage.removeValue(forKey: reference)
     }
+
+    func removeAllCredentials() async throws {
+        storage.removeAll()
+    }
 }
