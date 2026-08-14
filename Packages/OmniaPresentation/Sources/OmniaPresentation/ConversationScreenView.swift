@@ -1146,7 +1146,7 @@ public struct ConversationScreenView: View {
     /// new_design.md §11).
     private func errorState(_ failure: ConversationScreenState.Failure) -> some View {
         let recovery = state.recoveryAction
-        ErrorBannerView(
+        return ErrorBannerView(
             message: FailureCopy.message(for: failure),
             title: Localized.error,
             actionTitle: recovery.map(recoveryTitle) ?? Localized.retry,

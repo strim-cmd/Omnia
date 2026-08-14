@@ -394,6 +394,8 @@ public struct ProvidersView: View {
                 return FailureCopy.message(for: error)
             case .credentialStorage(let error):
                 return FailureCopy.message(for: error)
+            case .capability(let error):
+                return FailureCopy.message(for: error)
             }
         }
 
@@ -417,6 +419,33 @@ public struct ProvidersView: View {
                 return Localized.credentialNotFound
             case .storageUnavailable:
                 return Localized.credentialStorageUnavailable
+            }
+        }
+
+        static func message(for failure: CapabilityError) -> String {
+            switch failure {
+            case .providerUnavailable:
+                return Localized.noProviderAvailable
+            case .networkUnavailable:
+                return Localized.requestNetworkUnavailable
+            case .unauthorized:
+                return Localized.requestUnauthorized
+            case .invalidEndpoint:
+                return Localized.requestInvalidEndpoint
+            case .timedOut:
+                return Localized.requestTimedOut
+            case .rateLimited:
+                return Localized.requestRateLimited
+            case .serverFailure:
+                return Localized.requestServerFailure
+            case .modelUnavailable(let model):
+                return Localized.modelUnavailable(model.name)
+            case .invalidRequest:
+                return Localized.requestSendFailed
+            case .invalidResponse:
+                return Localized.responseProcessingFailed
+            case .streamingInterrupted:
+                return Localized.responseInterruptedRetry
             }
         }
     }
