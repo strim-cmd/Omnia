@@ -30,18 +30,34 @@ public struct SettingsView: View {
     public let onOpenAbout: () -> Void
     /// Translates the open-menu intent: the navigation drawer is presented.
     public let onOpenMenu: () -> Void
+    /// Persists the coherent global provider/model default.
+    public let onSetDefaultModel: (ProviderModelSelection) -> Void
+    /// Persists an explicit model-scoped capability fact.
+    public let onSetModelCapability: (
+        ProviderModelSelection,
+        Capability,
+        ModelCapabilitySupport
+    ) -> Void
 
     /// Creates a settings view over the given state and intent callbacks.
     public init(
         state: SettingsState,
         isDarkMode: Binding<Bool>,
         onOpenAbout: @escaping () -> Void,
-        onOpenMenu: @escaping () -> Void
+        onOpenMenu: @escaping () -> Void,
+        onSetDefaultModel: @escaping (ProviderModelSelection) -> Void = { _ in },
+        onSetModelCapability: @escaping (
+            ProviderModelSelection,
+            Capability,
+            ModelCapabilitySupport
+        ) -> Void = { _, _, _ in }
     ) {
         self.state = state
         self._isDarkMode = isDarkMode
         self.onOpenAbout = onOpenAbout
         self.onOpenMenu = onOpenMenu
+        self.onSetDefaultModel = onSetDefaultModel
+        self.onSetModelCapability = onSetModelCapability
     }
 
     public var body: some View {
@@ -95,8 +111,185 @@ public struct SettingsView: View {
     private var mainContent: some View {
         VStack(spacing: OmniaTheme.Spacing.xl) {
             configurationSection
+            defaultModelSection
+            modelCapabilitiesSection
             appearanceSection
             aboutSection
+        }
+    }
+
+    /// A single coherent default pair. Changing provider necessarily chooses a
+    /// model from that provider's own catalog; names never cross provider scope.
+    private var defaultModelSection: some View {
+        VStack(alignment: .leading, spacing: OmniaTheme.Spacing.md) {
+            SectionHeader(Localized.defaultModel)
+            OmniaCard {
+                VStack(alignment: .leading, spacing: OmniaTheme.Spacing.sm) {
+                    Menu {
+                        ForEach(state.connections, id: \.identity) { provider in
+                            Menu(provider.displayName) {
+                                let catalog = state.modelCatalogs.first {
+                                    $0.provider == provider.identity
+                                }
+                                if let catalog, !catalog.models.isEmpty {
+                                    ForEach(catalog.models, id: \.selection) { descriptor in
+                                        Button {
+                                            onSetDefaultModel(descriptor.selection)
+                                        } label: {
+                                            HStack {
+                                                Text(descriptor.selection.model.name)
+                                                if state.defaultModelSelection == descriptor.selection {
+                                                    Image(systemName: "checkmark")
+                                                }
+                                            }
+                                        }
+                                        .disabled(provider.state != .ready)
+                                    }
+                                } else {
+                                    Text(Localized.noModelsAvailable)
+                                }
+                            }
+                        }
+                    } label: {
+                        HStack {
+                            Image(systemName: "cpu")
+                                .foregroundStyle(OmniaTheme.Colors.textSecondary)
+                            Text(defaultModelTitle)
+                                .foregroundStyle(OmniaTheme.Colors.textPrimary)
+                            Spacer()
+                            Image(systemName: "chevron.up.chevron.down")
+                                .foregroundStyle(OmniaTheme.Colors.textMuted)
+                        }
+                        .font(OmniaTheme.Typography.body)
+                    }
+                    .disabled(state.connections.isEmpty)
+
+                    if state.defaultModelSelection != nil && !defaultSelectionIsAvailable {
+                        Label(Localized.invalidDefaultModel, systemImage: "exclamationmark.triangle.fill")
+                            .font(OmniaTheme.Typography.secondary)
+                            .foregroundStyle(OmniaTheme.Colors.warning)
+                    }
+                }
+            }
+        }
+    }
+
+    private var defaultModelTitle: String {
+        guard let selection = state.defaultModelSelection else {
+            return Localized.selectDefaultModel
+        }
+        let provider = state.connections.first {
+            $0.identity == selection.provider
+        }?.displayName ?? Localized.unavailable
+        return "\(provider) · \(selection.model.name)"
+    }
+
+    private var defaultSelectionIsAvailable: Bool {
+        guard let selection = state.defaultModelSelection else { return false }
+        return state.connections.contains {
+            $0.identity == selection.provider && $0.state == .ready
+        } && state.modelCatalogs
+            .first { $0.provider == selection.provider }?
+            .models.contains { $0.selection == selection } == true
+    }
+
+    /// Explicit per-model overrides for the two multimodal inputs generic
+    /// `/models` responses cannot truthfully infer.
+    @ViewBuilder
+    private var modelCapabilitiesSection: some View {
+        if !state.modelCatalogs.isEmpty {
+            VStack(alignment: .leading, spacing: OmniaTheme.Spacing.md) {
+                SectionHeader(Localized.modelCapabilities)
+                ForEach(state.modelCatalogs, id: \.provider) { catalog in
+                    Text(providerName(catalog.provider))
+                        .font(OmniaTheme.Typography.secondary.weight(.semibold))
+                        .foregroundStyle(OmniaTheme.Colors.textSecondary)
+                    if let status = modelCatalogStatusTitle(catalog.status) {
+                        Text(status)
+                            .font(OmniaTheme.Typography.caption)
+                            .foregroundStyle(OmniaTheme.Colors.textMuted)
+                    }
+                    ForEach(catalog.models, id: \.selection) { descriptor in
+                        OmniaCard {
+                            VStack(alignment: .leading, spacing: OmniaTheme.Spacing.sm) {
+                                Text(descriptor.selection.model.name)
+                                    .font(OmniaTheme.Typography.body.weight(.semibold))
+                                    .foregroundStyle(OmniaTheme.Colors.textPrimary)
+                                capabilityOverrideRow(
+                                    Localized.vision,
+                                    capability: .vision,
+                                    descriptor: descriptor
+                                )
+                                capabilityOverrideRow(
+                                    Localized.documentInput,
+                                    capability: .documentInput,
+                                    descriptor: descriptor
+                                )
+                                }
+                            }
+                        }
+                }
+            }
+        }
+    }
+
+    private func providerName(_ identity: ProviderIdentity) -> String {
+        state.connections.first { $0.identity == identity }?.displayName
+            ?? Localized.unavailable
+    }
+
+    private func capabilityOverrideRow(
+        _ title: String,
+        capability: Capability,
+        descriptor: ModelDescriptor
+    ) -> some View {
+        let current = descriptor.capabilities.support(for: capability)
+        return HStack {
+            Text(title)
+                .font(OmniaTheme.Typography.secondary)
+                .foregroundStyle(OmniaTheme.Colors.textSecondary)
+            Spacer()
+            Menu {
+                ForEach(
+                    [ModelCapabilitySupport.unknown, .supported, .unsupported],
+                    id: \.self
+                ) { support in
+                    Button {
+                        onSetModelCapability(descriptor.selection, capability, support)
+                    } label: {
+                        HStack {
+                            Text(capabilitySupportTitle(support))
+                            if current == support { Image(systemName: "checkmark") }
+                        }
+                    }
+                }
+            } label: {
+                Text(capabilitySupportTitle(current))
+                    .font(OmniaTheme.Typography.secondary.weight(.medium))
+            }
+        }
+    }
+
+    private func capabilitySupportTitle(_ support: ModelCapabilitySupport) -> String {
+        switch support {
+        case .unknown: Localized.unknownSupport
+        case .supported: Localized.supported
+        case .unsupported: Localized.unsupported
+        }
+    }
+
+    private func modelCatalogStatusTitle(
+        _ status: ProviderModelCatalogStatus
+    ) -> String? {
+        switch status {
+        case .loading: Localized.loadingModels
+        case .loaded: nil
+        case .empty: Localized.noModelsAvailable
+        case .configuredFallback: Localized.usingConfiguredModel
+        case .cached: Localized.usingCachedModels
+        case .unavailable: Localized.usingConfiguredModel
+        case .stale: Localized.usingCachedModels
+        case .failed: Localized.modelDiscoveryFailed
         }
     }
 
@@ -221,6 +414,8 @@ public struct SettingsView: View {
                 return FailureCopy.message(for: error)
             case .credentialStorage(let error):
                 return FailureCopy.message(for: error)
+            case .capability(let error):
+                return FailureCopy.message(for: error)
             }
         }
 
@@ -244,6 +439,21 @@ public struct SettingsView: View {
                 return Localized.credentialNotFound
             case .storageUnavailable:
                 return Localized.credentialStorageUnavailable
+            }
+        }
+
+        static func message(for failure: CapabilityError) -> String {
+            switch failure {
+            case .providerUnavailable:
+                return Localized.noProviderAvailable
+            case .modelUnavailable(let model):
+                return Localized.modelUnavailable(model.name)
+            case .invalidRequest:
+                return Localized.requestSendFailed
+            case .invalidResponse:
+                return Localized.responseProcessingFailed
+            case .streamingInterrupted:
+                return Localized.responseInterruptedRetry
             }
         }
     }

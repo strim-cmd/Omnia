@@ -168,7 +168,7 @@ final class ProviderAdapterTests: XCTestCase {
     // MARK: - Availability probe
 
     func testIsAvailable_ReportsTrueWhenTheEndpointAnswers() async throws {
-        let transport = FakeTransport(sendResult: .success(Data("[]".utf8)))
+        let transport = FakeTransport(sendResult: .success(Self.modelListJSON))
         let (adapter, _) = try await makeAdapter(transport: transport)
 
         let available = await adapter.isAvailable()
@@ -739,7 +739,7 @@ final class ProviderAdapterTests: XCTestCase {
     // MARK: - Shell invariants
 
     func testAdapter_IsShareableAcrossConcurrencyDomains() async throws {
-        let transport = FakeTransport(sendResult: .success(Data("[]".utf8)))
+        let transport = FakeTransport(sendResult: .success(Self.modelListJSON))
         let (adapter, _) = try await makeAdapter(transport: transport)
 
         let available: Bool = await Task.detached {
@@ -756,6 +756,10 @@ final class ProviderAdapterTests: XCTestCase {
         {"id":"chatcmpl-1","model":"gpt-4o","choices":[{"index":0,"message":{"role":"assistant","content":"\(text)"},"finish_reason":"stop"}]}
         """.utf8)
     }
+
+    private static let modelListJSON = Data("""
+    {"data":[{"id":"gpt-4o"}]}
+    """.utf8)
 
     private static func streamChunkData(content: String) -> Data {
         Data("""

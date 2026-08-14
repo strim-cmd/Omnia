@@ -33,6 +33,7 @@ public actor ProviderSelectionService {
     /// workspace expressed no choice (ARC-004).
     public func select(
         requiredCapability capability: Capability,
+        explicitSelection: ProviderModelSelection? = nil,
         userSelection: ProviderIdentity? = nil,
         workspacePreference: ProviderIdentity? = nil,
         capabilityPreference: ProviderIdentity? = nil
@@ -46,6 +47,7 @@ public actor ProviderSelectionService {
         }
         return policy.select(
             candidates: candidates,
+            explicitSelection: explicitSelection,
             userSelection: userSelection,
             workspacePreference: workspacePreference,
             capabilityPreference: capabilityPreference

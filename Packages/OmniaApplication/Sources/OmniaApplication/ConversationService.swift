@@ -24,20 +24,26 @@ import OmniaDomain
 public struct ConversationService: Sendable {
     private let conversationRepository: any ConversationRepository
     private let workspaceRepository: any WorkspaceRepository
+    private let defaultModelSelection: @Sendable () async throws -> ProviderModelSelection?
 
     /// Creates a conversation service over the given repository contracts.
     public init(
         conversationRepository: any ConversationRepository,
-        workspaceRepository: any WorkspaceRepository
+        workspaceRepository: any WorkspaceRepository,
+        defaultModelSelection: @escaping @Sendable () async throws -> ProviderModelSelection? = { nil }
     ) {
         self.conversationRepository = conversationRepository
         self.workspaceRepository = workspaceRepository
+        self.defaultModelSelection = defaultModelSelection
     }
 
     /// Creates an empty conversation with a fresh identity and persists it
     /// (DES-002).
     public func createConversation() async throws -> Conversation {
-        let conversation = Conversation(identity: ConversationIdentity())
+        let conversation = Conversation(
+            identity: ConversationIdentity(),
+            modelSelection: try await defaultModelSelection()
+        )
         try await conversationRepository.save(conversation)
         return conversation
     }
@@ -55,7 +61,10 @@ public struct ConversationService: Sendable {
         guard let workspace = try await workspaceRepository.workspace(with: workspace) else {
             throw ApplicationValidationError.invalid(reason: "The workspace is not stored.")
         }
-        let conversation = Conversation(identity: ConversationIdentity())
+        let conversation = Conversation(
+            identity: ConversationIdentity(),
+            modelSelection: try await defaultModelSelection()
+        )
         try await conversationRepository.save(conversation)
         let updated = workspace.adding(conversation: conversation.identity)
         try await workspaceRepository.save(updated)
@@ -68,6 +77,19 @@ public struct ConversationService: Sendable {
     /// (DES-011 §3.2).
     public func conversation(with identity: ConversationIdentity) async throws -> Conversation? {
         try await conversationRepository.conversation(with: identity)
+    }
+
+    /// Persists the exact provider/model pair for one conversation.
+    public func selectModel(
+        _ selection: ProviderModelSelection?,
+        for identity: ConversationIdentity
+    ) async throws -> Conversation {
+        guard var conversation = try await conversationRepository.conversation(with: identity) else {
+            throw ApplicationValidationError.invalid(reason: "The conversation is not stored.")
+        }
+        try conversation.selectModel(selection)
+        try await conversationRepository.save(conversation)
+        return conversation
     }
 
     /// Returns the conversations that belong to `workspace`, via the

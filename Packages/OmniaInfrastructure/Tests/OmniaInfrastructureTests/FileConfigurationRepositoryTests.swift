@@ -106,6 +106,48 @@ final class FileConfigurationRepositoryTests: XCTestCase {
         XCTAssertEqual(loaded, reference)
     }
 
+    func testRelaunch_RoundTripsM1ModelConfigurationTypes() async throws {
+        let first = makeRepository()
+        let provider = ProviderIdentity()
+        let selection = ProviderModelSelection(
+            provider: provider,
+            model: ModelReference(name: "provider/model-v1")
+        )
+        let models = [
+            ModelReference(name: "model-a"),
+            ModelReference(name: "provider/model-v1"),
+        ]
+        let profile = ModelCapabilityProfile(
+            supported: [.vision],
+            unsupported: [.documentInput]
+        )
+        let selectionKey = ConfigurationKey<ProviderModelSelection>("models.defaultSelection")
+        let modelsKey = ConfigurationKey<[ModelReference]>("models.cache.provider")
+        let profileKey = ConfigurationKey<ModelCapabilityProfile>("models.capabilities.provider.model")
+
+        try await first.store(selection, for: selectionKey, at: .globalDefault)
+        try await first.store(models, for: modelsKey, at: .providerSettings)
+        try await first.store(profile, for: profileKey, at: .providerSettings)
+
+        let relaunched = makeRepository()
+        let restoredSelection = try await relaunched.value(
+            for: selectionKey,
+            at: .globalDefault
+        )
+        let restoredModels = try await relaunched.value(
+            for: modelsKey,
+            at: .providerSettings
+        )
+        let restoredProfile = try await relaunched.value(
+            for: profileKey,
+            at: .providerSettings
+        )
+
+        XCTAssertEqual(restoredSelection, selection)
+        XCTAssertEqual(restoredModels, models)
+        XCTAssertEqual(restoredProfile, profile)
+    }
+
     func testStoredDocument_NeverCarriesCredentialMaterial() async throws {
         let repository = makeRepository()
         let key = ConfigurationKey<CredentialReference>("providerCredential")

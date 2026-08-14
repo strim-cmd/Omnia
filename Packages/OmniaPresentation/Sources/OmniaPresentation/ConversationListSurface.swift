@@ -86,6 +86,14 @@ public struct ConversationListSurface: Sendable {
         try await service.conversation(with: identity)
     }
 
+    /// Persists the exact provider/model selection of one conversation.
+    public func selectModel(
+        _ selection: ProviderModelSelection?,
+        for identity: ConversationIdentity
+    ) async throws -> Conversation {
+        try await service.selectModel(selection, for: identity)
+    }
+
     /// Deletes the conversation with `identity` — the user's removal of their
     /// own content (DES-012 §3.3, ARC-005).
     ///

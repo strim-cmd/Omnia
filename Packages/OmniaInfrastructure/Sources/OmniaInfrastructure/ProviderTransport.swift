@@ -35,6 +35,8 @@ internal enum ProviderTransportError: Error, Equatable, Sendable {
     case httpStatus(Int)
     /// The underlying network interaction failed.
     case networkFailure
+    /// The network interaction exceeded its timeout.
+    case timedOut
 }
 
 /// The transport seam: isolates HTTP interaction so the client and its

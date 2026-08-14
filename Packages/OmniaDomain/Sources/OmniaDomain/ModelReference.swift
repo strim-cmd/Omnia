@@ -2,7 +2,7 @@
 ///
 /// Used by provider and model selection (ARC-001, ARC-004, ARC-007). A model
 /// reference is a value: immutable and equal by content.
-public struct ModelReference: Equatable, Hashable, Sendable {
+public struct ModelReference: Codable, Equatable, Hashable, Sendable {
     /// The provider's name for the model.
     public let name: String
 

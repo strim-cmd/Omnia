@@ -61,8 +61,8 @@ public struct SendMessageUseCase: Sendable {
     public func send(
         _ request: SendMessageRequest
     ) async throws -> AsyncThrowingStream<StreamingUpdate, Error> {
-        let (conversation, model) = try await prepareSend(request)
-        return makeStream(initialConversation: conversation, model: model)
+        let (conversation, selection) = try await prepareSend(request)
+        return makeStream(initialConversation: conversation, selection: selection)
     }
 
     /// Resumes the interrupted response of a conversation, delivering the
@@ -81,8 +81,8 @@ public struct SendMessageUseCase: Sendable {
     public func resume(
         _ conversation: ConversationIdentity
     ) async throws -> AsyncThrowingStream<StreamingUpdate, Error> {
-        let (conversation, model) = try await prepareResume(conversation)
-        return makeStream(initialConversation: conversation, model: model)
+        let (conversation, selection) = try await prepareResume(conversation)
+        return makeStream(initialConversation: conversation, selection: selection)
     }
 
     /// Performs a send in the caller's task, delivering each update only after
@@ -92,10 +92,10 @@ public struct SendMessageUseCase: Sendable {
         _ request: SendMessageRequest,
         onUpdate: @escaping @Sendable (StreamingUpdate) async -> Void
     ) async throws {
-        let (conversation, model) = try await prepareSend(request)
+        let (conversation, selection) = try await prepareSend(request)
         try await consume(
             initialConversation: conversation,
-            model: model,
+            selection: selection,
             onUpdate: onUpdate
         )
     }
@@ -106,39 +106,49 @@ public struct SendMessageUseCase: Sendable {
         _ conversation: ConversationIdentity,
         onUpdate: @escaping @Sendable (StreamingUpdate) async -> Void
     ) async throws {
-        let (conversation, model) = try await prepareResume(conversation)
+        let (conversation, selection) = try await prepareResume(conversation)
         try await consume(
             initialConversation: conversation,
-            model: model,
+            selection: selection,
             onUpdate: onUpdate
         )
     }
 
     private func prepareSend(
         _ request: SendMessageRequest
-    ) async throws -> (Conversation, ModelReference) {
+    ) async throws -> (Conversation, ProviderModelSelection) {
         try validate(request)
         guard var conversation = try await conversationRepository.conversation(with: request.conversation) else {
             throw ApplicationValidationError.invalid(reason: "The conversation is not stored.")
         }
-        try conversation.append(request.message)
-        try await conversationRepository.save(conversation)
         let selection = await selectionService.select(
             requiredCapability: .streaming,
+            explicitSelection: request.modelSelection ?? conversation.modelSelection,
             userSelection: request.userSelection,
             workspacePreference: request.workspacePreference,
             capabilityPreference: request.capabilityPreference
         )
-        guard case let .selected(provider: _, model: model) = selection else {
+        let resolved: ProviderModelSelection
+        switch selection {
+        case .selected(let provider, let model):
+            resolved = ProviderModelSelection(provider: provider, model: model)
+        case .modelUnavailable(let unavailable):
+            throw CapabilityError.modelUnavailable(model: unavailable.model)
+        case .failure:
             throw CapabilityError.providerUnavailable
         }
+        // Resolve the exact route before mutating history. If a saved model has
+        // disappeared, the user can choose a replacement and retry without a
+        // previously persisted copy of the same draft becoming a duplicate.
+        try conversation.append(request.message)
+        try await conversationRepository.save(conversation)
         try conversation.beginStreaming()
-        return (conversation, model)
+        return (conversation, resolved)
     }
 
     private func prepareResume(
         _ identity: ConversationIdentity
-    ) async throws -> (Conversation, ModelReference) {
+    ) async throws -> (Conversation, ProviderModelSelection) {
         guard var conversation = try await conversationRepository.conversation(with: identity) else {
             throw ApplicationValidationError.invalid(reason: "The conversation is not stored.")
         }
@@ -147,12 +157,21 @@ public struct SendMessageUseCase: Sendable {
                 reason: "The conversation has no interrupted response to resume."
             )
         }
-        let selection = await selectionService.select(requiredCapability: .streaming)
-        guard case let .selected(provider: _, model: model) = selection else {
+        let selection = await selectionService.select(
+            requiredCapability: .streaming,
+            explicitSelection: conversation.modelSelection
+        )
+        let resolved: ProviderModelSelection
+        switch selection {
+        case .selected(let provider, let model):
+            resolved = ProviderModelSelection(provider: provider, model: model)
+        case .modelUnavailable(let unavailable):
+            throw CapabilityError.modelUnavailable(model: unavailable.model)
+        case .failure:
             throw CapabilityError.providerUnavailable
         }
         try conversation.beginStreaming()
-        return (conversation, model)
+        return (conversation, resolved)
     }
 
     /// Validates the request at the application boundary (ARC-009, DES-011 §3.6).
@@ -166,14 +185,14 @@ public struct SendMessageUseCase: Sendable {
     /// events, and persists the terminal aggregate state (DES-011 §3.3).
     private func makeStream(
         initialConversation: Conversation,
-        model: ModelReference
+        selection: ProviderModelSelection
     ) -> AsyncThrowingStream<StreamingUpdate, Error> {
         AsyncThrowingStream { continuation in
             let task = Task {
                 do {
                     try await consume(
                         initialConversation: initialConversation,
-                        model: model
+                        selection: selection
                     ) { update in
                         continuation.yield(update)
                     }
@@ -194,14 +213,15 @@ public struct SendMessageUseCase: Sendable {
     /// an interruption before returning to the caller.
     private func consume(
         initialConversation: Conversation,
-        model: ModelReference,
+        selection: ProviderModelSelection,
         onUpdate: @escaping @Sendable (StreamingUpdate) async -> Void
     ) async throws {
         var conversation = initialConversation
         let request = StreamingRequest(
             identity: CapabilityRequestIdentity(),
             history: conversation.history,
-            model: model
+            model: selection.model,
+            provider: selection.provider
         )
         do {
             let capabilityStream = try await streamingContract.stream(request)

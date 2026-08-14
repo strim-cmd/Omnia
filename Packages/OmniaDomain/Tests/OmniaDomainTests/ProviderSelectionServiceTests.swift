@@ -150,4 +150,21 @@ final class ProviderSelectionServiceTests: XCTestCase {
             .selected(provider: largest, model: ModelReference(name: "model-large"))
         )
     }
+
+    func testSelect_ExactModelDoesNotCrossAssignSameNameToAnotherProvider() async throws {
+        let shared = ModelReference(name: "shared")
+        let (service, _, identities) = await makeService(modelsByProvider: [
+            canonicalSmallest: [shared],
+            canonicalLargest: [shared],
+        ])
+        let largest = try XCTUnwrap(identities[canonicalLargest])
+        let exact = ProviderModelSelection(provider: largest, model: shared)
+
+        let result = await service.select(
+            requiredCapability: .textGeneration,
+            explicitSelection: exact
+        )
+
+        XCTAssertEqual(result, .selected(provider: largest, model: shared))
+    }
 }

@@ -71,7 +71,18 @@ public struct RootView: View {
     /// The user's explicit provider selection for the presented conversation,
     /// restored from the persisted configuration and changed from the
     /// conversation screen's provider selector (UX audit V2).
-    @State private var selectedProvider: ProviderIdentity?
+    @State private var legacySelectedProvider: ProviderIdentity?
+    /// Exact provider/model choices keyed by conversation identity. The
+    /// persisted aggregate is authoritative; this map is its render cache.
+    @State private var conversationModelSelections: [ConversationIdentity: ProviderModelSelection] = [:]
+    /// Identifies the currently relevant provider connection test. Closing or
+    /// replacing the form changes this token, so a late result from an older
+    /// request cannot overwrite the new form's condition.
+    @State private var connectionTestOperation = UUID()
+    /// Identifies the newest settings/catalog load. Older refreshes may finish
+    /// later after network awaits, but can no longer replace newer provider,
+    /// default, or model state.
+    @State private var settingsLoadOperation = UUID()
     /// The session-lived owner of conversation generation. Its operations and
     /// latest states are keyed by conversation identity, so view and route
     /// changes affect observation only and never cancel provider work.
@@ -242,14 +253,17 @@ public struct RootView: View {
 
     private func conversationScreen(for identity: ConversationIdentity) -> some View {
         ConversationScreenView(
-            state: rendering(conversationStates[identity] ?? ConversationScreenState(messages: [])),
+            state: rendering(
+                conversationStates[identity] ?? ConversationScreenState(messages: []),
+                for: identity
+            ),
             draft: draftBinding(for: identity),
             onSend: send,
             onCancel: cancel,
             onRegenerate: regenerate(at:),
             onRetry: retry,
             onCopy: copy(at:),
-            onSelectProvider: { selectProvider($0.identity) },
+            onSelectModel: { selectModel($0, for: identity) },
             onOpenProviders: openProvidersFromConversation,
             onOpenMenu: presentMenu
         )
@@ -282,7 +296,9 @@ public struct RootView: View {
                 state: settingsState,
                 isDarkMode: $isDarkMode,
                 onOpenAbout: openAbout,
-                onOpenMenu: presentMenu
+                onOpenMenu: presentMenu,
+                onSetDefaultModel: setDefaultModel,
+                onSetModelCapability: setModelCapability
             )
         } else {
             loadingState
@@ -303,6 +319,7 @@ public struct RootView: View {
                 onConfigure: configure,
                 onEditProvider: editProvider,
                 onUpdateProvider: updateProvider,
+                onTestConnection: testConnection,
                 onCancelEdit: cancelProviderEdit,
                 onRemove: remove,
                 onOpenMenu: presentMenu
@@ -345,25 +362,41 @@ public struct RootView: View {
 
     @MainActor
     private func loadSettings() async {
+        let operation = UUID()
+        settingsLoadOperation = operation
         do {
-            settingsState = try await surface.settings.load(configurationKeys: configurationKeys)
+            let loading = try await surface.settings.loadModelCatalogsLoading(
+                configurationKeys: configurationKeys
+            )
+            guard settingsLoadOperation == operation else { return }
+            settingsState = loading
+            let loaded = try await surface.settings.load(configurationKeys: configurationKeys)
+            guard settingsLoadOperation == operation else { return }
+            settingsState = loaded
         } catch is CancellationError {
             return
         } catch let error as RepositoryError {
+            guard settingsLoadOperation == operation else { return }
             settingsState = SettingsState(
                 connections: settingsState?.connections ?? [],
                 configuration: settingsState?.configuration ?? [],
+                modelCatalogs: settingsState?.modelCatalogs ?? [],
+                defaultModelSelection: settingsState?.defaultModelSelection,
                 failure: .repository(error)
             )
         } catch {
+            guard settingsLoadOperation == operation else { return }
             settingsState = SettingsState(
                 connections: settingsState?.connections ?? [],
                 configuration: settingsState?.configuration ?? [],
+                modelCatalogs: settingsState?.modelCatalogs ?? [],
+                defaultModelSelection: settingsState?.defaultModelSelection,
                 failure: .repository(.storageUnavailable)
             )
         }
-        await resolveProviderSelection()
-        await resolveDarkModeAppearance()
+        guard settingsLoadOperation == operation else { return }
+        await resolveProviderSelection(for: operation)
+        await resolveDarkModeAppearance(for: operation)
     }
 
     /// Restores the persisted dark-mode choice through the settings surface and
@@ -372,12 +405,15 @@ public struct RootView: View {
     /// identity (new_design.md §13). A failure to read the choice surfaces as
     /// the settings failure — presented as it is, never silent (ARC-001).
     @MainActor
-    private func resolveDarkModeAppearance() async {
+    private func resolveDarkModeAppearance(for operation: UUID) async {
         do {
-            isDarkMode = try await surface.settings.resolved(for: Self.darkModeKey) ?? true
+            let resolved = try await surface.settings.resolved(for: Self.darkModeKey) ?? true
+            guard settingsLoadOperation == operation else { return }
+            isDarkMode = resolved
         } catch is CancellationError {
             return
         } catch {
+            guard settingsLoadOperation == operation else { return }
             settingsState = failingSettingsState(error)
         }
     }
@@ -405,12 +441,15 @@ public struct RootView: View {
     /// V2). A failure to read the selection surfaces as the settings failure —
     /// presented as it is, never silent (ARC-001).
     @MainActor
-    private func resolveProviderSelection() async {
+    private func resolveProviderSelection(for operation: UUID) async {
         do {
-            selectedProvider = try await surface.settings.resolved(for: Self.providerSelectionKey)
+            let resolved = try await surface.settings.resolved(for: Self.providerSelectionKey)
+            guard settingsLoadOperation == operation else { return }
+            legacySelectedProvider = resolved
         } catch is CancellationError {
             return
         } catch {
+            guard settingsLoadOperation == operation else { return }
             settingsState = failingSettingsState(error)
         }
     }
@@ -420,12 +459,15 @@ public struct RootView: View {
     /// settings state the shell rendered, and the user's explicit selection;
     /// `nil` while the settings state has not loaded yet (UX audit V2, DES-012
     /// §3.2).
-    private var providerSelection: ConversationScreenState.ProviderSelection? {
+    private func providerSelection(
+        for identity: ConversationIdentity
+    ) -> ConversationScreenState.ProviderSelection? {
         guard let settingsState else { return nil }
         return .composed(
             providers: settingsState.connections,
+            modelCatalogs: settingsState.modelCatalogs,
             settingsFailure: settingsState.failure,
-            selected: selectedProvider
+            selectedModel: conversationModelSelections[identity]
         )
     }
 
@@ -433,8 +475,85 @@ public struct RootView: View {
     /// conversation screen presents the provider selector (UX audit V2). The
     /// shell composes the selection across the settings and conversation
     /// surfaces, which the surfaces themselves do not see (ARC-006).
-    private func rendering(_ state: ConversationScreenState) -> ConversationScreenState {
-        state.replacingProviderSelection(providerSelection)
+    private func rendering(
+        _ state: ConversationScreenState,
+        for identity: ConversationIdentity
+    ) -> ConversationScreenState {
+        state.replacingProviderSelection(providerSelection(for: identity))
+    }
+
+    /// Restores an exact saved selection, or migrates a pre-M1 conversation to
+    /// a valid default/legacy/deterministic model and persists that decision.
+    /// No unavailable saved selection is replaced silently.
+    @MainActor
+    private func prepareModelSelection(
+        for conversation: Conversation
+    ) async throws -> Conversation {
+        if let selection = conversation.modelSelection {
+            conversationModelSelections[conversation.identity] = selection
+            return conversation
+        }
+        guard let selection = initialModelSelection() else {
+            conversationModelSelections[conversation.identity] = nil
+            return conversation
+        }
+        let updated = try await surface.conversationList.selectModel(
+            selection,
+            for: conversation.identity
+        )
+        conversationModelSelections[conversation.identity] = selection
+        return updated
+    }
+
+    /// Deterministic migration/default order: valid global default, legacy
+    /// provider choice, then the first ready provider's first offered model.
+    private func initialModelSelection() -> ProviderModelSelection? {
+        guard let settingsState else { return nil }
+        if let saved = settingsState.defaultModelSelection,
+           modelSelectionIsAvailable(saved, in: settingsState) {
+            return saved
+        }
+        if let legacySelectedProvider,
+           let migrated = firstModel(
+               for: legacySelectedProvider,
+               in: settingsState
+           ) {
+            return migrated
+        }
+        for provider in settingsState.connections
+        where ConversationScreenState.ProviderSelection.isAvailable(provider.state) {
+            if let selection = firstModel(for: provider.identity, in: settingsState) {
+                return selection
+            }
+        }
+        return nil
+    }
+
+    private func firstModel(
+        for provider: ProviderIdentity,
+        in state: SettingsState
+    ) -> ProviderModelSelection? {
+        guard state.connections.contains(where: {
+            $0.identity == provider
+                && ConversationScreenState.ProviderSelection.isAvailable($0.state)
+        }) else {
+            return nil
+        }
+        return state.modelCatalogs
+            .first { $0.provider == provider }?
+            .models.first?.selection
+    }
+
+    private func modelSelectionIsAvailable(
+        _ selection: ProviderModelSelection,
+        in state: SettingsState
+    ) -> Bool {
+        state.connections.contains {
+            $0.identity == selection.provider
+                && ConversationScreenState.ProviderSelection.isAvailable($0.state)
+        } && state.modelCatalogs
+            .first { $0.provider == selection.provider }?
+            .models.contains { $0.selection == selection } == true
     }
 
     // MARK: Conversation list intents
@@ -446,7 +565,8 @@ public struct RootView: View {
     private func createConversation() {
         Task { @MainActor in
             do {
-                let conversation = try await surface.conversationList.create(in: workspace)
+                let created = try await surface.conversationList.create(in: workspace)
+                let conversation = try await prepareModelSelection(for: created)
                 let loaded = surface.conversationScreen.load(conversation)
                 let coordinated = await generationCoordinator.state(
                     for: conversation.identity,
@@ -472,7 +592,8 @@ public struct RootView: View {
         guard case .conversationList = navigation.currentRoute else { return }
         Task { @MainActor in
             do {
-                guard let conversation = try await surface.conversationList.select(identity) else { return }
+                guard let stored = try await surface.conversationList.select(identity) else { return }
+                let conversation = try await prepareModelSelection(for: stored)
                 let loaded = surface.conversationScreen.load(conversation)
                 let coordinated = await generationCoordinator.state(for: identity, loading: loaded)
                 conversationStates[identity] = coordinated
@@ -498,6 +619,7 @@ public struct RootView: View {
                 try await surface.conversationList.delete(identity)
                 conversationStates[identity] = nil
                 conversationDrafts[identity] = nil
+                conversationModelSelections[identity] = nil
                 await loadConversationList()
             } catch let error as RepositoryError {
                 listState = ConversationListState(items: listState?.items ?? [], failure: error)
@@ -520,7 +642,7 @@ public struct RootView: View {
         let request = SendMessageRequest(
             conversation: identity,
             message: message,
-            userSelection: selectedProvider
+            modelSelection: conversationModelSelections[identity]
         )
         let history = (conversationStates[identity]?.messages ?? [])
             + [MessagePresentation(message: message)]
@@ -571,7 +693,7 @@ public struct RootView: View {
         let request = SendMessageRequest(
             conversation: identity,
             message: Message(role: .user, content: prompt.content?.accessibilityText ?? ""),
-            userSelection: selectedProvider
+            modelSelection: conversationModelSelections[identity]
         )
         let history = Array(messages.prefix(promptIndex + 1))
         let conversationScreen = surface.conversationScreen
@@ -637,7 +759,7 @@ public struct RootView: View {
             let request = SendMessageRequest(
                 conversation: identity,
                 message: Message(role: .user, content: prompt.content?.accessibilityText ?? ""),
-                userSelection: selectedProvider
+                modelSelection: conversationModelSelections[identity]
             )
             let history = Array(messages.prefix(lastUserIndex + 1))
             let conversationScreen = surface.conversationScreen
@@ -714,15 +836,17 @@ public struct RootView: View {
     /// selection is carried into the next `SendMessageRequest` as the frozen
     /// `userSelection`, which the selection policy of DES-009 §3.2 honors when
     /// it is selectable.
-    private func selectProvider(_ identity: ProviderIdentity?) {
-        selectedProvider = identity
+    private func selectModel(
+        _ selection: ProviderModelSelection,
+        for conversation: ConversationIdentity
+    ) {
         Task { @MainActor in
             do {
-                if let identity {
-                    try await surface.settings.store(identity, for: Self.providerSelectionKey, at: .workspaceOverride)
-                } else {
-                    try await surface.settings.remove(Self.providerSelectionKey, at: .workspaceOverride)
-                }
+                _ = try await surface.conversationList.selectModel(
+                    selection,
+                    for: conversation
+                )
+                conversationModelSelections[conversation] = selection
             } catch {
                 settingsState = failingSettingsState(error)
             }
@@ -735,21 +859,29 @@ public struct RootView: View {
     /// settings state is presented (DES-012 §3.4).
     private func presentConnectionForm() {
         guard let current = settingsState else { return }
+        connectionTestOperation = UUID()
         settingsState = SettingsState(
             connections: current.connections,
             configuration: current.configuration,
+            modelCatalogs: current.modelCatalogs,
+            defaultModelSelection: current.defaultModelSelection,
             isComposing: true,
-            editing: nil
+            editing: nil,
+            connectionTestCondition: .idle
         )
     }
 
     /// Translates the cancel intent of the connection form.
     private func dismissConnectionForm() {
         guard let current = settingsState else { return }
+        connectionTestOperation = UUID()
         settingsState = SettingsState(
             connections: current.connections,
             configuration: current.configuration,
-            isComposing: false
+            modelCatalogs: current.modelCatalogs,
+            defaultModelSelection: current.defaultModelSelection,
+            isComposing: false,
+            connectionTestCondition: .idle
         )
     }
 
@@ -779,9 +911,10 @@ public struct RootView: View {
     /// endpoint, and the declared model are handed to the settings surface —
     /// the entered secret enters only the frozen `ConfigureProviderRequest`,
     /// never any rendered state (ARC-001, ARC-005) — and the settings state
-    /// reloads. An empty model records no model, so the provider falls back to
-    /// the app-edge default (DES-011 §3.10).
+    /// reloads. An empty model records no model and remains unavailable until
+    /// discovery or a later manual model declaration provides one.
     private func configure(_ request: ConfigureProviderRequest, endpoint: String, model: String) {
+        connectionTestOperation = UUID()
         Task { @MainActor in
             do {
                 let trimmedModel = model.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -797,6 +930,92 @@ public struct RootView: View {
         }
     }
 
+    /// Runs the generic endpoint/credential/model validation path. Candidate
+    /// credentials remain only in the request value and are never copied into
+    /// render state; failure leaves the form and all its local fields intact.
+    private func testConnection(_ request: ProviderConnectionTestRequest) {
+        let operation = UUID()
+        connectionTestOperation = operation
+        setConnectionTestCondition(.testing)
+        Task { @MainActor in
+            do {
+                let result = try await surface.settings.testConnection(request)
+                guard connectionTestResultIsCurrent(operation) else { return }
+                setConnectionTestCondition(.succeeded(models: result.models))
+            } catch let error as ProviderConnectionTestError {
+                guard connectionTestResultIsCurrent(operation) else { return }
+                setConnectionTestCondition(.failed(error))
+            } catch is CancellationError {
+                guard connectionTestResultIsCurrent(operation) else { return }
+                setConnectionTestCondition(.idle)
+            } catch {
+                guard connectionTestResultIsCurrent(operation) else { return }
+                setConnectionTestCondition(.failed(.invalidResponse))
+            }
+        }
+    }
+
+    private func connectionTestResultIsCurrent(_ operation: UUID) -> Bool {
+        guard connectionTestOperation == operation, let state = settingsState else {
+            return false
+        }
+        return state.isComposing || state.editing != nil
+    }
+
+    private func setDefaultModel(_ selection: ProviderModelSelection) {
+        Task { @MainActor in
+            do {
+                try await surface.settings.setDefaultModelSelection(selection)
+                await loadSettings()
+            } catch {
+                settingsState = failingSettingsState(error)
+            }
+        }
+    }
+
+    private func setModelCapability(
+        _ selection: ProviderModelSelection,
+        _ capability: Capability,
+        _ support: ModelCapabilitySupport
+    ) {
+        Task { @MainActor in
+            do {
+                let current = settingsState?.modelCatalogs
+                    .first { $0.provider == selection.provider }?
+                    .models.first { $0.selection == selection }?
+                    .capabilities ?? ModelCapabilityProfile()
+                let updated = current.replacing(support, for: capability)
+                let persisted: ModelCapabilityProfile? =
+                    updated.supported.isEmpty && updated.unsupported.isEmpty
+                        ? nil
+                        : updated
+                try await surface.settings.setModelCapabilityOverride(
+                    persisted,
+                    for: selection
+                )
+                await loadSettings()
+            } catch {
+                settingsState = failingSettingsState(error)
+            }
+        }
+    }
+
+    private func setConnectionTestCondition(
+        _ condition: SettingsState.ConnectionTestCondition
+    ) {
+        guard let current = settingsState else { return }
+        settingsState = SettingsState(
+            connections: current.connections,
+            configuration: current.configuration,
+            modelCatalogs: current.modelCatalogs,
+            defaultModelSelection: current.defaultModelSelection,
+            isComposing: current.isComposing,
+            editing: current.editing,
+            failure: current.failure,
+            connectionTestCondition: condition
+        )
+    }
+
     /// Translates the remove intent — the user's removal of their own content
     /// and its stored credential (ARC-005) — and reloads the settings state. A
     /// removed provider that was the explicit selection is deselected: the
@@ -807,9 +1026,9 @@ public struct RootView: View {
         Task { @MainActor in
             do {
                 try await surface.settings.remove(identity)
-                let removedSelection = selectedProvider == identity
+                let removedSelection = legacySelectedProvider == identity
                 if removedSelection {
-                    selectedProvider = nil
+                    legacySelectedProvider = nil
                     try await surface.settings.remove(Self.providerSelectionKey, at: .workspaceOverride)
                 }
                 await loadSettings()
@@ -828,6 +1047,7 @@ public struct RootView: View {
     /// the configured connection state and the recorded endpoint and model,
     /// never a credential (ARC-001, ARC-005).
     private func editProvider(_ item: ProviderConnectionListItem) {
+        connectionTestOperation = UUID()
         Task { @MainActor in
             do {
                 let endpoint = try await surface.settings.endpoint(for: item.identity)
@@ -836,6 +1056,8 @@ public struct RootView: View {
                 settingsState = SettingsState(
                     connections: current.connections,
                     configuration: current.configuration,
+                    modelCatalogs: current.modelCatalogs,
+                    defaultModelSelection: current.defaultModelSelection,
                     isComposing: false,
                     editing: SettingsState.Editing(
                         identity: item.identity,
@@ -845,7 +1067,8 @@ public struct RootView: View {
                         version: item.version,
                         currentEndpoint: endpoint ?? "",
                         currentModel: model ?? ""
-                    )
+                    ),
+                    connectionTestCondition: .idle
                 )
             } catch {
                 settingsState = failingSettingsState(error)
@@ -859,14 +1082,15 @@ public struct RootView: View {
     /// (DES-011 §3.1, §3.9, §3.10, ARC-009) — the lifecycle state is preserved
     /// by the service, and the settings state reloads, so the edit form closes
     /// and the connection row reflects the change. An empty model records no
-    /// model, so the provider falls back to the app-edge default (DES-011
-    /// §3.10).
+    /// model and remains unavailable until discovery or a later manual model
+    /// declaration provides one.
     private func updateProvider(
         _ identity: ProviderIdentity,
         _ request: ProviderUpdateRequest,
         _ endpoint: String,
         _ model: String
     ) {
+        connectionTestOperation = UUID()
         Task { @MainActor in
             do {
                 let trimmedModel = model.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -886,11 +1110,15 @@ public struct RootView: View {
     /// Translates the cancel intent of the provider-edit form.
     private func cancelProviderEdit() {
         guard let current = settingsState else { return }
+        connectionTestOperation = UUID()
         settingsState = SettingsState(
             connections: current.connections,
             configuration: current.configuration,
+            modelCatalogs: current.modelCatalogs,
+            defaultModelSelection: current.defaultModelSelection,
             isComposing: false,
-            editing: nil
+            editing: nil,
+            connectionTestCondition: .idle
         )
     }
 
@@ -906,14 +1134,18 @@ public struct RootView: View {
         case let error as ApplicationValidationError: .application(error)
         case let error as RepositoryError: .repository(error)
         case let error as CredentialStorageError: .credentialStorage(error)
+        case let error as CapabilityError: .capability(error)
         default: .repository(.storageUnavailable)
         }
         return SettingsState(
             connections: settingsState?.connections ?? [],
             configuration: settingsState?.configuration ?? [],
+            modelCatalogs: settingsState?.modelCatalogs ?? [],
+            defaultModelSelection: settingsState?.defaultModelSelection,
             isComposing: settingsState?.isComposing ?? false,
             editing: settingsState?.editing,
-            failure: failure
+            failure: failure,
+            connectionTestCondition: settingsState?.connectionTestCondition ?? .idle
         )
     }
 }

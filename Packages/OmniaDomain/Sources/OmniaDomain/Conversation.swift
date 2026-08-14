@@ -36,12 +36,18 @@ public struct Conversation: Equatable, Sendable {
     public private(set) var history: [Message]
     /// The conversation's current streaming state.
     public private(set) var streamingState: ConversationStreamingState
+    /// The exact provider/model pair selected for this conversation.
+    public private(set) var modelSelection: ProviderModelSelection?
 
     /// Creates an empty conversation with the given identity.
-    public init(identity: ConversationIdentity) {
+    public init(
+        identity: ConversationIdentity,
+        modelSelection: ProviderModelSelection? = nil
+    ) {
         self.identity = identity
         self.history = []
         self.streamingState = .idle
+        self.modelSelection = modelSelection
     }
 
     /// The partial content of the active or interrupted stream, if any.
@@ -60,6 +66,16 @@ public struct Conversation: Equatable, Sendable {
             return true
         }
         return false
+    }
+
+    /// Replaces the conversation's explicit provider/model choice.
+    /// Selection cannot change while the aggregate is streaming, preventing a
+    /// stale in-flight operation from overwriting a newer routing choice.
+    public mutating func selectModel(_ selection: ProviderModelSelection?) throws {
+        guard !isStreaming else {
+            throw ConversationStreamError.streamInProgress
+        }
+        modelSelection = selection
     }
 
     /// Appends `message` to the history.

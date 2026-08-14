@@ -30,6 +30,35 @@ final class ConversationSerializerTests: XCTestCase {
         XCTAssertEqual(restored, conversation)
     }
 
+    func testRoundTrip_PreservesExactProviderModelSelection() throws {
+        let selection = ProviderModelSelection(
+            provider: ProviderIdentity(),
+            model: ModelReference(name: "vendor/model")
+        )
+        let conversation = Conversation(
+            identity: ConversationIdentity(),
+            modelSelection: selection
+        )
+
+        let restored = try serializer.decode(from: serializer.encode(conversation))
+
+        XCTAssertEqual(restored.modelSelection, selection)
+        XCTAssertEqual(restored, conversation)
+    }
+
+    func testDecode_PreV1DocumentWithoutModelSelectionDefaultsToNil() throws {
+        let identity = ConversationIdentity()
+        let data = Data("""
+        {"history":[{"content":"Hello","role":"user"}],"identity":"\(identity.canonicalString)","streamingState":{"state":"idle"}}
+        """.utf8)
+
+        let restored = try serializer.decode(from: data)
+
+        XCTAssertEqual(restored.identity, identity)
+        XCTAssertEqual(restored.history, [Message(role: .user, content: "Hello")])
+        XCTAssertNil(restored.modelSelection)
+    }
+
     func testRoundTrip_PreservesActiveStreamingState() throws {
         var conversation = Conversation(identity: ConversationIdentity())
         try conversation.beginStreaming()

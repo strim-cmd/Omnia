@@ -35,6 +35,16 @@ public struct SettingsState: Equatable, Sendable {
         case repository(RepositoryError)
         /// A credential storage operation failed.
         case credentialStorage(CredentialStorageError)
+        /// A provider/model selection operation failed.
+        case capability(CapabilityError)
+    }
+
+    /// The Test Connection condition of the currently presented provider form.
+    public enum ConnectionTestCondition: Equatable, Sendable {
+        case idle
+        case testing
+        case succeeded(models: [ModelReference])
+        case failed(ProviderConnectionTestError)
     }
 
     /// A configuration value the settings surface presents: a typed
@@ -116,6 +126,11 @@ public struct SettingsState: Equatable, Sendable {
     public let connections: [ProviderConnectionListItem]
     /// The configuration values the settings surface presents.
     public let configuration: [ConfigurationItem]
+    /// Cached or refreshed model catalogs for configured providers.
+    public let modelCatalogs: [ProviderModelCatalog]
+    /// The persisted global default provider/model pair, including an invalid
+    /// saved value so the UI can require explicit correction.
+    public let defaultModelSelection: ProviderModelSelection?
     /// The compose condition: the provider-connection compose form is
     /// presented and the configure flow is active.
     public let isComposing: Bool
@@ -125,6 +140,8 @@ public struct SettingsState: Equatable, Sendable {
     /// The typed failure of a settings operation, when the settings surface is
     /// in an error condition.
     public let failure: Failure?
+    /// Test Connection feedback for the active connection form.
+    public let connectionTestCondition: ConnectionTestCondition
 
     /// Creates a settings state from the configured connections, the
     /// configuration values, the compose condition, the provider-edit
@@ -132,15 +149,21 @@ public struct SettingsState: Equatable, Sendable {
     public init(
         connections: [ProviderConnectionListItem],
         configuration: [ConfigurationItem] = [],
+        modelCatalogs: [ProviderModelCatalog] = [],
+        defaultModelSelection: ProviderModelSelection? = nil,
         isComposing: Bool = false,
         editing: Editing? = nil,
-        failure: Failure? = nil
+        failure: Failure? = nil,
+        connectionTestCondition: ConnectionTestCondition = .idle
     ) {
         self.connections = connections
         self.configuration = configuration
+        self.modelCatalogs = modelCatalogs
+        self.defaultModelSelection = defaultModelSelection
         self.isComposing = isComposing
         self.editing = editing
         self.failure = failure
+        self.connectionTestCondition = connectionTestCondition
     }
 
     /// The error condition: a settings operation failed.

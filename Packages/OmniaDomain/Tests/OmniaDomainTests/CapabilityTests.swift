@@ -14,6 +14,7 @@ final class CapabilityTests: XCTestCase {
     func testCapabilitySet_DeclaresTheExtensionPointCapabilities() {
         let extensionPoints: Set<Capability> = [
             .vision,
+            .documentInput,
             .imageGeneration,
             .embeddings,
             .toolCalling,
@@ -21,16 +22,16 @@ final class CapabilityTests: XCTestCase {
             .audio,
             .reasoning,
         ]
-        XCTAssertEqual(extensionPoints.count, 7)
+        XCTAssertEqual(extensionPoints.count, 8)
     }
 
     func testCapabilitySet_AllCasesAreDistinct() {
         let all: Set<Capability> = [
             .textGeneration, .conversation, .streaming,
-            .vision, .imageGeneration, .embeddings,
+            .vision, .documentInput, .imageGeneration, .embeddings,
             .toolCalling, .structuredOutput, .audio, .reasoning,
         ]
-        XCTAssertEqual(all.count, 10)
+        XCTAssertEqual(all.count, 11)
     }
 
     func testEquality_SameCaseIsEqual() {

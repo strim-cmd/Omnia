@@ -12,15 +12,19 @@ public struct TextGenerationRequest: Equatable, Sendable {
     public let prompt: String
     /// The requested model.
     public let model: ModelReference
+    /// The exact provider selected for this request, when explicitly resolved.
+    public let provider: ProviderIdentity?
 
     /// Creates a text generation request.
     public init(
         identity: CapabilityRequestIdentity,
         prompt: String,
-        model: ModelReference
+        model: ModelReference,
+        provider: ProviderIdentity? = nil
     ) {
         self.identity = identity
         self.prompt = prompt
         self.model = model
+        self.provider = provider
     }
 }

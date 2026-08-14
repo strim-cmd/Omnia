@@ -23,6 +23,8 @@ public struct SendMessageRequest: Equatable, Sendable {
     public let workspacePreference: ProviderIdentity?
     /// The provider preference for the requested capability, if any.
     public let capabilityPreference: ProviderIdentity?
+    /// The exact per-conversation provider/model selection, when present.
+    public let modelSelection: ProviderModelSelection?
 
     /// Creates a send-message request; the selection preferences are optional
     /// and default to `nil` (no choice expressed).
@@ -31,12 +33,14 @@ public struct SendMessageRequest: Equatable, Sendable {
         message: Message,
         userSelection: ProviderIdentity? = nil,
         workspacePreference: ProviderIdentity? = nil,
-        capabilityPreference: ProviderIdentity? = nil
+        capabilityPreference: ProviderIdentity? = nil,
+        modelSelection: ProviderModelSelection? = nil
     ) {
         self.conversation = conversation
         self.message = message
         self.userSelection = userSelection
         self.workspacePreference = workspacePreference
         self.capabilityPreference = capabilityPreference
+        self.modelSelection = modelSelection
     }
 }

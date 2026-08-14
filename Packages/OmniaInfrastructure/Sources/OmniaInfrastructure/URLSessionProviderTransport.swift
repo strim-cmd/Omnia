@@ -29,6 +29,8 @@ internal struct URLSessionProviderTransport: ProviderTransport {
         let response: URLResponse
         do {
             (data, response) = try await session.data(for: urlRequest)
+        } catch let error as URLError where error.code == .timedOut {
+            throw ProviderTransportError.timedOut
         } catch {
             throw ProviderTransportError.networkFailure
         }
@@ -92,7 +94,11 @@ internal struct URLSessionProviderTransport: ProviderTransport {
                     }
                     continuation.finish()
                 } catch {
-                    continuation.finish(throwing: ProviderTransportError.networkFailure)
+                    if let error = error as? URLError, error.code == .timedOut {
+                        continuation.finish(throwing: ProviderTransportError.timedOut)
+                    } else {
+                        continuation.finish(throwing: ProviderTransportError.networkFailure)
+                    }
                 }
             }
             continuation.onTermination = { _ in task.cancel() }
@@ -180,6 +186,8 @@ internal struct URLSessionProviderTransport: ProviderTransport {
             }
             if (error as NSError).code == NSURLErrorCancelled {
                 continuation.finish()
+            } else if (error as NSError).code == NSURLErrorTimedOut {
+                continuation.finish(throwing: ProviderTransportError.timedOut)
             } else {
                 continuation.finish(throwing: ProviderTransportError.networkFailure)
             }

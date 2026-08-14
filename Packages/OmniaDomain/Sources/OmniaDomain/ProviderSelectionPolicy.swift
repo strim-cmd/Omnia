@@ -20,6 +20,10 @@ public struct ProviderCandidate: Equatable, Sendable {
 public enum ProviderSelectionResult: Equatable, Sendable {
     /// A provider and a model were selected (ARC-001).
     case selected(provider: ProviderIdentity, model: ModelReference)
+    /// The exact user-recorded provider/model pair is not selectable. This is
+    /// terminal until the user explicitly replaces it; selection must not
+    /// silently fall through to a different model.
+    case modelUnavailable(ProviderModelSelection)
     /// No provider can deliver the capability; an explicit failure, never
     /// silent degradation (ARC-004).
     case failure
@@ -47,10 +51,25 @@ public struct ProviderSelectionPolicy: Sendable {
     /// ordering of provider identities decides the result.
     public func select(
         candidates: [ProviderCandidate],
-        userSelection: ProviderIdentity?,
-        workspacePreference: ProviderIdentity?,
-        capabilityPreference: ProviderIdentity?
+        explicitSelection: ProviderModelSelection? = nil,
+        userSelection: ProviderIdentity? = nil,
+        workspacePreference: ProviderIdentity? = nil,
+        capabilityPreference: ProviderIdentity? = nil
     ) -> ProviderSelectionResult {
+        if let explicitSelection {
+            guard
+                let candidate = candidates.first(where: {
+                    $0.provider == explicitSelection.provider
+                }),
+                candidate.models.contains(explicitSelection.model)
+            else {
+                return .modelUnavailable(explicitSelection)
+            }
+            return .selected(
+                provider: explicitSelection.provider,
+                model: explicitSelection.model
+            )
+        }
         if let identity = userSelection, let candidate = selectable(identity, in: candidates) {
             return selected(candidate)
         }

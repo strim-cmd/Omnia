@@ -239,7 +239,9 @@ final class CompositionRootTests: XCTestCase {
     func testPrepareRegistersStoredProvidersAsReady() async throws {
         let composition = try makeComposition()
         let connection = try await composition.providerConnectionService.configure(
-            makeConfigureRequest()
+            makeConfigureRequest(),
+            endpoint: "https://api.example.com/v1",
+            model: modelReference.name
         )
         _ = try await composition.prepare()
         let state = await composition.lifecycleService.state(of: connection.identity)
@@ -468,7 +470,7 @@ final class ProviderAdapterBindingTests: XCTestCase {
         XCTAssertEqual(factory.calls.count, 1)
     }
 
-    func testGenerateTextServesTheRecordedModelWhenTheProviderRecordsOne() async throws {
+    func testGenerateTextDoesNotOverwriteTheExplicitRequestModelWithConfiguredFallback() async throws {
         let combo = "omniroute:gpt-4o"
         let (binding, factory, _) = try await makeBinding(model: combo)
         let request = TextGenerationRequest(
@@ -479,10 +481,10 @@ final class ProviderAdapterBindingTests: XCTestCase {
         let response = try await binding.generateText(from: request)
         XCTAssertEqual(response.text, "generated reply")
         XCTAssertEqual(factory.calls.count, 1)
-        XCTAssertEqual(factory.adapterModels, [combo])
+        XCTAssertEqual(factory.adapterModels, [modelReference.name])
     }
 
-    func testSendMessageServesTheRecordedModelWhenTheProviderRecordsOne() async throws {
+    func testSendMessageDoesNotOverwriteTheExplicitRequestModelWithConfiguredFallback() async throws {
         let combo = "omniroute:gpt-4o"
         let (binding, factory, _) = try await makeBinding(model: combo)
         let request = ConversationRequest(
@@ -493,10 +495,10 @@ final class ProviderAdapterBindingTests: XCTestCase {
         let response = try await binding.sendMessage(request)
         XCTAssertEqual(response.message, Message(role: .assistant, content: "assistant reply"))
         XCTAssertEqual(factory.calls.count, 1)
-        XCTAssertEqual(factory.adapterModels, [combo])
+        XCTAssertEqual(factory.adapterModels, [modelReference.name])
     }
 
-    func testStreamServesTheRecordedModelWhenTheProviderRecordsOne() async throws {
+    func testStreamDoesNotOverwriteTheExplicitRequestModelWithConfiguredFallback() async throws {
         let combo = "omniroute:gpt-4o"
         let (binding, factory, _) = try await makeBinding(model: combo)
         let request = StreamingRequest(
@@ -511,7 +513,7 @@ final class ProviderAdapterBindingTests: XCTestCase {
         }
         XCTAssertEqual(updates.count, 1)
         XCTAssertEqual(factory.calls.count, 1)
-        XCTAssertEqual(factory.adapterModels, [combo])
+        XCTAssertEqual(factory.adapterModels, [modelReference.name])
     }
 
     func testGenerateTextServesTheRequestModelWhenNoModelIsRecorded() async throws {
@@ -586,16 +588,18 @@ final class ProviderAdapterBindingTests: XCTestCase {
         XCTAssertEqual(factory.adapterModels, [combo])
     }
 
-    func testGenerateTextServesTheDefaultModelWhenNoModelIsRecordedAndPreferredModelsAreConfigDriven() async throws {
+    func testGenerateTextDoesNotInventADefaultModelWhenNoModelIsRecorded() async throws {
         let (binding, factory, _) = try await makeBinding(configDrivenPreferredModels: true)
         let request = TextGenerationRequest(
             identity: CapabilityRequestIdentity(),
             prompt: "Hello",
             model: modelReference
         )
-        _ = try await binding.generateText(from: request)
-        XCTAssertEqual(factory.calls.count, 1)
-        XCTAssertEqual(factory.adapterModels, [modelReference.name])
+        await assertThrowsProviderUnavailable {
+            _ = try await binding.generateText(from: request)
+        }
+        XCTAssertEqual(factory.calls.count, 0)
+        XCTAssertEqual(factory.adapterModels, [])
     }
 
     func testThrowsProviderUnavailableWhenRequestingTheDefaultFromAComboProviderWithConfigDrivenPreferredModels() async throws {
@@ -711,6 +715,52 @@ final class ProviderAdapterBindingTests: XCTestCase {
         XCTAssertEqual(factory.calls[0].endpoint, URL(string: "https://smaller.example.com/v1"))
     }
 
+    func testExplicitProviderRoutesSameNamedModelToThatProviderOnly() async throws {
+        let first = ProviderIdentity()
+        let second = ProviderIdentity()
+        let lifecycle = ProviderLifecycleService()
+        try await register(lifecycle, identity: first)
+        try await register(lifecycle, identity: second)
+        let configurationService = makeConfigurationService()
+        for (identity, endpoint) in [
+            (first, "https://first.example.com/v1"),
+            (second, "https://second.example.com/v1"),
+        ] {
+            try await configurationService.store(
+                endpoint,
+                for: ProviderConnectionService.endpointKey(for: identity),
+                at: .providerSettings
+            )
+            try await configurationService.store(
+                CredentialReference(),
+                for: ProviderConnectionService.credentialReferenceKey(for: identity),
+                at: .providerSettings
+            )
+        }
+        let factory = RecordingAdapterFactory()
+        let binding = ProviderAdapterBinding(
+            lifecycleService: lifecycle,
+            configurationService: configurationService,
+            preferredModels: { _ in [modelReference] },
+            adapterFactory: { endpoint, credential in
+                try await factory.make(endpoint: endpoint, credential: credential)
+            }
+        )
+        let request = StreamingRequest(
+            identity: CapabilityRequestIdentity(),
+            history: [Message(role: .user, content: "Hello")],
+            model: modelReference,
+            provider: second
+        )
+
+        let stream = try await binding.stream(request)
+        for try await _ in stream {}
+
+        XCTAssertEqual(factory.calls.count, 1)
+        XCTAssertEqual(factory.calls[0].endpoint, URL(string: "https://second.example.com/v1"))
+        XCTAssertEqual(factory.adapterModels, [modelReference.name])
+    }
+
     private func assertThrowsProviderUnavailable(
         _ block: () async throws -> Void
     ) async {
@@ -779,7 +829,11 @@ final class AppLaunchTests: XCTestCase {
     func testLaunch_ReregistersStoredProvidersAsReady() async throws {
         let root = try makeTemporaryRoot()
         let first = try await AppLaunch(storageRoot: root)
-        _ = try await first.composition.providerConnectionService.configure(makeConfigureRequest())
+        _ = try await first.composition.providerConnectionService.configure(
+            makeConfigureRequest(),
+            endpoint: "https://api.example.com/v1",
+            model: modelReference.name
+        )
         let second = try await AppLaunch(storageRoot: root)
         let selection = await second.composition.selectionService.select(requiredCapability: .streaming)
         guard case .selected(provider: _, model: let model) = selection else {

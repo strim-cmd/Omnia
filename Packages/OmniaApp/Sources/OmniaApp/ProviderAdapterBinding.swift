@@ -88,23 +88,35 @@ internal struct ProviderAdapterBinding: TextGenerationContract, ConversationCont
     }
 
     public func generateText(from request: TextGenerationRequest) async throws -> TextGenerationResponse {
-        let (adapter, model) = try await adapter(for: request.model)
+        let adapter = try await adapter(for: request.provider, model: request.model)
         return try await adapter.generateText(
-            from: TextGenerationRequest(identity: request.identity, prompt: request.prompt, model: model)
+            from: TextGenerationRequest(
+                identity: request.identity,
+                prompt: request.prompt,
+                model: request.model
+            )
         )
     }
 
     public func sendMessage(_ request: ConversationRequest) async throws -> ConversationResponse {
-        let (adapter, model) = try await adapter(for: request.model)
+        let adapter = try await adapter(for: request.provider, model: request.model)
         return try await adapter.sendMessage(
-            ConversationRequest(identity: request.identity, history: request.history, model: model)
+            ConversationRequest(
+                identity: request.identity,
+                history: request.history,
+                model: request.model
+            )
         )
     }
 
     public func stream(_ request: StreamingRequest) async throws -> AsyncThrowingStream<StreamingUpdate, Error> {
-        let (adapter, model) = try await adapter(for: request.model)
+        let adapter = try await adapter(for: request.provider, model: request.model)
         return try await adapter.stream(
-            StreamingRequest(identity: request.identity, history: request.history, model: model)
+            StreamingRequest(
+                identity: request.identity,
+                history: request.history,
+                model: request.model
+            )
         )
     }
 
@@ -122,12 +134,19 @@ internal struct ProviderAdapterBinding: TextGenerationContract, ConversationCont
     /// a provider with no recorded model serves the requested model unchanged
     /// (DES-011 §3.10, DES-013 §3.3).
     private func adapter(
-        for model: ModelReference
-    ) async throws -> (
-        adapter: any TextGenerationContract & ConversationContract & StreamingContract,
+        for requestedProvider: ProviderIdentity?,
         model: ModelReference
-    ) {
-        guard let identity = await readyProvidersOffering(model).first else {
+    ) async throws -> any TextGenerationContract & ConversationContract & StreamingContract {
+        let offering = await readyProvidersOffering(model)
+        let identity: ProviderIdentity
+        if let requestedProvider {
+            guard offering.contains(requestedProvider) else {
+                throw CapabilityError.modelUnavailable(model: model)
+            }
+            identity = requestedProvider
+        } else if let automatic = offering.first {
+            identity = automatic
+        } else {
             throw CapabilityError.providerUnavailable
         }
         guard
@@ -147,22 +166,7 @@ internal struct ProviderAdapterBinding: TextGenerationContract, ConversationCont
         else {
             throw CapabilityError.providerUnavailable
         }
-        let resolvedModel = try await self.model(for: identity) ?? model
-        return (try await adapterFactory(url, reference), resolvedModel)
-    }
-
-    /// The recorded OpenAI-compatible model of the ready provider with
-    /// `identity`, or `nil` when none is recorded (DES-011 §3.10).
-    private func model(for identity: ProviderIdentity) async throws -> ModelReference? {
-        guard
-            let name = try await configurationService.value(
-                for: ProviderConnectionService.modelKey(for: identity),
-                at: .providerSettings
-            )
-        else {
-            return nil
-        }
-        return ModelReference(name: name)
+        return try await adapterFactory(url, reference)
     }
 
     /// The ready providers offering `model`, in canonical identity order — the

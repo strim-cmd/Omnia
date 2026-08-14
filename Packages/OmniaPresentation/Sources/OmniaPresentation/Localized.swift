@@ -28,18 +28,35 @@ public enum Localized {
     public static var clearSearch: String { localized("clear_search") }
     public static var configuration: String { localized("configuration") }
     public static var connection: String { localized("connection") }
+    public static var testConnection: String { localized("test_connection") }
+    public static var testingConnection: String { localized("testing_connection") }
+    public static var connectionInvalidCredential: String { localized("connection_invalid_credential") }
+    public static var connectionUnreachable: String { localized("connection_unreachable") }
+    public static var connectionInvalidEndpoint: String { localized("connection_invalid_endpoint") }
+    public static var connectionModelUnavailable: String { localized("connection_model_unavailable") }
+    public static var connectionRateLimited: String { localized("connection_rate_limited") }
+    public static var connectionTimedOut: String { localized("connection_timed_out") }
+    public static var connectionServerFailure: String { localized("connection_server_failure") }
+    public static var connectionInvalidResponse: String { localized("connection_invalid_response") }
+    public static func connectionTestSucceeded(_ count: Int) -> String {
+        String(format: localized("connection_test_succeeded"), count)
+    }
     public static var conversation: String { localized("conversation") }
     public static var conversations: String { localized("conversations") }
     public static var copy: String { localized("copy") }
     public static var credentialNotFound: String { localized("credential_not_found") }
     public static var credentialStorageUnavailable: String { localized("credential_storage_unavailable") }
     public static var darkMode: String { localized("dark_mode") }
+    public static var defaultModel: String { localized("default_model") }
+    public static var selectDefaultModel: String { localized("select_default_model") }
+    public static var invalidDefaultModel: String { localized("invalid_default_model") }
     public static var delete: String { localized("delete") }
     public static var deleteConversation: String { localized("delete_conversation") }
     public static var deleteConversationConfirmation: String { localized("delete_conversation_confirmation") }
     public static var disabled: String { localized("disabled") }
     public static var dislike: String { localized("dislike") }
     public static var displayName: String { localized("display_name") }
+    public static var documentInput: String { localized("document_input") }
     public static var editProvider: String { localized("edit_provider") }
     public static var embeddings: String { localized("embeddings") }
     public static var endpoint: String { localized("endpoint") }
@@ -52,16 +69,22 @@ public enum Localized {
     public static var limits: String { localized("limits") }
     public static var loading: String { localized("loading") }
     public static var loadingProviderSelection: String { localized("loading_provider_selection") }
+    public static var usingConfiguredModel: String { localized("using_configured_model") }
+    public static var usingCachedModels: String { localized("using_cached_models") }
+    public static var modelDiscoveryFailed: String { localized("model_discovery_failed") }
     public static var major: String { localized("major") }
     public static var maxRequestsPerMinute: String { localized("max_requests_per_minute") }
     public static var menu: String { localized("menu") }
     public static var messagePlaceholder: String { localized("message_placeholder") }
     public static var minor: String { localized("minor") }
     public static var model: String { localized("model") }
+    public static var modelCapabilities: String { localized("model_capabilities") }
     public static var more: String { localized("more") }
     public static var newChat: String { localized("new_chat") }
     public static var newConversation: String { localized("new_conversation") }
     public static var noProviderAvailable: String { localized("no_provider_available") }
+    public static var noModelsAvailable: String { localized("no_models_available") }
+    public static var loadingModels: String { localized("loading_models") }
     public static var noProviderConnections: String { localized("no_provider_connections") }
     public static var noProviderConnectionsDescription: String { localized("no_provider_connections_description") }
     public static var noSearchResults: String { localized("no_search_results") }
@@ -99,6 +122,9 @@ public enum Localized {
     public static var storageUnavailable: String { localized("storage_unavailable") }
     public static var streaming: String { localized("streaming") }
     public static var structuredOutput: String { localized("structured_output") }
+    public static var supported: String { localized("supported") }
+    public static var unsupported: String { localized("unsupported") }
+    public static var unknownSupport: String { localized("unknown_support") }
     public static var textGeneration: String { localized("text_generation") }
     public static var thinking: String { localized("thinking") }
     public static var today: String { localized("today") }
@@ -114,5 +140,8 @@ public enum Localized {
     public static var workspace: String { localized("workspace") }
     public static func providerUnavailable(_ provider: String) -> String {
         String(format: localized("provider_unavailable"), provider)
+    }
+    public static func modelUnavailable(_ model: String) -> String {
+        String(format: localized("model_unavailable"), model)
     }
 }

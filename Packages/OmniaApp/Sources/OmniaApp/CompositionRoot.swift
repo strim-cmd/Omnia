@@ -51,6 +51,10 @@ public struct CompositionRoot: Sendable {
 
     /// The configuration application service.
     public let configurationService: ConfigurationService
+    /// Model discovery, cache, defaults, and model capability resolution.
+    public let providerModelService: ProviderModelService
+    /// Real endpoint/credential validation used by provider forms.
+    public let providerValidationService: ProviderValidationService
 
     /// The send-message use case, delivered the runtime binding as its
     /// streaming contract.
@@ -64,17 +68,15 @@ public struct CompositionRoot: Sendable {
     /// connections.
     private let providerRepository: any ProviderRepository
 
-    /// The app-edge offered models of a provider: the recorded OpenAI-compatible
-    /// model (the OmniRoute combo, or any provider model name) when the provider
-    /// records one, falling back to the app-edge default model (DES-013 §3.3,
-    /// DES-011 §3.10).
+    /// The manually configured models of a provider: the recorded
+    /// OpenAI-compatible model (the OmniRoute combo, or any provider model name)
+    /// when the provider records one, otherwise an empty manual catalog.
     ///
     /// The same closure is delivered to provider selection and to the runtime
     /// adapter binding, so selection and request routing always agree on which
-    /// models a provider offers (DES-013 §3.3). A configuration read failure
-    /// falls back to the app-edge default model — the same value the provider
-    /// offers when no model is recorded — matching the documented behavior of
-    /// DES-013 §3.3 (ARC-001).
+    /// manually configured models a provider offers. Missing configuration and
+    /// read failures remain empty; discovery/cache status supplies the truthful
+    /// catalog instead of inventing a production model (ARC-001).
     static func preferredModels(
         configurationService: ConfigurationService
     ) -> @Sendable (ProviderIdentity) async -> [ModelReference] {
@@ -85,7 +87,7 @@ public struct CompositionRoot: Sendable {
             ) {
                 return [ModelReference(name: model)]
             }
-            return [ModelReference(name: AppEdgeConstants.defaultModelName)]
+            return []
         }
     }
 
@@ -116,7 +118,50 @@ public struct CompositionRoot: Sendable {
             configurationRepository: configurationRepository,
             resolutionPolicy: ConfigurationResolutionPolicy()
         )
-        let preferredModels = Self.preferredModels(configurationService: configurationService)
+        let providerConnectionService = ProviderConnectionService(
+            providerRepository: providerRepository,
+            credentialStorage: credentialStorage,
+            configurationRepository: configurationRepository,
+            lifecycleService: lifecycleService
+        )
+        let discoverModels: @Sendable (ProviderIdentity) async throws -> [ModelReference] = {
+            identity in
+            guard
+                let endpoint = try await configurationService.value(
+                    for: ProviderConnectionService.endpointKey(for: identity),
+                    at: .providerSettings
+                ),
+                let url = URL(string: endpoint)
+            else {
+                throw ModelCatalogError.unreachable
+            }
+            guard
+                let reference = try await configurationService.value(
+                    for: ProviderConnectionService.credentialReferenceKey(for: identity),
+                    at: .providerSettings
+                )
+            else {
+                throw ModelCatalogError.unauthorized
+            }
+            return try await OpenAICompatibleProviderInspector(
+                endpoint: url,
+                credential: reference,
+                credentialStorage: credentialStorage
+            ).discoverModels()
+        }
+        let providerModelService = ProviderModelService(
+            configurationService: configurationService,
+            lifecycleService: lifecycleService,
+            configuredModel: { identity in
+                let configured = try await providerConnectionService.model(for: identity)
+                return configured.map(ModelReference.init(name:))
+            },
+            discoverModels: discoverModels
+        )
+        let preferredModels: @Sendable (ProviderIdentity) async -> [ModelReference] = {
+            identity in
+            await providerModelService.offeredModels(for: identity)
+        }
         let selectionService = ProviderSelectionService(
             lifecycleService: lifecycleService,
             preferredModels: preferredModels
@@ -130,13 +175,33 @@ public struct CompositionRoot: Sendable {
         let workspaceService = WorkspaceService(workspaceRepository: workspaceRepository)
         let conversationService = ConversationService(
             conversationRepository: conversationRepository,
-            workspaceRepository: workspaceRepository
+            workspaceRepository: workspaceRepository,
+            defaultModelSelection: {
+                try await providerModelService.validDefaultSelection()
+            }
         )
-        let providerConnectionService = ProviderConnectionService(
-            providerRepository: providerRepository,
-            credentialStorage: credentialStorage,
-            configurationRepository: configurationRepository,
-            lifecycleService: lifecycleService
+        let providerValidationService = ProviderValidationService(
+            testCandidate: { endpoint, credential, model in
+                try await OpenAICompatibleProviderInspector(
+                    endpoint: endpoint,
+                    credential: credential
+                ).testConnection(model: model)
+            },
+            testExisting: { identity, endpoint, model in
+                guard
+                    let reference = try await configurationService.value(
+                        for: ProviderConnectionService.credentialReferenceKey(for: identity),
+                        at: .providerSettings
+                    )
+                else {
+                    throw ProviderConnectionTestError.invalidCredential
+                }
+                return try await OpenAICompatibleProviderInspector(
+                    endpoint: endpoint,
+                    credential: reference,
+                    credentialStorage: credentialStorage
+                ).testConnection(model: model)
+            }
         )
         let sendMessageUseCase = SendMessageUseCase(
             streamingContract: binding,
@@ -151,6 +216,8 @@ public struct CompositionRoot: Sendable {
         self.conversationService = conversationService
         self.providerConnectionService = providerConnectionService
         self.configurationService = configurationService
+        self.providerModelService = providerModelService
+        self.providerValidationService = providerValidationService
         self.sendMessageUseCase = sendMessageUseCase
         self.providerRepository = providerRepository
 
@@ -159,7 +226,9 @@ public struct CompositionRoot: Sendable {
             conversationScreen: ConversationScreenSurface(useCase: sendMessageUseCase),
             settings: SettingsSurface(
                 connectionService: providerConnectionService,
-                configurationService: configurationService
+                configurationService: configurationService,
+                modelService: providerModelService,
+                validationService: providerValidationService
             )
         )
     }

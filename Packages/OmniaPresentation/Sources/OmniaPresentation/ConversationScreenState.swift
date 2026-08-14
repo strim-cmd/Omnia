@@ -95,9 +95,14 @@ public struct ConversationScreenState: Equatable, Sendable {
         /// The provider connections the user can select from, in the
         /// deterministic order the settings surface lists them (DES-011 §3.4).
         public let providers: [ProviderConnectionListItem]
+        /// Provider-scoped model catalogs. A model name is never treated as a
+        /// global identity; the owning provider is part of every selection.
+        public let modelCatalogs: [ProviderModelCatalog]
         /// The user's explicit selection, or `nil` when no provider is selected
         /// and the automatic selection applies (DES-009 §3.2).
         public let selected: ProviderIdentity?
+        /// The exact provider/model pair persisted for this conversation.
+        public let selectedModel: ProviderModelSelection?
         /// The error condition: the provider connections could not be loaded.
         public let failure: Failure?
 
@@ -106,10 +111,14 @@ public struct ConversationScreenState: Equatable, Sendable {
         public init(
             providers: [ProviderConnectionListItem],
             selected: ProviderIdentity? = nil,
+            modelCatalogs: [ProviderModelCatalog] = [],
+            selectedModel: ProviderModelSelection? = nil,
             failure: Failure? = nil
         ) {
             self.providers = providers
-            self.selected = selected
+            self.modelCatalogs = modelCatalogs
+            self.selectedModel = selectedModel
+            self.selected = selectedModel?.provider ?? selected
             self.failure = failure
         }
 
@@ -125,6 +134,12 @@ public struct ConversationScreenState: Equatable, Sendable {
             return providers.first { $0.identity == selected }
         }
 
+        /// The catalog that owns the selected model.
+        public var selectedCatalog: ProviderModelCatalog? {
+            guard let selectedModel else { return nil }
+            return modelCatalogs.first { $0.provider == selectedModel.provider }
+        }
+
         /// The availability of the selected provider connection: a selection is
         /// available only when its provider connection is ready (DES-009 §3.2);
         /// the frozen selection policy skips a selection that is not selectable,
@@ -132,7 +147,11 @@ public struct ConversationScreenState: Equatable, Sendable {
         /// silent (ARC-001).
         public var selectedIsAvailable: Bool {
             guard let item = selectedItem else { return false }
-            return Self.isAvailable(item.state)
+            guard Self.isAvailable(item.state) else { return false }
+            guard let selectedModel else { return true }
+            return selectedCatalog?.models.contains {
+                $0.selection == selectedModel
+            } == true
         }
 
         /// The availability of a provider connection for serving a conversation:
@@ -162,6 +181,26 @@ public struct ConversationScreenState: Equatable, Sendable {
             return ProviderSelection(providers: providers, selected: normalizedSelected, failure: failure)
         }
 
+        /// Composes the exact per-conversation provider/model selection. Saved
+        /// unavailable values are deliberately preserved so the UI can show a
+        /// corrective state instead of silently routing to a different model.
+        public static func composed(
+            providers: [ProviderConnectionListItem],
+            modelCatalogs: [ProviderModelCatalog],
+            settingsFailure: SettingsState.Failure?,
+            selectedModel: ProviderModelSelection?
+        ) -> ProviderSelection {
+            let failure: Failure? = providers.isEmpty
+                ? settingsFailure.map(Self.failure(from:))
+                : nil
+            return ProviderSelection(
+                providers: providers,
+                modelCatalogs: modelCatalogs,
+                selectedModel: selectedModel,
+                failure: failure
+            )
+        }
+
         /// Maps the typed failure of the settings surface into the conversation
         /// screen's typed failure, as it is, never wrapped (DES-011 §3.6,
         /// DES-009 §3.9).
@@ -170,6 +209,7 @@ public struct ConversationScreenState: Equatable, Sendable {
             case .application(let error): return .application(error)
             case .repository(let error): return .repository(error)
             case .credentialStorage(let error): return .credentialStorage(error)
+            case .capability(let error): return .capability(error)
             }
         }
     }

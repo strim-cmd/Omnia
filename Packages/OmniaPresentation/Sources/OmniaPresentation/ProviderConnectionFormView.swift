@@ -33,8 +33,8 @@ import SwiftUI
 /// endpoint and model surfaces; they are connection configuration the user owns
 /// (ARC-005) and never enter the `ConfigureProviderRequest`,
 /// `ProviderUpdateRequest`, or any Domain aggregate (DES-011 §3.9, §3.10,
-/// ARC-004). An empty model is allowed and records no model, so the provider
-/// falls back to the app-edge default model.
+    /// ARC-004). An empty model records no manual fallback; discovery/cache may
+    /// still supply the provider's catalog.
 ///
 /// The view is Apple-platform code, isolated behind platform availability; it
 /// is not exercised by the Linux test environment (§3.7) and is verified by
@@ -50,6 +50,10 @@ public struct ProviderConnectionFormView: View {
     /// Translates the edit-submit intent with the edited declaration, the
     /// declared endpoint, and the declared model.
     public let onUpdate: (ProviderUpdateRequest, String, String) -> Void
+    /// Validates the real endpoint/credential/model path without persisting the
+    /// candidate credential.
+    public let onTestConnection: (ProviderConnectionTestRequest) -> Void
+    public let connectionTestCondition: SettingsState.ConnectionTestCondition
     /// Translates the cancel intent.
     public let onCancel: () -> Void
 
@@ -62,6 +66,10 @@ public struct ProviderConnectionFormView: View {
     @State private var endpoint = ""
     @State private var model = ""
     @State private var credentialSecret = ""
+    /// Ephemeral, process-randomized fingerprint of the exact values last
+    /// tested. It contains no recoverable credential material and prevents a
+    /// successful result from authorizing later-edited input.
+    @State private var testedInputFingerprint: Int?
 
     /// Creates a provider connection form over the given intent callbacks,
     /// pre-filled with the connection's current declaration when editing.
@@ -69,11 +77,15 @@ public struct ProviderConnectionFormView: View {
         editing: SettingsState.Editing? = nil,
         onConfigure: @escaping (ConfigureProviderRequest, String, String) -> Void,
         onUpdate: @escaping (ProviderUpdateRequest, String, String) -> Void,
+        connectionTestCondition: SettingsState.ConnectionTestCondition = .idle,
+        onTestConnection: @escaping (ProviderConnectionTestRequest) -> Void = { _ in },
         onCancel: @escaping () -> Void
     ) {
         self.editing = editing
         self.onConfigure = onConfigure
         self.onUpdate = onUpdate
+        self.connectionTestCondition = connectionTestCondition
+        self.onTestConnection = onTestConnection
         self.onCancel = onCancel
         _displayName = State(initialValue: editing?.displayName ?? "")
         _selectedCapabilities = State(
@@ -259,20 +271,96 @@ public struct ProviderConnectionFormView: View {
     /// The action buttons of the form: the cancel and save intents
     /// (new_design.md §14).
     private var actionButtons: some View {
-        HStack(spacing: OmniaTheme.Spacing.md) {
+        VStack(alignment: .leading, spacing: OmniaTheme.Spacing.md) {
+            HStack(spacing: OmniaTheme.Spacing.md) {
+                OmniaButton(
+                    title: Localized.testConnection,
+                    systemImage: "network",
+                    style: .secondary,
+                    action: testConnection
+                )
+                .disabled(!canTestConnection || connectionIsTesting)
+                OmniaButton(
+                    title: Localized.saveProviderConnection,
+                    systemImage: "checkmark",
+                    style: .primary,
+                    action: submit
+                )
+                .disabled(!canSubmit)
+            }
+            connectionTestFeedback
             OmniaButton(
                 title: Localized.cancel,
                 systemImage: "xmark",
                 style: .secondary,
                 action: onCancel
             )
-            OmniaButton(
-                title: Localized.saveProviderConnection,
-                systemImage: "checkmark",
-                style: .primary,
-                action: submit
+        }
+    }
+
+    @ViewBuilder
+    private var connectionTestFeedback: some View {
+        switch connectionTestCondition {
+        case .idle:
+            EmptyView()
+        case .testing:
+            HStack(spacing: OmniaTheme.Spacing.sm) {
+                ProgressView().controlSize(.small)
+                Text(Localized.testingConnection)
+            }
+            .font(OmniaTheme.Typography.secondary)
+            .foregroundStyle(OmniaTheme.Colors.textSecondary)
+        case .succeeded(let models):
+            Label(
+                Localized.connectionTestSucceeded(models.count),
+                systemImage: "checkmark.circle.fill"
             )
-            .disabled(!canSubmit)
+            .font(OmniaTheme.Typography.secondary)
+            .foregroundStyle(OmniaTheme.Colors.success)
+        case .failed(let error):
+            Label(connectionTestMessage(error), systemImage: "exclamationmark.triangle.fill")
+                .font(OmniaTheme.Typography.secondary)
+                .foregroundStyle(OmniaTheme.Colors.error)
+        }
+    }
+
+    private var connectionIsTesting: Bool {
+        if case .testing = connectionTestCondition { return true }
+        return false
+    }
+
+    private var connectionTestSucceeded: Bool {
+        if case .succeeded = connectionTestCondition { return true }
+        return false
+    }
+
+    private var canTestConnection: Bool {
+        !trimmedEndpoint.isEmpty && (isEditing || !credentialSecret.isEmpty)
+    }
+
+    private func testConnection() {
+        guard canTestConnection else { return }
+        testedInputFingerprint = currentInputFingerprint
+        onTestConnection(
+            ProviderConnectionTestRequest(
+                provider: editing?.identity,
+                endpoint: trimmedEndpoint,
+                model: trimmedModel.isEmpty ? nil : trimmedModel,
+                credential: isEditing ? nil : Credential(secret: credentialSecret)
+            )
+        )
+    }
+
+    private func connectionTestMessage(_ error: ProviderConnectionTestError) -> String {
+        switch error {
+        case .invalidCredential: Localized.connectionInvalidCredential
+        case .unreachable: Localized.connectionUnreachable
+        case .invalidEndpoint: Localized.connectionInvalidEndpoint
+        case .modelUnavailable: Localized.connectionModelUnavailable
+        case .rateLimited: Localized.connectionRateLimited
+        case .timedOut: Localized.connectionTimedOut
+        case .serverFailure: Localized.connectionServerFailure
+        case .invalidResponse: Localized.connectionInvalidResponse
         }
     }
 
@@ -283,8 +371,8 @@ public struct ProviderConnectionFormView: View {
     /// credential (the field cleared on submit, ARC-005); in provider-edit, as
     /// a frozen `ProviderUpdateRequest` — the same declaration without a
     /// credential, since editing never re-enters the secret — with the declared
-    /// endpoint and model. An empty model is allowed — it records no model, so
-    /// the provider falls back to the app-edge default. `canSubmit` guarantees
+    /// endpoint and model. An empty model records no manual fallback, so
+    /// discovery/cache supplies any catalog. `canSubmit` guarantees
     /// the numeric fields are valid, so the submitted values never contain a
     /// silently coerced value.
     private func submit() {
@@ -333,7 +421,17 @@ public struct ProviderConnectionFormView: View {
     private var canSubmit: Bool {
         !trimmedDisplayName.isEmpty && !selectedCapabilities.isEmpty
             && !trimmedEndpoint.isEmpty && (isEditing || !credentialSecret.isEmpty)
-            && limitIsValid && versionIsValid
+            && limitIsValid && versionIsValid && connectionTestSucceeded
+            && testedInputFingerprint == currentInputFingerprint
+    }
+
+    private var currentInputFingerprint: Int {
+        var hasher = Hasher()
+        hasher.combine(editing?.identity)
+        hasher.combine(trimmedEndpoint)
+        hasher.combine(trimmedModel)
+        hasher.combine(credentialSecret)
+        return hasher.finalize()
     }
 
     /// The stated limit as a non-negative integer: `nil` when the field is
@@ -416,6 +514,7 @@ public struct ProviderConnectionFormView: View {
         case .conversation: Localized.conversation
         case .streaming: Localized.streaming
         case .vision: Localized.vision
+        case .documentInput: Localized.documentInput
         case .imageGeneration: Localized.imageGeneration
         case .embeddings: Localized.embeddings
         case .toolCalling: Localized.toolCalling
@@ -427,7 +526,7 @@ public struct ProviderConnectionFormView: View {
 
     /// The frozen Domain capability set of DES-009 §3.1, presented generically.
     private static let allCapabilities: [Capability] = [
-        .textGeneration, .conversation, .streaming, .vision, .imageGeneration,
+        .textGeneration, .conversation, .streaming, .vision, .documentInput, .imageGeneration,
         .embeddings, .toolCalling, .structuredOutput, .audio, .reasoning,
     ]
 }

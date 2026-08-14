@@ -135,4 +135,42 @@ final class ProviderSelectionPolicyTests: XCTestCase {
         )
         XCTAssertEqual(result, .failure)
     }
+
+    func testExactSelectionIsStableAcrossCandidateAndModelReordering() throws {
+        let selectedProvider = try provider(canonicalLargest)
+        let exact = ProviderModelSelection(
+            provider: selectedProvider,
+            model: ModelReference(name: "model-b")
+        )
+        let firstOrder = [
+            try candidate(canonicalLargest, models: ["model-a", "model-b"]),
+            try candidate(canonicalSmallest, models: ["model-b"]),
+        ]
+        let secondOrder = [
+            try candidate(canonicalSmallest, models: ["model-b"]),
+            try candidate(canonicalLargest, models: ["model-b", "model-a"]),
+        ]
+
+        XCTAssertEqual(
+            policy.select(candidates: firstOrder, explicitSelection: exact),
+            .selected(provider: selectedProvider, model: exact.model)
+        )
+        XCTAssertEqual(
+            policy.select(candidates: secondOrder, explicitSelection: exact),
+            .selected(provider: selectedProvider, model: exact.model)
+        )
+    }
+
+    func testUnavailableExactSelectionNeverFallsBack() throws {
+        let exact = ProviderModelSelection(
+            provider: try provider(canonicalLargest),
+            model: ModelReference(name: "removed-model")
+        )
+        let result = policy.select(
+            candidates: [try candidate(canonicalSmallest, models: ["available-model"])],
+            explicitSelection: exact
+        )
+
+        XCTAssertEqual(result, .modelUnavailable(exact))
+    }
 }

@@ -39,6 +39,7 @@ public struct ProvidersView: View {
     /// Translates the provider-update intent — the edit form is submitted for
     /// the connection with the given identity.
     public let onUpdateProvider: (ProviderIdentity, ProviderUpdateRequest, String, String) -> Void
+    public let onTestConnection: (ProviderConnectionTestRequest) -> Void
     /// Translates the cancel-provider-edit intent — the edit form is dismissed.
     public let onCancelEdit: () -> Void
     /// Translates the remove intent for the connection with the given identity.
@@ -60,6 +61,7 @@ public struct ProvidersView: View {
         onConfigure: @escaping (ConfigureProviderRequest, String, String) -> Void,
         onEditProvider: @escaping (ProviderConnectionListItem) -> Void,
         onUpdateProvider: @escaping (ProviderIdentity, ProviderUpdateRequest, String, String) -> Void,
+        onTestConnection: @escaping (ProviderConnectionTestRequest) -> Void,
         onCancelEdit: @escaping () -> Void,
         onRemove: @escaping (ProviderIdentity) -> Void,
         onOpenMenu: @escaping () -> Void
@@ -70,6 +72,7 @@ public struct ProvidersView: View {
         self.onConfigure = onConfigure
         self.onEditProvider = onEditProvider
         self.onUpdateProvider = onUpdateProvider
+        self.onTestConnection = onTestConnection
         self.onCancelEdit = onCancelEdit
         self.onRemove = onRemove
         self.onOpenMenu = onOpenMenu
@@ -91,6 +94,8 @@ public struct ProvidersView: View {
                                 ProviderConnectionFormView(
                                     onConfigure: onConfigure,
                                     onUpdate: { _, _, _ in },
+                                    connectionTestCondition: state.connectionTestCondition,
+                                    onTestConnection: onTestConnection,
                                     onCancel: onCancel
                                 )
                             } else if let editing = state.editing {
@@ -100,6 +105,8 @@ public struct ProvidersView: View {
                                     onUpdate: { request, endpoint, model in
                                         onUpdateProvider(editing.identity, request, endpoint, model)
                                     },
+                                    connectionTestCondition: state.connectionTestCondition,
+                                    onTestConnection: onTestConnection,
                                     onCancel: onCancelEdit
                                 )
                             } else {

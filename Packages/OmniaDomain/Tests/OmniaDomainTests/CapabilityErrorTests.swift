@@ -8,6 +8,7 @@ final class CapabilityErrorTests: XCTestCase {
     func testTaxonomy_FrozenCasesAreDistinct() {
         let all = [
             CapabilityError.providerUnavailable,
+            .modelUnavailable(model: ModelReference(name: "missing")),
             .invalidRequest,
             .invalidResponse,
             .streamingInterrupted(partialContent: ""),
@@ -24,6 +25,8 @@ final class CapabilityErrorTests: XCTestCase {
             switch error {
             case .providerUnavailable:
                 return "providerUnavailable"
+            case .modelUnavailable:
+                return "modelUnavailable"
             case .invalidRequest:
                 return "invalidRequest"
             case .invalidResponse:
@@ -34,13 +37,14 @@ final class CapabilityErrorTests: XCTestCase {
         }
         let labels = [
             label(of: .providerUnavailable),
+            label(of: .modelUnavailable(model: ModelReference(name: "missing"))),
             label(of: .invalidRequest),
             label(of: .invalidResponse),
             label(of: .streamingInterrupted(partialContent: "")),
         ]
         XCTAssertEqual(
             labels,
-            ["providerUnavailable", "invalidRequest", "invalidResponse", "streamingInterrupted"]
+            ["providerUnavailable", "modelUnavailable", "invalidRequest", "invalidResponse", "streamingInterrupted"]
         )
     }
 
@@ -91,6 +95,7 @@ final class CapabilityErrorTests: XCTestCase {
     func testErrors_ThrowAndCastBackAsTypedValues() {
         let errors: [CapabilityError] = [
             .providerUnavailable,
+            .modelUnavailable(model: ModelReference(name: "missing")),
             .invalidRequest,
             .invalidResponse,
             .streamingInterrupted(partialContent: "partial"),

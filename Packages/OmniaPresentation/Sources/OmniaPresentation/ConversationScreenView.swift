@@ -44,7 +44,7 @@ public struct ConversationScreenView: View {
     /// Translates the copy intent for the message with the given index.
     public let onCopy: (Int) -> Void
     /// Translates the provider selection intent.
-    public let onSelectProvider: (ProviderConnectionListItem) -> Void
+    public let onSelectModel: (ProviderModelSelection) -> Void
     /// Translates the open-providers intent of the provider banners — the
     /// empty and unavailable provider rows route to the providers surface
     /// through the shell's normal navigation (UX audit P2).
@@ -91,7 +91,7 @@ public struct ConversationScreenView: View {
         onRegenerate: @escaping (Int) -> Void,
         onRetry: @escaping () -> Void,
         onCopy: @escaping (Int) -> Void,
-        onSelectProvider: @escaping (ProviderConnectionListItem) -> Void,
+        onSelectModel: @escaping (ProviderModelSelection) -> Void,
         onOpenProviders: @escaping () -> Void,
         onOpenMenu: @escaping () -> Void
     ) {
@@ -102,7 +102,7 @@ public struct ConversationScreenView: View {
         self.onRegenerate = onRegenerate
         self.onRetry = onRetry
         self.onCopy = onCopy
-        self.onSelectProvider = onSelectProvider
+        self.onSelectModel = onSelectModel
         self.onOpenProviders = onOpenProviders
         self.onOpenMenu = onOpenMenu
     }
@@ -273,18 +273,18 @@ public struct ConversationScreenView: View {
         }
         .buttonStyle(.plain)
         .accessibilityLabel(Text(isStreaming ? Localized.stop : Localized.send))
-        .disabled(!isStreaming && draft.isEmpty)
+        .disabled(!isStreaming && !canSend)
     }
 
     private var composerActionFill: Color {
-        if isStreaming || !draft.isEmpty {
+        if isStreaming || canSend {
             return OmniaTheme.Colors.accent
         }
         return OmniaTheme.Colors.textMuted.opacity(0.18)
     }
 
     private var composerActionForeground: Color {
-        isStreaming || !draft.isEmpty
+        isStreaming || canSend
             ? OmniaTheme.Colors.userBubbleText
             : OmniaTheme.Colors.textMuted
     }
@@ -312,12 +312,21 @@ public struct ConversationScreenView: View {
         draft.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
+    /// Sending requires a non-empty draft and the exact persisted provider/model
+    /// pair to be currently selectable. An unavailable saved model keeps the
+    /// draft intact until the user explicitly chooses a replacement.
+    private var canSend: Bool {
+        guard !trimmedDraft.isEmpty else { return false }
+        guard let selection = state.providerSelection else { return false }
+        return selection.selectedModel != nil && selection.selectedIsAvailable
+    }
+
     /// Translates the send intent with the drafted text: the send button routes
     /// here, so one path governs the guard — an empty or whitespace draft is not
     /// sent, and while a stream is active the Stop affordance takes over (UX
     /// audit U1).
     private func submit() {
-        guard !isStreaming, !trimmedDraft.isEmpty else { return }
+        guard !isStreaming, canSend else { return }
         onSend(draft)
         draft = ""
     }
@@ -343,6 +352,9 @@ public struct ConversationScreenView: View {
                 if let item = selection.selectedItem,
                    !ConversationScreenState.ProviderSelection.isAvailable(item.state) {
                     unavailableProviderBanner(item)
+                } else if let selectedModel = selection.selectedModel,
+                          !selection.selectedIsAvailable {
+                    unavailableModelBanner(selectedModel)
                 }
             }
         } else {
@@ -387,15 +399,26 @@ public struct ConversationScreenView: View {
             Spacer(minLength: 0)
             Menu {
                 ForEach(selection.providers, id: \.identity) { item in
-                    Button {
-                        onSelectProvider(item)
-                    } label: {
-                        HStack {
-                            Text(item.displayName)
-                            Spacer()
-                            if selection.selectedItem?.identity == item.identity {
-                                Image(systemName: "checkmark")
+                    Menu(item.displayName) {
+                        let catalog = selection.modelCatalogs.first {
+                            $0.provider == item.identity
+                        }
+                        if let catalog, !catalog.models.isEmpty {
+                            ForEach(catalog.models, id: \.selection) { descriptor in
+                                Button {
+                                    onSelectModel(descriptor.selection)
+                                } label: {
+                                    HStack {
+                                        Text(descriptor.selection.model.name)
+                                        if selection.selectedModel == descriptor.selection {
+                                            Image(systemName: "checkmark")
+                                        }
+                                    }
+                                }
+                                .disabled(!ConversationScreenState.ProviderSelection.isAvailable(item.state))
                             }
+                        } else {
+                            Text(Localized.noModelsAvailable)
                         }
                     }
                 }
@@ -423,6 +446,7 @@ public struct ConversationScreenView: View {
             Spacer(minLength: 0)
         }
         .padding(.top, OmniaTheme.Spacing.sm)
+        .disabled(isStreaming)
         .accessibilityLabel(Text(Localized.providerSelectionCurrent(providerSelectionTitle(selection))))
     }
 
@@ -439,6 +463,9 @@ public struct ConversationScreenView: View {
     /// The title of the provider selector: the display name of the selected
     /// provider connection, or "Automatic" when no provider is selected.
     private func providerSelectionTitle(_ selection: ConversationScreenState.ProviderSelection) -> String {
+        if let item = selection.selectedItem, let model = selection.selectedModel?.model {
+            return "\(item.displayName) · \(model.name)"
+        }
         if let item = selection.selectedItem {
             return item.displayName
         }
@@ -618,6 +645,29 @@ public struct ConversationScreenView: View {
                 assistantActionRow(for: message, index: index)
             }
         }
+    }
+
+    /// A saved model that disappeared from its provider's current/fallback
+    /// catalog is shown explicitly; Omnia never silently substitutes a model.
+    private func unavailableModelBanner(_ selection: ProviderModelSelection) -> some View {
+        HStack(spacing: OmniaTheme.Spacing.sm) {
+            Image(systemName: "exclamationmark.triangle")
+                .font(.system(size: 14, weight: .medium))
+                .foregroundStyle(OmniaTheme.Colors.warning)
+            Text(Localized.modelUnavailable(selection.model.name))
+                .font(OmniaTheme.Typography.secondary)
+                .foregroundStyle(OmniaTheme.Colors.textSecondary)
+            Spacer()
+            OmniaButton(
+                title: Localized.openProviders,
+                systemImage: "globe",
+                style: .secondary,
+                action: onOpenProviders
+            )
+        }
+        .padding(.horizontal, OmniaTheme.Spacing.lg)
+        .padding(.vertical, OmniaTheme.Spacing.sm)
+        .background(OmniaTheme.Colors.warningSubtle)
     }
 
     /// Toggles the like action of the message with the given index; liking a

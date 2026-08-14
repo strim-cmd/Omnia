@@ -11,7 +11,7 @@ final class ProviderSerializerTests: XCTestCase {
     private func makeConnection() -> ProviderConnection {
         ProviderConnection(
             identity: ProviderIdentity(),
-            capabilities: ProviderCapabilities(capabilities: [.textGeneration, .streaming]),
+            capabilities: ProviderCapabilities(capabilities: [.textGeneration, .streaming, .documentInput]),
             metadata: ProviderMetadata(displayName: "Test Provider"),
             limits: ProviderLimits(maxRequestsPerMinute: 10, maxTokensPerMinute: 100, maxContextTokens: 4000),
             version: SemanticVersion(major: 1, minor: 2, patch: 3)

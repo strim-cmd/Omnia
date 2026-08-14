@@ -19,6 +19,43 @@ final class ConversationTests: XCTestCase {
         XCTAssertEqual(conversation.streamingState, .idle)
         XCTAssertFalse(conversation.isStreaming)
         XCTAssertNil(conversation.partialContent)
+        XCTAssertNil(conversation.modelSelection)
+    }
+
+    func testModelSelection_IsStoredAndCanBeExplicitlyReplaced() throws {
+        let first = ProviderModelSelection(
+            provider: ProviderIdentity(),
+            model: ModelReference(name: "model-a")
+        )
+        let second = ProviderModelSelection(
+            provider: ProviderIdentity(),
+            model: ModelReference(name: "model-b")
+        )
+        var conversation = Conversation(
+            identity: try makeIdentity(),
+            modelSelection: first
+        )
+
+        try conversation.selectModel(second)
+
+        XCTAssertEqual(conversation.modelSelection, second)
+    }
+
+    func testModelSelection_CannotChangeWhileStreaming() throws {
+        var conversation = Conversation(identity: try makeIdentity())
+        try conversation.beginStreaming()
+
+        XCTAssertThrowsError(
+            try conversation.selectModel(
+                ProviderModelSelection(
+                    provider: ProviderIdentity(),
+                    model: ModelReference(name: "late")
+                )
+            )
+        ) { error in
+            XCTAssertEqual(error as? ConversationStreamError, .streamInProgress)
+        }
+        XCTAssertNil(conversation.modelSelection)
     }
 
     // MARK: History

@@ -173,6 +173,7 @@ private extension Capability {
         case .conversation: return "conversation"
         case .streaming: return "streaming"
         case .vision: return "vision"
+        case .documentInput: return "documentInput"
         case .imageGeneration: return "imageGeneration"
         case .embeddings: return "embeddings"
         case .toolCalling: return "toolCalling"
@@ -188,6 +189,7 @@ private extension Capability {
         case "conversation": self = .conversation
         case "streaming": self = .streaming
         case "vision": self = .vision
+        case "documentInput": self = .documentInput
         case "imageGeneration": self = .imageGeneration
         case "embeddings": self = .embeddings
         case "toolCalling": self = .toolCalling

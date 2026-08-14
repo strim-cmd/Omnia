@@ -6,7 +6,7 @@
 /// capabilities realized by the Omnia contract are text generation,
 /// conversation, and streaming; the remaining capabilities are extension
 /// points declared by the contract and not realized (DES-009 §3.1).
-public enum Capability: Equatable, Hashable, Sendable {
+public enum Capability: String, Codable, Equatable, Hashable, Sendable {
     /// Produces text from a prompt.
     case textGeneration
     /// Supports multi-turn interaction with context.
@@ -15,6 +15,8 @@ public enum Capability: Equatable, Hashable, Sendable {
     case streaming
     /// Understands images as input.
     case vision
+    /// Accepts file or document content as input.
+    case documentInput
     /// Produces images from a prompt.
     case imageGeneration
     /// Represents content as vectors.

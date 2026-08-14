@@ -77,24 +77,41 @@ internal struct OpenAICompatibleClient: Sendable {
     /// reported by the Infrastructure layer in Omnia's own terms (ARC-004
     /// Capability Discovery, DES-009 §3.1).
     func probeAvailability(endpoint: URL, credential: CredentialReference) async -> Bool {
-        let apiKey: String
         do {
-            apiKey = try await credentialStorage.credential(for: credential).withValue { $0 }
-        } catch {
-            return false
-        }
-        let request = ProviderHTTPRequest(
-            url: endpoint.appendingPathComponent("models"),
-            method: "GET",
-            headers: ["Authorization": "Bearer \(apiKey)"],
-            body: nil
-        )
-        do {
-            _ = try await transport.send(request)
+            _ = try await models(endpoint: endpoint, credential: credential)
             return true
         } catch {
             return false
         }
+    }
+
+    /// Loads the generic OpenAI-compatible model list. Model-list records prove
+    /// identity only; they intentionally produce no inferred vision/file facts.
+    func models(
+        endpoint: URL,
+        credential: CredentialReference
+    ) async throws -> [ModelReference] {
+        let stored = try await credentialStorage.credential(for: credential)
+        let request = stored.withValue { apiKey in
+            ProviderHTTPRequest(
+                url: endpoint.appendingPathComponent("models"),
+                method: "GET",
+                headers: ["Authorization": "Bearer \(apiKey)"],
+                body: nil
+            )
+        }
+        let response = try await transport.send(request)
+        let decoded: ModelListResponse
+        do {
+            decoded = try Self.jsonDecoder.decode(ModelListResponse.self, from: response.body)
+        } catch {
+            throw ProviderTransportError.invalidResponse
+        }
+        let names = decoded.data
+            .map(\.id)
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+        return Array(Set(names)).sorted().map(ModelReference.init(name:))
     }
 
     private func makeRequest(

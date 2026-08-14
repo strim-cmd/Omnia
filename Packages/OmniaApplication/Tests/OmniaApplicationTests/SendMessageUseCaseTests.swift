@@ -425,6 +425,81 @@ final class SendMessageUseCaseTests: XCTestCase {
         XCTAssertEqual(try XCTUnwrap(captured.get()).model, ModelReference(name: "model-b"))
     }
 
+    func testSend_RoutesTheExactProviderAndModelWhenNamesOverlap() async throws {
+        let repository = InMemoryConversationRepository()
+        let conversation = Conversation(identity: ConversationIdentity())
+        try await repository.save(conversation)
+        let shared = ModelReference(name: "shared")
+        let (selection, identities) = await makeSelectionService(modelsByProvider: [
+            providerA: [shared],
+            providerB: [shared],
+        ])
+        let provider = try XCTUnwrap(identities[providerB])
+        let exact = ProviderModelSelection(provider: provider, model: shared)
+        let captured = CapturedRequest()
+        let useCase = makeUseCase(
+            contract: ScriptedStreamingContract { request in
+                captured.set(request)
+                return completionStream(request)
+            },
+            selectionService: selection,
+            repository: repository
+        )
+
+        let stream = try await useCase.send(
+            SendMessageRequest(
+                conversation: conversation.identity,
+                message: Message(role: .user, content: "Hi"),
+                modelSelection: exact
+            )
+        )
+        for try await _ in stream {}
+
+        let request = try XCTUnwrap(captured.get())
+        XCTAssertEqual(request.provider, provider)
+        XCTAssertEqual(request.model, shared)
+    }
+
+    func testSend_UnavailableExactModelNeverFallsBackToAnotherProvider() async throws {
+        let repository = InMemoryConversationRepository()
+        let conversation = Conversation(identity: ConversationIdentity())
+        try await repository.save(conversation)
+        let shared = ModelReference(name: "shared")
+        let (selection, identities) = await makeSelectionService(modelsByProvider: [
+            providerA: [shared],
+            providerB: [ModelReference(name: "other")],
+        ])
+        let unavailable = ProviderModelSelection(
+            provider: try XCTUnwrap(identities[providerB]),
+            model: shared
+        )
+        let captured = CapturedRequest()
+        let useCase = makeUseCase(
+            contract: ScriptedStreamingContract { request in
+                captured.set(request)
+                return completionStream(request)
+            },
+            selectionService: selection,
+            repository: repository
+        )
+
+        do {
+            _ = try await useCase.send(
+                SendMessageRequest(
+                    conversation: conversation.identity,
+                    message: Message(role: .user, content: "Hi"),
+                    modelSelection: unavailable
+                )
+            )
+            XCTFail("Expected modelUnavailable")
+        } catch let error as CapabilityError {
+            XCTAssertEqual(error, .modelUnavailable(model: shared))
+        }
+        XCTAssertNil(captured.get())
+        let stored = try await repository.conversation(with: conversation.identity)
+        XCTAssertEqual(stored, conversation)
+    }
+
     func testSend_HonorsTheWorkspacePreferenceOverTheCapabilityPreference() async throws {
         let repository = InMemoryConversationRepository()
         let conversation = Conversation(identity: ConversationIdentity())

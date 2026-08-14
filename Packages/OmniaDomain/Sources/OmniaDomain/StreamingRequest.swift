@@ -12,15 +12,19 @@ public struct StreamingRequest: Equatable, Sendable {
     public let history: [Message]
     /// The requested model.
     public let model: ModelReference
+    /// The exact provider selected for this request, when explicitly resolved.
+    public let provider: ProviderIdentity?
 
     /// Creates a streaming request.
     public init(
         identity: CapabilityRequestIdentity,
         history: [Message],
-        model: ModelReference
+        model: ModelReference,
+        provider: ProviderIdentity? = nil
     ) {
         self.identity = identity
         self.history = history
         self.model = model
+        self.provider = provider
     }
 }

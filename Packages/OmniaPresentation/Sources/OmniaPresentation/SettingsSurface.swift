@@ -45,6 +45,8 @@ import OmniaFoundation
 public struct SettingsSurface: Sendable {
     private let connectionService: ProviderConnectionService
     private let configurationService: ConfigurationService
+    private let modelService: ProviderModelService?
+    private let validationService: ProviderValidationService?
 
     /// Creates a settings surface over the given provider connection service
     /// and configuration service, delivered by the Composition Root (DES-012
@@ -55,6 +57,23 @@ public struct SettingsSurface: Sendable {
     ) {
         self.connectionService = connectionService
         self.configurationService = configurationService
+        self.modelService = nil
+        self.validationService = nil
+    }
+
+    /// Production initializer including M1 model discovery/defaults and Test
+    /// Connection. The two-argument initializer remains for isolated legacy
+    /// surface tests that do not exercise M1.
+    public init(
+        connectionService: ProviderConnectionService,
+        configurationService: ConfigurationService,
+        modelService: ProviderModelService,
+        validationService: ProviderValidationService
+    ) {
+        self.connectionService = connectionService
+        self.configurationService = configurationService
+        self.modelService = modelService
+        self.validationService = validationService
     }
 
     /// Composes the ready-to-render settings state (DES-012 §3.2): the provider
@@ -81,10 +100,92 @@ public struct SettingsSurface: Sendable {
             }
         }
         let providers = try await connectionService.allProviders()
+        var catalogs: [ProviderModelCatalog] = []
+        if let modelService {
+            for provider in providers {
+                catalogs.append(
+                    try await modelService.refreshCatalog(for: provider.identity)
+                )
+            }
+        }
         return SettingsState(
             connections: providers.map { ProviderConnectionListItem(provider: $0) },
-            configuration: configuration
+            configuration: configuration,
+            modelCatalogs: catalogs,
+            defaultModelSelection: try await modelService?.defaultSelection()
         )
+    }
+
+    /// Composes the cached-first state shown while model discovery is running.
+    /// Existing models and defaults remain visible, but each provider catalog
+    /// explicitly reports loading until `load` replaces it with a terminal
+    /// discovery/cache condition.
+    public func loadModelCatalogsLoading(
+        configurationKeys: [ConfigurationKey<String>] = []
+    ) async throws -> SettingsState {
+        var configuration: [SettingsState.ConfigurationItem] = []
+        for key in configurationKeys {
+            if let value = try await configurationService.resolved(for: key) {
+                configuration.append(SettingsState.ConfigurationItem(key: key, value: value))
+            }
+        }
+        let providers = try await connectionService.allProviders()
+        var catalogs: [ProviderModelCatalog] = []
+        if let modelService {
+            for provider in providers {
+                let cached = try await modelService.cachedCatalog(for: provider.identity)
+                catalogs.append(
+                    ProviderModelCatalog(
+                        provider: cached.provider,
+                        models: cached.models,
+                        status: .loading
+                    )
+                )
+            }
+        }
+        return SettingsState(
+            connections: providers.map { ProviderConnectionListItem(provider: $0) },
+            configuration: configuration,
+            modelCatalogs: catalogs,
+            defaultModelSelection: try await modelService?.defaultSelection()
+        )
+    }
+
+    public func refreshModels(
+        for provider: ProviderIdentity
+    ) async throws -> ProviderModelCatalog {
+        guard let modelService else {
+            throw ApplicationValidationError.invalid(reason: "Model discovery is unavailable.")
+        }
+        return try await modelService.refreshCatalog(for: provider)
+    }
+
+    public func testConnection(
+        _ request: ProviderConnectionTestRequest
+    ) async throws -> ProviderConnectionTestResult {
+        guard let validationService else {
+            throw ApplicationValidationError.invalid(reason: "Connection testing is unavailable.")
+        }
+        return try await validationService.test(request)
+    }
+
+    public func setDefaultModelSelection(
+        _ selection: ProviderModelSelection?
+    ) async throws {
+        guard let modelService else {
+            throw ApplicationValidationError.invalid(reason: "Model defaults are unavailable.")
+        }
+        try await modelService.setDefaultSelection(selection)
+    }
+
+    public func setModelCapabilityOverride(
+        _ profile: ModelCapabilityProfile?,
+        for selection: ProviderModelSelection
+    ) async throws {
+        guard let modelService else {
+            throw ApplicationValidationError.invalid(reason: "Model capabilities are unavailable.")
+        }
+        try await modelService.setCapabilityOverride(profile, for: selection)
     }
 
     /// Configures a new provider connection for `request` (DES-011 §3.4): the
@@ -118,7 +219,25 @@ public struct SettingsSurface: Sendable {
         _ request: ConfigureProviderRequest,
         endpoint: String
     ) async throws -> ProviderConnection {
-        try await connectionService.configure(request, endpoint: endpoint)
+        let validationResult: ProviderConnectionTestResult?
+        if let validationService {
+            validationResult = try await validationService.test(
+                ProviderConnectionTestRequest(
+                    endpoint: endpoint,
+                    credential: request.credential
+                )
+            )
+        } else {
+            validationResult = nil
+        }
+        let connection = try await connectionService.configure(request, endpoint: endpoint)
+        if let validationResult, let modelService {
+            try await modelService.recordValidatedModels(
+                validationResult.models,
+                for: connection.identity
+            )
+        }
+        return connection
     }
 
     /// Configures a new provider connection for `request`, records its
@@ -132,7 +251,7 @@ public struct SettingsSurface: Sendable {
     /// any rendered state (ARC-001, ARC-004, ARC-005). The endpoint is
     /// validated at the service boundary before any write; a malformed
     /// endpoint surfaces as the typed `ApplicationValidationError`. `nil`
-    /// records no model, so the provider falls back to the app-edge default;
+    /// records no manual model, so discovery/cache supplies any catalog;
     /// a non-empty model is validated at the service boundary before any
     /// write, and an empty model surfaces as the typed
     /// `ApplicationValidationError` (DES-011 §3.6, DES-009 §3.9).
@@ -141,7 +260,30 @@ public struct SettingsSurface: Sendable {
         endpoint: String,
         model: String?
     ) async throws -> ProviderConnection {
-        try await connectionService.configure(request, endpoint: endpoint, model: model)
+        let validationResult: ProviderConnectionTestResult?
+        if let validationService {
+            validationResult = try await validationService.test(
+                ProviderConnectionTestRequest(
+                    endpoint: endpoint,
+                    model: model,
+                    credential: request.credential
+                )
+            )
+        } else {
+            validationResult = nil
+        }
+        let connection = try await connectionService.configure(
+            request,
+            endpoint: endpoint,
+            model: model
+        )
+        if let validationResult, let modelService {
+            try await modelService.recordValidatedModels(
+                validationResult.models,
+                for: connection.identity
+            )
+        }
+        return connection
     }
 
     /// Removes the provider connection with `identity` and its stored credential
@@ -231,8 +373,8 @@ public struct SettingsSurface: Sendable {
     /// §3.10, ARC-001, ARC-004, ARC-005). The lifecycle state is preserved by
     /// the service — a ready provider stays ready, so availability and the
     /// runtime binding are unchanged. Input is validated at the service
-    /// boundary before any write; `nil` records no model, so the provider
-    /// falls back to the app-edge default (DES-011 §3.10). Failures surface as
+    /// boundary before any write; `nil` records no manual model, so
+    /// discovery/cache supplies any catalog (DES-011 §3.10). Failures surface as
     /// they are — `ApplicationValidationError`, and the Domain `RepositoryError`
     /// and `CredentialStorageError` — never wrapped (DES-011 §3.6, DES-009
     /// §3.9).
@@ -242,12 +384,31 @@ public struct SettingsSurface: Sendable {
         endpoint: String,
         model: String?
     ) async throws -> ProviderConnection {
-        try await connectionService.update(
+        let validationResult: ProviderConnectionTestResult?
+        if let validationService {
+            validationResult = try await validationService.test(
+                ProviderConnectionTestRequest(
+                    provider: identity,
+                    endpoint: endpoint,
+                    model: model
+                )
+            )
+        } else {
+            validationResult = nil
+        }
+        let connection = try await connectionService.update(
             request,
             for: identity,
             endpoint: endpoint,
             model: model
         )
+        if let validationResult, let modelService {
+            try await modelService.recordValidatedModels(
+                validationResult.models,
+                for: identity
+            )
+        }
+        return connection
     }
 
     /// Stores `value` for `key` at `level`, replacing any previously stored

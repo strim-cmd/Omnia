@@ -28,6 +28,20 @@ internal struct ConversationDTO: Codable, Sendable {
     let identity: ConversationIdentity
     let history: [MessageDTO]
     let streamingState: ConversationStreamingStateDTO
+    /// Added in v1.0. Missing in pre-v1 documents and therefore decoded as nil.
+    let modelSelection: ProviderModelSelection?
+
+    init(
+        identity: ConversationIdentity,
+        history: [MessageDTO],
+        streamingState: ConversationStreamingStateDTO,
+        modelSelection: ProviderModelSelection? = nil
+    ) {
+        self.identity = identity
+        self.history = history
+        self.streamingState = streamingState
+        self.modelSelection = modelSelection
+    }
 }
 
 /// Maps a `Conversation` aggregate to and from its stored representation
@@ -46,7 +60,8 @@ internal struct ConversationSerializer: Sendable {
             history: conversation.history.map {
                 MessageDTO(role: $0.role.serializedName, content: $0.content)
             },
-            streamingState: Self.streamingStateDTO(from: conversation.streamingState)
+            streamingState: Self.streamingStateDTO(from: conversation.streamingState),
+            modelSelection: conversation.modelSelection
         )
     }
 
@@ -55,7 +70,10 @@ internal struct ConversationSerializer: Sendable {
     /// - Throws: `RepositoryError.storageUnavailable` when the stored form is
     ///   not a valid `Conversation` representation.
     func fromDTO(_ dto: ConversationDTO) throws -> Conversation {
-        var conversation = Conversation(identity: dto.identity)
+        var conversation = Conversation(
+            identity: dto.identity,
+            modelSelection: dto.modelSelection
+        )
         for message in dto.history {
             guard let role = MessageRole(serializedName: message.role) else {
                 throw RepositoryError.storageUnavailable

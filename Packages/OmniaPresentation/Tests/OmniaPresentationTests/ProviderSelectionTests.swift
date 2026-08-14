@@ -196,6 +196,68 @@ final class ProviderSelectionTests: XCTestCase {
         XCTAssertTrue(selection.selectedIsAvailable)
     }
 
+    func testExactSelectionIsAvailableOnlyInItsOwningProviderCatalog() {
+        let first = ProviderIdentity()
+        let second = ProviderIdentity()
+        let shared = ModelReference(name: "shared")
+        let exact = ProviderModelSelection(provider: second, model: shared)
+        let selection = ConversationScreenState.ProviderSelection.composed(
+            providers: [
+                ProviderConnectionListItem(identity: first, displayName: "First", state: .ready),
+                ProviderConnectionListItem(identity: second, displayName: "Second", state: .ready),
+            ],
+            modelCatalogs: [
+                ProviderModelCatalog(
+                    provider: first,
+                    models: [ModelDescriptor(selection: .init(provider: first, model: shared), source: .discovered)],
+                    status: .loaded
+                ),
+                ProviderModelCatalog(
+                    provider: second,
+                    models: [ModelDescriptor(selection: exact, source: .discovered)],
+                    status: .loaded
+                ),
+            ],
+            settingsFailure: nil,
+            selectedModel: exact
+        )
+
+        XCTAssertEqual(selection.selected, second)
+        XCTAssertEqual(selection.selectedModel, exact)
+        XCTAssertEqual(selection.selectedCatalog?.provider, second)
+        XCTAssertTrue(selection.selectedIsAvailable)
+    }
+
+    func testUnavailableSavedModelIsPreservedAndRequiresReplacement() {
+        let provider = ProviderIdentity()
+        let missing = ProviderModelSelection(
+            provider: provider,
+            model: ModelReference(name: "removed")
+        )
+        let selection = ConversationScreenState.ProviderSelection.composed(
+            providers: [ProviderConnectionListItem(identity: provider, displayName: "Provider", state: .ready)],
+            modelCatalogs: [ProviderModelCatalog(provider: provider, models: [], status: .empty)],
+            settingsFailure: nil,
+            selectedModel: missing
+        )
+
+        XCTAssertEqual(selection.selectedModel, missing)
+        XCTAssertFalse(selection.selectedIsAvailable)
+    }
+
+    func testComposedMapsCapabilityFailureWhenProvidersAreEmpty() {
+        let selection = ConversationScreenState.ProviderSelection.composed(
+            providers: [],
+            modelCatalogs: [],
+            settingsFailure: .capability(.modelUnavailable(model: ModelReference(name: "missing"))),
+            selectedModel: nil
+        )
+        XCTAssertEqual(
+            selection.failure,
+            .capability(.modelUnavailable(model: ModelReference(name: "missing")))
+        )
+    }
+
     // MARK: Equality
 
     func testEquality_SameContentIsEqual() {

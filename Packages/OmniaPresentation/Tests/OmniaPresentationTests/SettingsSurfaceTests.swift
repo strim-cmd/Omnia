@@ -241,6 +241,40 @@ private func makeSurface(
     )
 }
 
+private func makeProductionSurface(
+    providerRepository: some ProviderRepository,
+    credentialStorage: some CredentialStorageProtocol,
+    configurationRepository: some ConfigurationRepository,
+    validationService: ProviderValidationService
+) -> SettingsSurface {
+    let lifecycleService = ProviderLifecycleService()
+    let configurationService = ConfigurationService(
+        configurationRepository: configurationRepository,
+        resolutionPolicy: ConfigurationResolutionPolicy()
+    )
+    return SettingsSurface(
+        connectionService: ProviderConnectionService(
+            providerRepository: providerRepository,
+            credentialStorage: credentialStorage,
+            configurationRepository: configurationRepository,
+            lifecycleService: lifecycleService
+        ),
+        configurationService: configurationService,
+        modelService: ProviderModelService(
+            configurationService: configurationService,
+            lifecycleService: lifecycleService,
+            configuredModel: { identity in
+                try await configurationService.value(
+                    for: ProviderConnectionService.modelKey(for: identity),
+                    at: .providerSettings
+                ).map(ModelReference.init(name:))
+            },
+            discoverModels: { _ in [] }
+        ),
+        validationService: validationService
+    )
+}
+
 private func provider(
     identity: ProviderIdentity,
     displayName: String = "Example Provider"
@@ -298,6 +332,41 @@ final class SettingsSurfaceTests: XCTestCase {
         XCTAssertTrue(state.connections.isEmpty)
         XCTAssertTrue(state.configuration.isEmpty)
         XCTAssertFalse(state.hasError)
+    }
+
+    func testLoadModelCatalogsLoadingPreservesManualModelsAndReportsLoading() async throws {
+        let providerRepository = InMemoryProviderRepository()
+        let credentialStorage = InMemoryCredentialStorage()
+        let configurationRepository = InMemoryConfigurationRepository()
+        let legacySurface = makeSurface(
+            providerRepository: providerRepository,
+            credentialStorage: credentialStorage,
+            configurationRepository: configurationRepository
+        )
+        let connection = try await legacySurface.configure(
+            request(),
+            endpoint: "https://api.example.com/v1",
+            model: "manual-model"
+        )
+        let surface = makeProductionSurface(
+            providerRepository: providerRepository,
+            credentialStorage: credentialStorage,
+            configurationRepository: configurationRepository,
+            validationService: ProviderValidationService(
+                testCandidate: { _, _, _ in [] },
+                testExisting: { _, _, _ in [] }
+            )
+        )
+
+        let state = try await surface.loadModelCatalogsLoading()
+
+        XCTAssertEqual(state.modelCatalogs.count, 1)
+        XCTAssertEqual(state.modelCatalogs.first?.provider, connection.identity)
+        XCTAssertEqual(state.modelCatalogs.first?.status, .loading)
+        XCTAssertEqual(
+            state.modelCatalogs.first?.models.map(\.selection.model.name),
+            ["manual-model"]
+        )
     }
 
     // MARK: Load — configuration
@@ -448,6 +517,159 @@ final class SettingsSurfaceTests: XCTestCase {
         XCTAssertFalse(String(describing: connection).contains(secretValue))
         XCTAssertFalse(String(describing: state).contains(secretValue))
         XCTAssertFalse(String(describing: surface).contains(secretValue))
+    }
+
+    func testProductionConfigureValidatesExactCandidateBeforeMarkingReady() async throws {
+        let providerRepository = InMemoryProviderRepository()
+        let credentialStorage = InMemoryCredentialStorage()
+        let configurationRepository = InMemoryConfigurationRepository()
+        let expectedModel = ModelReference(name: "gpt-4o")
+        let surface = makeProductionSurface(
+            providerRepository: providerRepository,
+            credentialStorage: credentialStorage,
+            configurationRepository: configurationRepository,
+            validationService: ProviderValidationService(
+                testCandidate: { endpoint, credential, model in
+                    XCTAssertEqual(endpoint.absoluteString, "https://api.example.com/v1")
+                    XCTAssertEqual(model, expectedModel)
+                    XCTAssertEqual(credential.withValue { $0 }, secretValue)
+                    return [expectedModel]
+                },
+                testExisting: { _, _, _ in
+                    throw ProviderConnectionTestError.invalidResponse
+                }
+            )
+        )
+
+        let connection = try await surface.configure(
+            request(),
+            endpoint: "https://api.example.com/v1",
+            model: expectedModel.name
+        )
+
+        let stored = try await providerRepository.provider(with: connection.identity)
+        let storedModel = try await surface.model(for: connection.identity)
+        XCTAssertEqual(stored?.state, .ready)
+        XCTAssertEqual(storedModel, expectedModel.name)
+    }
+
+    func testProductionConfigureCachesValidatedDiscoveryBeforeRefresh() async throws {
+        let providerRepository = InMemoryProviderRepository()
+        let credentialStorage = InMemoryCredentialStorage()
+        let configurationRepository = InMemoryConfigurationRepository()
+        let validatedModels = [
+            ModelReference(name: "model-b"),
+            ModelReference(name: "model-a"),
+            ModelReference(name: "model-a"),
+        ]
+        let surface = makeProductionSurface(
+            providerRepository: providerRepository,
+            credentialStorage: credentialStorage,
+            configurationRepository: configurationRepository,
+            validationService: ProviderValidationService(
+                testCandidate: { _, _, model in
+                    XCTAssertNil(model)
+                    return validatedModels
+                },
+                testExisting: { _, _, _ in [] }
+            )
+        )
+
+        let connection = try await surface.configure(
+            request(),
+            endpoint: "https://api.example.com/v1",
+            model: nil
+        )
+        let loading = try await surface.loadModelCatalogsLoading()
+        let catalog = try XCTUnwrap(
+            loading.modelCatalogs.first { $0.provider == connection.identity }
+        )
+
+        XCTAssertEqual(catalog.status, .loading)
+        XCTAssertEqual(catalog.models.map(\.selection.model.name), ["model-a", "model-b"])
+    }
+
+    func testProductionConfigureValidationFailureWritesNothing() async throws {
+        let providerRepository = InMemoryProviderRepository()
+        let surface = makeProductionSurface(
+            providerRepository: providerRepository,
+            credentialStorage: InMemoryCredentialStorage(),
+            configurationRepository: InMemoryConfigurationRepository(),
+            validationService: ProviderValidationService(
+                testCandidate: { _, _, _ in
+                    throw ProviderConnectionTestError.invalidCredential
+                },
+                testExisting: { _, _, _ in [] }
+            )
+        )
+
+        do {
+            _ = try await surface.configure(
+                request(),
+                endpoint: "https://api.example.com/v1",
+                model: "gpt-4o"
+            )
+            XCTFail("Expected invalidCredential")
+        } catch let error as ProviderConnectionTestError {
+            XCTAssertEqual(error, .invalidCredential)
+        }
+        let storedProviders = try await providerRepository.allProviders()
+        XCTAssertTrue(storedProviders.isEmpty)
+    }
+
+    func testProductionUpdateValidationFailurePreservesExistingDeclaration() async throws {
+        let providerRepository = InMemoryProviderRepository()
+        let credentialStorage = InMemoryCredentialStorage()
+        let configurationRepository = InMemoryConfigurationRepository()
+        let legacySurface = makeSurface(
+            providerRepository: providerRepository,
+            credentialStorage: credentialStorage,
+            configurationRepository: configurationRepository
+        )
+        let connection = try await legacySurface.configure(
+            request(),
+            endpoint: "https://api.example.com/v1",
+            model: "gpt-4o"
+        )
+        let surface = makeProductionSurface(
+            providerRepository: providerRepository,
+            credentialStorage: credentialStorage,
+            configurationRepository: configurationRepository,
+            validationService: ProviderValidationService(
+                testCandidate: { _, _, _ in [] },
+                testExisting: { provider, endpoint, model in
+                    XCTAssertEqual(provider, connection.identity)
+                    XCTAssertEqual(endpoint.absoluteString, "https://api.changed.example.com/v1")
+                    XCTAssertEqual(model?.name, "gpt-5")
+                    throw ProviderConnectionTestError.timedOut
+                }
+            )
+        )
+        let update = ProviderUpdateRequest(
+            displayName: "Changed Provider",
+            capabilities: connection.capabilities,
+            limits: connection.limits,
+            version: connection.version
+        )
+
+        do {
+            _ = try await surface.update(
+                update,
+                for: connection.identity,
+                endpoint: "https://api.changed.example.com/v1",
+                model: "gpt-5"
+            )
+            XCTFail("Expected timedOut")
+        } catch let error as ProviderConnectionTestError {
+            XCTAssertEqual(error, .timedOut)
+        }
+
+        let stored = try await providerRepository.provider(with: connection.identity)
+        let storedEndpoint = try await surface.endpoint(for: connection.identity)
+        let storedModel = try await surface.model(for: connection.identity)
+        XCTAssertEqual(stored?.connection, connection)
+        XCTAssertEqual(storedEndpoint, "https://api.example.com/v1")
+        XCTAssertEqual(storedModel, "gpt-4o")
     }
 
     // MARK: Configure — endpoint collection

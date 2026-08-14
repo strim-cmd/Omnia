@@ -130,8 +130,8 @@ public struct ProviderConnectionService: Sendable {
     /// the same rule as `updateModel(_:for:)`, both before any domain operation
     /// (ARC-009); the validated endpoint and model are then recorded through
     /// `updateEndpoint(_:for:)` and `updateModel(_:for:)`, keyed by the fresh
-    /// connection identity. `nil` records no model, so the provider falls back
-    /// to the app-edge default. The endpoint and model never enter the
+    /// connection identity. `nil` records no manual model; discovery/cache may
+    /// still supply a catalog. The endpoint and model never enter the
     /// `ConfigureProviderRequest` or any Domain aggregate (DES-011 §3.9, §3.10,
     /// ARC-004).
     public func configure(
@@ -195,8 +195,8 @@ public struct ProviderConnectionService: Sendable {
     /// display name and an empty capability set are rejected; the endpoint is
     /// validated with the same rule as `updateEndpoint(_:for:)`; and `model` —
     /// when given — with the same rule as `updateModel(_:for:)`. `nil` (or an
-    /// empty trimmed) model records no model, removing any previously recorded
-    /// one, so the provider falls back to the app-edge default. Updating a
+    /// empty trimmed) model records no manual model, removing any previously
+    /// recorded one. Updating a
     /// connection that is not stored is rejected with the typed application
     /// error of DES-011 §3.6.
     public func update(
@@ -265,8 +265,8 @@ public struct ProviderConnectionService: Sendable {
     /// connection, scoped by the provider identity — the documented key the
     /// settings surface writes and the Composition Root's runtime adapter
     /// binding reads, so the writer and the reader never diverge (DES-011
-    /// §3.10, DES-013 §3.3, DES-004). A provider with no recorded model serves
-    /// the app-edge default model.
+    /// §3.10, DES-013 §3.3, DES-004). A provider with no recorded model relies
+    /// on its discovered or cached catalog.
     public static func modelKey(
         for identity: ProviderIdentity
     ) -> ConfigurationKey<String> {

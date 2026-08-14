@@ -127,7 +127,7 @@ internal enum CapabilityMapping {
             return .invalidRequest
         case .invalidResponse:
             return .invalidResponse
-        case .httpStatus, .networkFailure:
+        case .httpStatus, .networkFailure, .timedOut:
             return .providerUnavailable
         }
     }

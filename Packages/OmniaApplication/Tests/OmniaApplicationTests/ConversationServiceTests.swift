@@ -149,11 +149,13 @@ final class ConversationServiceTests: XCTestCase {
 
     private func makeService(
         conversationRepository: some ConversationRepository,
-        workspaceRepository: some WorkspaceRepository
+        workspaceRepository: some WorkspaceRepository,
+        defaultModelSelection: @escaping @Sendable () async throws -> ProviderModelSelection? = { nil }
     ) -> ConversationService {
         ConversationService(
             conversationRepository: conversationRepository,
-            workspaceRepository: workspaceRepository
+            workspaceRepository: workspaceRepository,
+            defaultModelSelection: defaultModelSelection
         )
     }
 
@@ -190,6 +192,51 @@ final class ConversationServiceTests: XCTestCase {
         let first = try await service.createConversation()
         let second = try await service.createConversation()
         XCTAssertNotEqual(first.identity, second.identity)
+    }
+
+    func testCreateConversation_InheritsAndPersistsValidDefaultSelection() async throws {
+        let repository = InMemoryConversationRepository()
+        let selection = ProviderModelSelection(
+            provider: ProviderIdentity(),
+            model: ModelReference(name: "default-model")
+        )
+        let service = makeService(
+            conversationRepository: repository,
+            workspaceRepository: InMemoryWorkspaceRepository(),
+            defaultModelSelection: { selection }
+        )
+
+        let created = try await service.createConversation()
+        let reloaded = try await repository.conversation(with: created.identity)
+
+        XCTAssertEqual(created.modelSelection, selection)
+        XCTAssertEqual(reloaded?.modelSelection, selection)
+    }
+
+    func testSelectModelPersistsPerConversationWithoutCrossAssignment() async throws {
+        let repository = InMemoryConversationRepository()
+        let service = makeService(
+            conversationRepository: repository,
+            workspaceRepository: InMemoryWorkspaceRepository()
+        )
+        let a = try await service.createConversation()
+        let b = try await service.createConversation()
+        let selectionA = ProviderModelSelection(
+            provider: ProviderIdentity(),
+            model: ModelReference(name: "shared")
+        )
+        let selectionB = ProviderModelSelection(
+            provider: ProviderIdentity(),
+            model: ModelReference(name: "shared")
+        )
+
+        _ = try await service.selectModel(selectionA, for: a.identity)
+        _ = try await service.selectModel(selectionB, for: b.identity)
+
+        let reloadedA = try await repository.conversation(with: a.identity)
+        let reloadedB = try await repository.conversation(with: b.identity)
+        XCTAssertEqual(reloadedA?.modelSelection, selectionA)
+        XCTAssertEqual(reloadedB?.modelSelection, selectionB)
     }
 
     // MARK: Create in workspace (v1.1.0)

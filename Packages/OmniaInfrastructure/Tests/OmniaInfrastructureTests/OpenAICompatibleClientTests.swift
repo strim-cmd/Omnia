@@ -52,10 +52,39 @@ final class OpenAICompatibleClientTests: XCTestCase {
         }
     }
 
+    private final class SequentialTransport: ProviderTransport, @unchecked Sendable {
+        private let lock = NSLock()
+        private var pendingResults: [Result<Data, ProviderTransportError>]
+        private var recordedRequests: [ProviderHTTPRequest] = []
+
+        init(_ results: [Result<Data, ProviderTransportError>]) {
+            self.pendingResults = results
+        }
+
+        var requests: [ProviderHTTPRequest] {
+            lock.withLock { recordedRequests }
+        }
+
+        func send(_ request: ProviderHTTPRequest) async throws -> ProviderHTTPResponse {
+            let result: Result<Data, ProviderTransportError> = lock.withLock {
+                recordedRequests.append(request)
+                guard !pendingResults.isEmpty else { return .failure(.invalidResponse) }
+                return pendingResults.removeFirst()
+            }
+            return try ProviderHTTPResponse(body: result.get())
+        }
+
+        func stream(_ request: ProviderHTTPRequest) -> AsyncThrowingStream<Data, any Error> {
+            AsyncThrowingStream { continuation in
+                continuation.finish(throwing: ProviderTransportError.invalidRequest)
+            }
+        }
+    }
+
     private let endpoint = URL(string: "https://api.example.com/v1")!
 
     private func makeClient(
-        transport: FakeTransport,
+        transport: any ProviderTransport,
         storage: SecureCredentialStorage
     ) -> OpenAICompatibleClient {
         OpenAICompatibleClient(transport: transport, credentialStorage: storage)
@@ -78,6 +107,155 @@ final class OpenAICompatibleClientTests: XCTestCase {
             temperature: nil,
             maxTokens: nil
         )
+    }
+
+    private func makeInspector(
+        transport: any ProviderTransport
+    ) async throws -> OpenAICompatibleProviderInspector {
+        let (storage, reference) = try await makeStoredCredential(secret: "inspector-secret")
+        return OpenAICompatibleProviderInspector(
+            client: makeClient(transport: transport, storage: storage),
+            endpoint: endpoint,
+            credential: reference
+        )
+    }
+
+    // MARK: - Model discovery and connection validation
+
+    func testModels_DecodesNormalizesAndBuildsAuthenticatedModelsRequest() async throws {
+        let transport = FakeTransport(sendResult: .success(Data("""
+        {"data":[{"id":" z-model "},{"id":"a-model"},{"id":"a-model"},{"id":""}]}
+        """.utf8)))
+        let (storage, reference) = try await makeStoredCredential(secret: "models-secret")
+        let client = makeClient(transport: transport, storage: storage)
+
+        let models = try await client.models(
+            endpoint: endpoint,
+            credential: reference
+        )
+
+        XCTAssertEqual(models.map(\.name), ["a-model", "z-model"])
+        let request = try XCTUnwrap(transport.requests.first)
+        XCTAssertEqual(request.url, URL(string: "https://api.example.com/v1/models"))
+        XCTAssertEqual(request.method, "GET")
+        XCTAssertEqual(request.headers, ["Authorization": "Bearer models-secret"])
+        XCTAssertNil(request.body)
+    }
+
+    func testModels_EmptyCatalogIsValidAndMalformedCatalogIsInvalidResponse() async throws {
+        let empty = FakeTransport(sendResult: .success(Data(#"{"data":[]}"#.utf8)))
+        let (storage, reference) = try await makeStoredCredential()
+        let client = makeClient(transport: empty, storage: storage)
+        let emptyModels = try await client.models(endpoint: endpoint, credential: reference)
+        XCTAssertTrue(emptyModels.isEmpty)
+
+        let malformed = FakeTransport(sendResult: .success(Data("[]".utf8)))
+        let malformedClient = makeClient(transport: malformed, storage: storage)
+        do {
+            _ = try await malformedClient.models(endpoint: endpoint, credential: reference)
+            XCTFail("Expected invalidResponse")
+        } catch let error as ProviderTransportError {
+            XCTAssertEqual(error, .invalidResponse)
+        }
+    }
+
+    func testInspectorMapsCatalogTransportFailuresToSafeTypedErrors() async throws {
+        let cases: [(ProviderTransportError, ModelCatalogError)] = [
+            (.httpStatus(404), .unsupported),
+            (.httpStatus(401), .unauthorized),
+            (.networkFailure, .unreachable),
+            (.httpStatus(429), .rateLimited),
+            (.timedOut, .timedOut),
+            (.httpStatus(503), .serverFailure),
+            (.invalidResponse, .invalidResponse),
+        ]
+        for (transportError, expected) in cases {
+            let inspector = try await makeInspector(
+                transport: FakeTransport(sendResult: .failure(transportError))
+            )
+            do {
+                _ = try await inspector.discoverModels()
+                XCTFail("Expected \(expected)")
+            } catch let error as ModelCatalogError {
+                XCTAssertEqual(error, expected)
+                XCTAssertFalse(String(describing: error).contains("inspector-secret"))
+            }
+        }
+    }
+
+    func testInspectorConnectionTestMapsFailuresAndMissingModel() async throws {
+        let cases: [(ProviderTransportError, ProviderConnectionTestError)] = [
+            (.httpStatus(401), .invalidCredential),
+            (.networkFailure, .unreachable),
+            (.httpStatus(404), .invalidEndpoint),
+            (.httpStatus(429), .rateLimited),
+            (.timedOut, .timedOut),
+            (.httpStatus(500), .serverFailure),
+            (.invalidResponse, .invalidResponse),
+        ]
+        for (transportError, expected) in cases {
+            let inspector = try await makeInspector(
+                transport: FakeTransport(sendResult: .failure(transportError))
+            )
+            do {
+                _ = try await inspector.testConnection(model: nil)
+                XCTFail("Expected \(expected)")
+            } catch let error as ProviderConnectionTestError {
+                XCTAssertEqual(error, expected)
+            }
+        }
+
+        let inspector = try await makeInspector(
+            transport: FakeTransport(
+                sendResult: .success(Data(#"{"data":[{"id":"available"}]}"#.utf8))
+            )
+        )
+        do {
+            _ = try await inspector.testConnection(model: ModelReference(name: "missing"))
+            XCTFail("Expected modelUnavailable")
+        } catch let error as ProviderConnectionTestError {
+            XCTAssertEqual(error, .modelUnavailable)
+        }
+    }
+
+    func testInspectorValidatesManualModelWhenModelsEndpointIsUnsupported() async throws {
+        let manualModel = ModelReference(name: "manual/model")
+        let transport = SequentialTransport([
+            .failure(.httpStatus(404)),
+            .success(Data(responseJSON.utf8)),
+        ])
+        let inspector = try await makeInspector(transport: transport)
+
+        let models = try await inspector.testConnection(model: manualModel)
+
+        XCTAssertEqual(models, [manualModel])
+        XCTAssertEqual(
+            transport.requests.map(\.url.path),
+            ["/v1/models", "/v1/chat/completions"]
+        )
+        let body = try XCTUnwrap(transport.requests.last?.body)
+        let json = try XCTUnwrap(
+            JSONSerialization.jsonObject(with: body) as? [String: Any]
+        )
+        XCTAssertEqual(json["model"] as? String, manualModel.name)
+        XCTAssertEqual(json["max_tokens"] as? Int, 1)
+        XCTAssertEqual(json["stream"] as? Bool, false)
+    }
+
+    func testInspectorRejectsUnavailableManualModelWithoutInventingSuccess() async throws {
+        let transport = SequentialTransport([
+            .failure(.httpStatus(405)),
+            .failure(.httpStatus(400)),
+        ])
+        let inspector = try await makeInspector(transport: transport)
+
+        do {
+            _ = try await inspector.testConnection(model: ModelReference(name: "missing"))
+            XCTFail("Expected modelUnavailable")
+        } catch let error as ProviderConnectionTestError {
+            XCTAssertEqual(error, .modelUnavailable)
+        }
+        XCTAssertEqual(transport.requests.count, 2)
     }
 
     // MARK: - Non-streaming request construction
