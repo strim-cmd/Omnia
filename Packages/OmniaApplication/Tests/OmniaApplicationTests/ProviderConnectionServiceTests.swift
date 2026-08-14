@@ -1260,6 +1260,7 @@ final class ProviderConnectionServiceTests: XCTestCase {
         let connection = try await service.configure(
             request(),
             endpoint: "https://generativelanguage.googleapis.com/v1beta",
+            model: nil,
             apiKind: .gemini
         )
 
@@ -1343,6 +1344,7 @@ final class ProviderConnectionServiceTests: XCTestCase {
             _ = try await service.configure(
                 request(),
                 endpoint: "https://generativelanguage.googleapis.com/v1beta",
+                model: nil,
                 apiKind: .gemini
             )
         }
