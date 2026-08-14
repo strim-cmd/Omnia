@@ -27,7 +27,7 @@ final class ProviderLifecycleServiceTests: XCTestCase {
 
     func testUnregister_ForgetsProviderAndIsIdempotent() async throws {
         let service = ProviderLifecycleService()
-        let connection = try makeConnection()
+        let connection = makeConnection()
         let identity = await service.register(connection)
 
         await service.unregister(identity)
