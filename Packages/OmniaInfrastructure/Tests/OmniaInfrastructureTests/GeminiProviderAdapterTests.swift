@@ -15,7 +15,7 @@ final class GeminiProviderAdapterTests: XCTestCase {
         let streamError: ProviderTransportError?
 
         init(
-            sendResult: Result<Data, ProviderTransportError> = .success(Self.modelListJSON),
+            sendResult: Result<Data, ProviderTransportError> = .success(GeminiProviderAdapterTests.modelListJSON),
             streamChunks: [Data] = [],
             streamError: ProviderTransportError? = nil
         ) {

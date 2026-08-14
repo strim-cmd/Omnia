@@ -45,7 +45,7 @@ internal enum GeminiMapping {
     /// (concatenated in order), and user and assistant messages become
     /// `user`/`model` contents in order (DES-010 §3.9.2).
     static func request(from request: ConversationRequest) throws -> GenerateContentRequest {
-        try request(
+        try Self.request(
             from: request.history,
             resolvedAttachments: request.resolvedAttachments
         )
@@ -55,7 +55,7 @@ internal enum GeminiMapping {
     /// request as the conversation mapping; the streaming flag lives in the
     /// URL action, not in the body (DES-010 §3.9.2).
     static func request(from request: StreamingRequest) throws -> GenerateContentRequest {
-        try request(
+        try Self.request(
             from: request.history,
             resolvedAttachments: request.resolvedAttachments
         )
