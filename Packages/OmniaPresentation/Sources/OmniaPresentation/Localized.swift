@@ -169,6 +169,9 @@ public enum Localized {
     public static var untitledConversation: String { localized("untitled_conversation") }
     public static var validated: String { localized("validated") }
     public static var version: String { localized("version") }
+    public static func appVersionBuild(version: String, build: String) -> String {
+        String(format: localized("app_version_build_format"), version, build)
+    }
     public static var versionPartsNonNegative: String { localized("version_parts_non_negative") }
     public static var vision: String { localized("vision") }
     public static var workspace: String { localized("workspace") }

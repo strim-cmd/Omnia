@@ -9,8 +9,7 @@ import SwiftUI
 /// renders state and translates intent; it owns no business logic (ARC-002).
 ///
 /// The screen presents only real existing data: the workspace context the shell
-/// owns. It renders no version/build information because the application state
-/// carries none — the interface is honest (ARC-001).
+/// owns and version/build metadata read from the running host bundle.
 ///
 /// The screen is reached from the navigation drawer; the navigation container's
 /// system back behavior remains — the system bar chrome is hidden exactly like
@@ -26,12 +25,19 @@ import SwiftUI
 public struct AboutView: View {
     /// The name of the workspace the app presents (new_design.md §8).
     public let workspaceName: String
+    /// The real host-bundle version/build, when both generated values exist.
+    public let versionInfo: AppVersionInfo?
     /// Translates the open-menu intent: the navigation drawer is presented.
     public let onOpenMenu: () -> Void
 
     /// Creates an about view over the given workspace context.
-    public init(workspaceName: String, onOpenMenu: @escaping () -> Void) {
+    public init(
+        workspaceName: String,
+        versionInfo: AppVersionInfo? = AppVersionInfo.current(),
+        onOpenMenu: @escaping () -> Void
+    ) {
         self.workspaceName = workspaceName
+        self.versionInfo = versionInfo
         self.onOpenMenu = onOpenMenu
     }
 
@@ -102,6 +108,12 @@ public struct AboutView: View {
                 .font(OmniaTheme.Typography.caption)
                 .foregroundStyle(OmniaTheme.Colors.textSecondary)
                 .lineLimit(1)
+            if let versionInfo {
+                Text(versionInfo.localizedDescription)
+                    .font(OmniaTheme.Typography.caption)
+                    .foregroundStyle(OmniaTheme.Colors.textMuted)
+                    .lineLimit(1)
+            }
         }
         .frame(maxWidth: .infinity)
         .accessibilityElement(children: .combine)

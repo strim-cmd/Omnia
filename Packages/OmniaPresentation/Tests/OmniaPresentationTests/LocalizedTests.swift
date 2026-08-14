@@ -10,6 +10,7 @@ final class LocalizedTests: XCTestCase {
             ("delete", Localized.delete),
             ("delete_conversation", Localized.deleteConversation),
             ("attachment", Localized.attachment),
+            ("app_version_build_format", Localized.appVersionBuild(version: "1.0.0", build: "1")),
             ("send", Localized.send),
             ("stop", Localized.stop),
             ("add_first_provider", Localized.addFirstProvider),
@@ -35,6 +36,10 @@ final class LocalizedTests: XCTestCase {
         XCTAssertEqual(
             Localized.providerUnavailable("Example"),
             "Example is not available. Messages will use the automatic selection."
+        )
+        XCTAssertEqual(
+            Localized.appVersionBuild(version: "1.0.0", build: "1"),
+            "Version 1.0.0 (Build 1)"
         )
     }
 }

@@ -29,6 +29,11 @@ name: Release Pipeline
 on:
   workflow_dispatch:
     inputs:
+      unsigned_only:
+        description: 'Force credential-free unsigned archives and IPA even when signing secrets exist'
+        type: boolean
+        required: true
+        default: true
       ios_distribution:
         description: 'iOS distribution method for the signed IPA (App Store/TestFlight or ad-hoc sideload)'
         type: choice
@@ -60,11 +65,11 @@ jobs:
     env:
       # Presence of the distribution credentials. Referenced by name only; the
       # values are never written to the repository (SECURITY.md).
-      HAS_MACOS_DIST: ${{ secrets.MACOS_CERT_BASE64 != '' && secrets.MACOS_CERT_PASSWORD != '' && secrets.APPLE_ID != '' && secrets.APPLE_TEAM_ID != '' && secrets.APPLE_NOTARIZATION_PASSWORD != '' }}
+      HAS_MACOS_DIST: ${{ !(github.event_name == 'workflow_dispatch' && inputs.unsigned_only) && secrets.MACOS_CERT_BASE64 != '' && secrets.MACOS_CERT_PASSWORD != '' && secrets.APPLE_ID != '' && secrets.APPLE_TEAM_ID != '' && secrets.APPLE_NOTARIZATION_PASSWORD != '' }}
       # One iOS distribution method per run: 'appstore' (App Store / TestFlight)
       # or 'adhoc' (sideload). Tag-push releases default to 'appstore'.
       IOS_DIST_METHOD: ${{ inputs.ios_distribution || 'appstore' }}
-      HAS_IOS_DIST: ${{ secrets.IOS_CERT_BASE64 != '' && secrets.IOS_CERT_PASSWORD != '' && secrets.APPLE_TEAM_ID != '' && (secrets.IOS_APPSTORE_PROVISIONING_PROFILE_BASE64 != '' || secrets.IOS_ADHOC_PROVISIONING_PROFILE_BASE64 != '') }}
+      HAS_IOS_DIST: ${{ !(github.event_name == 'workflow_dispatch' && inputs.unsigned_only) && secrets.IOS_CERT_BASE64 != '' && secrets.IOS_CERT_PASSWORD != '' && secrets.APPLE_TEAM_ID != '' && (secrets.IOS_APPSTORE_PROVISIONING_PROFILE_BASE64 != '' || secrets.IOS_ADHOC_PROVISIONING_PROFILE_BASE64 != '') }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -268,6 +273,47 @@ jobs:
           mkdir -p "$RUNNER_TEMP/dist/ios/unsigned"
           ditto "$APP" "$RUNNER_TEMP/dist/ios/unsigned/Payload/OmniaiOS.app"
           (cd "$RUNNER_TEMP/dist/ios/unsigned" && ditto -c -k --keepParent Payload "Omnia-iOS-unsigned.ipa")
+
+      - name: Verify unsigned iOS IPA
+        if: ${{ env.HAS_IOS_DIST != 'true' }}
+        run: |
+          set -euo pipefail
+          IPA="$RUNNER_TEMP/dist/ios/unsigned/Omnia-iOS-unsigned.ipa"
+          [ -s "$IPA" ] || { echo "::error::unsigned IPA is missing or empty"; exit 1; }
+
+          VERIFY_ROOT="$RUNNER_TEMP/verify-unsigned-ipa"
+          mkdir -p "$VERIFY_ROOT"
+          ditto -x -k "$IPA" "$VERIFY_ROOT"
+          APP="$VERIFY_ROOT/Payload/OmniaiOS.app"
+          INFO="$APP/Info.plist"
+          [ -d "$APP" ] || { echo "::error::IPA is missing Payload/OmniaiOS.app"; exit 1; }
+          [ -f "$INFO" ] || { echo "::error::IPA app is missing Info.plist"; exit 1; }
+
+          ACTUAL_VERSION=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$INFO")
+          ACTUAL_BUILD=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$INFO")
+          [ "$ACTUAL_VERSION" = "$VERSION" ] || { echo "::error::IPA version $ACTUAL_VERSION does not match $VERSION"; exit 1; }
+          [ "$ACTUAL_BUILD" = "$BUILD_NUMBER" ] || { echo "::error::IPA build $ACTUAL_BUILD does not match $BUILD_NUMBER"; exit 1; }
+
+          [ ! -d "$APP/_CodeSignature" ] || { echo "::error::unsigned IPA contains a code signature"; exit 1; }
+          [ ! -f "$APP/embedded.mobileprovision" ] || { echo "::error::unsigned IPA contains a provisioning profile"; exit 1; }
+          if codesign --verify "$APP" >/dev/null 2>&1; then
+            echo "::error::unsigned IPA unexpectedly verifies as signed"
+            exit 1
+          fi
+          if find "$VERIFY_ROOT" -type f \( -name '*.p12' -o -name '*.cer' -o -name '*.key' -o -name '*.pem' -o -name '*.mobileprovision' -o -name '*.provisionprofile' \) -print -quit | grep -q .; then
+            echo "::error::unsigned IPA contains private signing material"
+            exit 1
+          fi
+
+          IPA_SIZE=$(stat -f%z "$IPA")
+          {
+            echo "### Unsigned IPA verification"
+            echo "- Path: \`dist/ios/unsigned/Omnia-iOS-unsigned.ipa\`"
+            echo "- Size: $IPA_SIZE bytes"
+            echo "- Payload: \`Payload/OmniaiOS.app\`"
+            echo "- Version/build: $ACTUAL_VERSION ($ACTUAL_BUILD)"
+            echo "- Code signature/provisioning/private signing material: absent"
+          } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Package macOS app (zip + DMG)
         run: |

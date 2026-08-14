@@ -10,6 +10,7 @@
 "add_first_provider_description" = "Add an OpenAI-compatible provider, test the connection, and choose a model before starting a chat.";
 "all_providers" = "All Providers";
 "api_key" = "API Key";
+"app_version_build_format" = "Version %@ (Build %@)";
 "appearance" = "Appearance";
 "assistant_is_responding" = "Assistant is responding.";
 "attachment" = "Attachment";

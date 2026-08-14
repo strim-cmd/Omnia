@@ -2,6 +2,8 @@
 
 This project follows Keep a Changelog and Semantic Versioning.
 
+## [Unreleased]
+
 ## [0.5.0] - 2026-08-07
 
 The first distributable build (Beta v0.5 candidate): a native macOS and iOS
@@ -65,16 +67,31 @@ Public repository release readiness. No product behavior or API changes.
 - Removed an unused `import OmniaTheme` so the conversation screen builds on
   Linux.
 
-## [Unreleased]
+## [1.0.0] - 2026-08-14
 
-Release-preparation scope — the provider surface and lifecycle redesign (providers
-and settings as distinct destinations, a unified provider connection form, real
-lifecycle-driven availability, and per-provider model routing) plus the UX audit
-(issue #154) — core-flow correctness, accessibility, validation, draft
-preservation, destructive-action protection, and retry/continue paths in the
-presentation layer:
+The first v1 release: provider/model discovery and defaults, capability-aware
+multimodal input, durable conversation management, production Markdown and
+recovery UX, and first-launch/data-safety polish over the stable generation
+lifecycle.
 
 ### Added
+
+- Provider-scoped model discovery, cached fallback, coherent global defaults,
+  per-conversation provider/model persistence, capability overrides, and a real
+  Test Connection flow with redacted actionable errors.
+- Image, PDF, and plain-text attachment staging with count/size/capability
+  validation, deterministic persistence, request resolution, history metadata,
+  and deletion/orphan cleanup.
+- Persistent conversation titles and timestamps, explicit rename precedence,
+  local-time grouping/search/delete behavior, and safe Markdown rendering with
+  fenced-code language labels, horizontal scrolling, links, and copy actions.
+- Durable unsent text drafts keyed by conversation, restored across relaunch
+  without a second conversation persistence source.
+- First-launch Add Provider guidance and a coherent path from validated
+  connection through default model to a usable chat.
+- Settings routes for provider/credential management and confirmed Clear Data
+  with explicit on-device scope.
+- About now displays the real host-bundle version and build number.
 
 - Providers and Settings are now distinct destinations: a dedicated Providers
   surface manages provider connections while Settings holds application settings,
@@ -174,3 +191,37 @@ presentation layer:
 - A failed provider configure keeps the connection form open with its input
   retained and shows the failure; only the credential field is cleared per
   ARC-005 (UX audit U3).
+- Provider configure/remove operations roll back partial metadata, references,
+  credentials, and lifecycle state instead of leaving selectable or orphaned
+  records.
+- Invalid saved defaults identify themselves and never silently redirect a new
+  conversation to a different provider/model.
+- Individually malformed conversation, provider, and workspace records are
+  isolated during collection loads instead of making all valid data unreadable.
+
+### Migration and Persistence
+
+- Existing pre-v1 conversation/provider/workspace DTOs continue decoding with
+  explicit defaults for v1 metadata; deterministic serializers remain the only
+  source for accepted chat state.
+- Interrupted/partial messages, attachment metadata/files, titles/timestamps,
+  selections, defaults, appearance, and unsent drafts survive reload without
+  duplication.
+- Clear Data removes chats, attachments, settings, provider metadata, and the
+  complete app-owned secure credential namespace while retaining an empty
+  workspace shell for the running UI.
+
+### Security
+
+- API keys remain only in platform secure credential storage; provider and
+  configuration JSON contain safe metadata and opaque references only.
+- No analytics or remote telemetry was added. Logs, surfaced errors, fixtures,
+  and diagnostics do not reveal credential or private conversation content.
+
+### Known Limitations
+
+- The release IPA is intentionally unsigned and requires external signing
+  before installation; signing and App Store distribution are outside v1 scope.
+- Physical-device checklist execution is pending a user-selected signed install.
+- The short-prompt framework, prompt library, workspaces, plugins, voice, cloud
+  sync, and built-in web/image generation remain post-v1 work.
