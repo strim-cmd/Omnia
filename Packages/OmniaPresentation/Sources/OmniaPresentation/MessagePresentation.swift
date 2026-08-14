@@ -17,12 +17,20 @@ public struct MessagePresentation: Equatable, Sendable {
     /// The markdown content of the message, or `nil` when the message has no
     /// content to render.
     public let content: MarkdownContent?
+    /// Safe persisted attachment metadata. Payload bytes never enter
+    /// Presentation state.
+    public let attachments: [MessageAttachment]
 
     /// Creates a message presentation with the given role and markdown
     /// content.
-    public init(role: MessageRole, content: MarkdownContent?) {
+    public init(
+        role: MessageRole,
+        content: MarkdownContent?,
+        attachments: [MessageAttachment] = []
+    ) {
         self.role = role
         self.content = content
+        self.attachments = attachments
     }
 
     /// Creates the presentation of a Domain `Message` (DES-012 §3.1): the
@@ -31,7 +39,8 @@ public struct MessagePresentation: Equatable, Sendable {
     public init(message: Message) {
         self.init(
             role: message.role,
-            content: message.content.isEmpty ? nil : MarkdownContent(markdown: message.content)
+            content: message.content.isEmpty ? nil : MarkdownContent(markdown: message.content),
+            attachments: message.attachments
         )
     }
 }

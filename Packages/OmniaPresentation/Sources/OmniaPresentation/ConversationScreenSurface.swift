@@ -1,3 +1,4 @@
+import Foundation
 import OmniaApplication
 import OmniaFoundation
 
@@ -36,11 +37,53 @@ import OmniaFoundation
 /// its own safe points preserving its partial content (DES-008, ARC-001).
 public struct ConversationScreenSurface: Sendable {
     private let useCase: SendMessageUseCase
+    private let attachmentService: AttachmentService?
 
     /// Creates a conversation screen surface over the given send-message use
     /// case, delivered by the Composition Root (DES-012 §3.6).
-    public init(useCase: SendMessageUseCase) {
+    public init(
+        useCase: SendMessageUseCase,
+        attachmentService: AttachmentService? = nil
+    ) {
         self.useCase = useCase
+        self.attachmentService = attachmentService
+    }
+
+    public func stageFiles(
+        _ urls: [URL],
+        existing: [MessageAttachment]
+    ) async throws -> [MessageAttachment] {
+        guard let attachmentService else {
+            throw AttachmentError.storageUnavailable
+        }
+        return try await attachmentService.stageFiles(urls, existing: existing)
+    }
+
+    public func stage(
+        _ candidates: [AttachmentImportCandidate],
+        existing: [MessageAttachment]
+    ) async throws -> [MessageAttachment] {
+        guard let attachmentService else {
+            throw AttachmentError.storageUnavailable
+        }
+        return try await attachmentService.stage(candidates, existing: existing)
+    }
+
+    public func remove(_ attachment: MessageAttachment) async throws {
+        guard let attachmentService else {
+            throw AttachmentError.storageUnavailable
+        }
+        try await attachmentService.remove(attachment)
+    }
+
+    public func validate(
+        _ attachments: [MessageAttachment],
+        for selection: ProviderModelSelection
+    ) async throws {
+        guard let attachmentService else {
+            throw AttachmentError.storageUnavailable
+        }
+        try await attachmentService.validate(attachments, for: selection)
     }
 
     /// Composes the ready-to-render screen state of `conversation` (DES-012
@@ -98,13 +141,25 @@ public struct ConversationScreenSurface: Sendable {
     public func performSend(
         _ request: SendMessageRequest,
         rendering history: [MessagePresentation] = [],
+        fallbackHistory: [MessagePresentation]? = nil,
+        preservingDraft draft: String = "",
+        draftAttachments: [MessageAttachment] = [],
+        onAccepted: @escaping @Sendable () async -> Void = {},
         onState: @escaping @Sendable (ConversationScreenState) async -> Void
     ) async throws {
         try await performInCurrentTask(
-            { onUpdate in
-                try await useCase.performSend(request, onUpdate: onUpdate)
+            { accepted, onUpdate in
+                try await useCase.performSend(
+                    request,
+                    onAccepted: accepted,
+                    onUpdate: onUpdate
+                )
             },
             rendering: history,
+            failureHistory: fallbackHistory ?? history,
+            preservingDraft: draft,
+            draftAttachments: draftAttachments,
+            onAccepted: onAccepted,
             onState: onState
         )
     }
@@ -149,7 +204,7 @@ public struct ConversationScreenSurface: Sendable {
         onState: @escaping @Sendable (ConversationScreenState) async -> Void
     ) async throws {
         try await performInCurrentTask(
-            { onUpdate in
+            { _, onUpdate in
                 try await useCase.performResume(conversation, onUpdate: onUpdate)
             },
             rendering: history,
@@ -162,20 +217,34 @@ public struct ConversationScreenSurface: Sendable {
     /// and persistence chain in the coordinator-owned task.
     private func performInCurrentTask(
         _ start: @escaping @Sendable (
+            @escaping @Sendable () async -> Void,
             @escaping @Sendable (StreamingUpdate) async -> Void
         ) async throws -> Void,
         rendering history: [MessagePresentation],
+        failureHistory: [MessagePresentation]? = nil,
+        preservingDraft draft: String = "",
+        draftAttachments: [MessageAttachment] = [],
         startingPartial: String = "",
+        onAccepted: @escaping @Sendable () async -> Void = {},
         onState: @escaping @Sendable (ConversationScreenState) async -> Void
     ) async throws {
         let renderer = StreamingStateRenderer(
             history: history,
+            failureHistory: failureHistory ?? history,
+            draft: draft,
+            draftAttachments: draftAttachments,
             partialContent: startingPartial
         )
         do {
-            try await start { update in
-                await onState(renderer.state(for: update))
-            }
+            try await start(
+                {
+                    await renderer.markAccepted()
+                    await onAccepted()
+                },
+                { update in
+                    await onState(renderer.state(for: update))
+                }
+            )
         } catch is CancellationError {
             throw CancellationError()
         } catch {
@@ -320,6 +389,8 @@ public struct ConversationScreenSurface: Sendable {
             return .capability(error)
         case let error as CredentialStorageError:
             return .credentialStorage(error)
+        case let error as AttachmentError:
+            return .attachment(error)
         default:
             return nil
         }
@@ -330,11 +401,28 @@ public struct ConversationScreenSurface: Sendable {
     /// than captured mutable state.
     private actor StreamingStateRenderer {
         let history: [MessagePresentation]
+        let failureHistory: [MessagePresentation]
+        let draft: String
+        let draftAttachments: [MessageAttachment]
         var partialContent: String
+        var accepted = false
 
-        init(history: [MessagePresentation], partialContent: String) {
+        init(
+            history: [MessagePresentation],
+            failureHistory: [MessagePresentation],
+            draft: String,
+            draftAttachments: [MessageAttachment],
+            partialContent: String
+        ) {
             self.history = history
+            self.failureHistory = failureHistory
+            self.draft = draft
+            self.draftAttachments = draftAttachments
             self.partialContent = partialContent
+        }
+
+        func markAccepted() {
+            accepted = true
         }
 
         func state(for update: StreamingUpdate) -> ConversationScreenState {
@@ -372,11 +460,21 @@ public struct ConversationScreenSurface: Sendable {
                     to: reportedPartial
                 )
             }
-            let condition: ConversationScreenState.StreamingCondition? = partialContent.isEmpty
-                ? nil
-                : .interrupted(partialContent: partialContent)
+            let condition: ConversationScreenState.StreamingCondition? =
+                accepted || !partialContent.isEmpty
+                ? .interrupted(partialContent: partialContent)
+                : nil
+            let attachmentIssue: AttachmentError?
+            if case .attachment(let error) = failure {
+                attachmentIssue = error
+            } else {
+                attachmentIssue = nil
+            }
             return ConversationScreenState(
-                messages: history,
+                messages: accepted ? history : failureHistory,
+                draft: accepted ? "" : draft,
+                draftAttachments: accepted ? [] : draftAttachments,
+                attachmentIssue: attachmentIssue,
                 streamingCondition: condition,
                 failure: failure
             )

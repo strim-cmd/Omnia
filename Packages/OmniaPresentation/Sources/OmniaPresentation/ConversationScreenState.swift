@@ -43,6 +43,8 @@ public struct ConversationScreenState: Equatable, Sendable {
         case capability(CapabilityError)
         /// A credential storage operation failed.
         case credentialStorage(CredentialStorageError)
+        /// Attachment staging, capability validation, or payload preparation failed.
+        case attachment(AttachmentError)
         /// The streaming flow failed with an error the presentation layer cannot
         /// map to a typed failure; the failure is never silent (ARC-001).
         case unexpected
@@ -218,6 +220,10 @@ public struct ConversationScreenState: Equatable, Sendable {
     public let messages: [MessagePresentation]
     /// The user input draft of the conversation screen.
     public let draft: String
+    /// App-owned attachment metadata staged for the next user message.
+    public let draftAttachments: [MessageAttachment]
+    /// An actionable attachment issue that blocks send until corrected.
+    public let attachmentIssue: AttachmentError?
     /// The rendered streaming condition, or `nil` when no stream condition is
     /// presented.
     public let streamingCondition: StreamingCondition?
@@ -234,12 +240,16 @@ public struct ConversationScreenState: Equatable, Sendable {
     public init(
         messages: [MessagePresentation],
         draft: String = "",
+        draftAttachments: [MessageAttachment] = [],
+        attachmentIssue: AttachmentError? = nil,
         streamingCondition: StreamingCondition? = nil,
         failure: Failure? = nil,
         providerSelection: ProviderSelection? = nil
     ) {
         self.messages = messages
         self.draft = draft
+        self.draftAttachments = draftAttachments
+        self.attachmentIssue = attachmentIssue
         self.streamingCondition = streamingCondition
         self.failure = failure
         self.providerSelection = providerSelection
@@ -259,6 +269,24 @@ public struct ConversationScreenState: Equatable, Sendable {
         ConversationScreenState(
             messages: messages,
             draft: draft,
+            draftAttachments: draftAttachments,
+            attachmentIssue: attachmentIssue,
+            streamingCondition: streamingCondition,
+            failure: failure,
+            providerSelection: providerSelection
+        )
+    }
+
+    /// Returns a copy with the staged attachment metadata and issue replaced.
+    public func replacingDraftAttachments(
+        _ attachments: [MessageAttachment],
+        issue: AttachmentError? = nil
+    ) -> ConversationScreenState {
+        ConversationScreenState(
+            messages: messages,
+            draft: draft,
+            draftAttachments: attachments,
+            attachmentIssue: issue,
             streamingCondition: streamingCondition,
             failure: failure,
             providerSelection: providerSelection
@@ -277,6 +305,8 @@ public struct ConversationScreenState: Equatable, Sendable {
         ConversationScreenState(
             messages: messages,
             draft: draft,
+            draftAttachments: draftAttachments,
+            attachmentIssue: attachmentIssue,
             streamingCondition: condition,
             failure: failure,
             providerSelection: providerSelection
@@ -294,6 +324,8 @@ public struct ConversationScreenState: Equatable, Sendable {
         ConversationScreenState(
             messages: messages,
             draft: draft,
+            draftAttachments: draftAttachments,
+            attachmentIssue: attachmentIssue,
             streamingCondition: streamingCondition,
             failure: failure,
             providerSelection: selection

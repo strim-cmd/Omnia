@@ -7,6 +7,18 @@ import OmniaDomain
 internal struct MessageDTO: Codable, Sendable {
     let role: String
     let content: String
+    /// Added in v1.0 M2. Nil decodes pre-attachment conversation documents.
+    let attachments: [MessageAttachment]?
+
+    init(
+        role: String,
+        content: String,
+        attachments: [MessageAttachment]? = nil
+    ) {
+        self.role = role
+        self.content = content
+        self.attachments = attachments
+    }
 }
 
 /// The stored representation of `ConversationStreamingState` (DES-010 §3.3).
@@ -58,7 +70,11 @@ internal struct ConversationSerializer: Sendable {
         ConversationDTO(
             identity: conversation.identity,
             history: conversation.history.map {
-                MessageDTO(role: $0.role.serializedName, content: $0.content)
+                MessageDTO(
+                    role: $0.role.serializedName,
+                    content: $0.content,
+                    attachments: $0.attachments.isEmpty ? nil : $0.attachments
+                )
             },
             streamingState: Self.streamingStateDTO(from: conversation.streamingState),
             modelSelection: conversation.modelSelection
@@ -78,7 +94,13 @@ internal struct ConversationSerializer: Sendable {
             guard let role = MessageRole(serializedName: message.role) else {
                 throw RepositoryError.storageUnavailable
             }
-            try conversation.append(Message(role: role, content: message.content))
+            try conversation.append(
+                Message(
+                    role: role,
+                    content: message.content,
+                    attachments: message.attachments ?? []
+                )
+            )
         }
         try Self.restore(streamingState: dto.streamingState, into: &conversation)
         return conversation

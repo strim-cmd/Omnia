@@ -168,13 +168,43 @@ private func makeSelectionService(
 private func makeUseCase(
     contract: any StreamingContract,
     selectionService: ProviderSelectionService,
-    repository: any ConversationRepository
+    repository: any ConversationRepository,
+    resolveAttachments: @escaping @Sendable (
+        [Message],
+        ProviderModelSelection
+    ) async throws -> [ResolvedAttachment] = { _, _ in [] }
 ) -> SendMessageUseCase {
     SendMessageUseCase(
         streamingContract: contract,
         selectionService: selectionService,
-        conversationRepository: repository
+        conversationRepository: repository,
+        resolveAttachments: resolveAttachments
     )
+}
+
+private actor SendAcceptanceRecorder {
+    private(set) var count = 0
+    func accept() { count += 1 }
+}
+
+private actor RetryingAttachmentResolver {
+    private var attempts = 0
+    let resolved: [ResolvedAttachment]
+
+    init(resolved: [ResolvedAttachment]) {
+        self.resolved = resolved
+    }
+
+    func resolve(
+        history: [Message],
+        selection: ProviderModelSelection
+    ) throws -> [ResolvedAttachment] {
+        attempts += 1
+        if attempts == 1 {
+            throw AttachmentError.capabilityUnsupported(.image)
+        }
+        return resolved
+    }
 }
 
 private func completionStream(_ request: StreamingRequest) -> AsyncThrowingStream<StreamingUpdate, Error> {
@@ -187,6 +217,72 @@ private func completionStream(_ request: StreamingRequest) -> AsyncThrowingStrea
 }
 
 final class SendMessageUseCaseTests: XCTestCase {
+
+    func testPerformSend_AttachmentPreflightRetryPersistsOnceAndAcceptsOnlySuccess() async throws {
+        let repository = InMemoryConversationRepository()
+        let conversation = Conversation(identity: ConversationIdentity())
+        try await repository.save(conversation)
+        let (selectionService, _) = await makeSelectionService(modelsByProvider: [
+            providerA: [ModelReference(name: "model")],
+        ])
+        let attachment = MessageAttachment(
+            identity: AttachmentIdentity(),
+            fileName: "photo.png",
+            mediaType: "image/png",
+            kind: .image,
+            byteCount: 2,
+            storageKey: "opaque.png"
+        )
+        let resolved = ResolvedAttachment(
+            attachment: attachment,
+            payload: .image(data: Data([1, 2]), mediaType: "image/png")
+        )
+        let resolver = RetryingAttachmentResolver(resolved: [resolved])
+        let captured = CapturedRequest()
+        let useCase = makeUseCase(
+            contract: ScriptedStreamingContract { request in
+                captured.set(request)
+                return completionStream(request)
+            },
+            selectionService: selectionService,
+            repository: repository,
+            resolveAttachments: { history, selection in
+                try await resolver.resolve(history: history, selection: selection)
+            }
+        )
+        let request = SendMessageRequest(
+            conversation: conversation.identity,
+            message: Message(role: .user, content: "", attachments: [attachment])
+        )
+        let acceptance = SendAcceptanceRecorder()
+
+        do {
+            try await useCase.performSend(
+                request,
+                onAccepted: { await acceptance.accept() },
+                onUpdate: { _ in }
+            )
+            XCTFail("expected attachment preflight rejection")
+        } catch {
+            XCTAssertEqual(error as? AttachmentError, .capabilityUnsupported(.image))
+        }
+        let failedAcceptanceCount = await acceptance.count
+        XCTAssertEqual(failedAcceptanceCount, 0)
+        let afterFailure = try await repository.conversation(with: conversation.identity)
+        XCTAssertEqual(afterFailure?.history, [])
+
+        try await useCase.performSend(
+            request,
+            onAccepted: { await acceptance.accept() },
+            onUpdate: { _ in }
+        )
+
+        let successfulAcceptanceCount = await acceptance.count
+        XCTAssertEqual(successfulAcceptanceCount, 1)
+        let stored = try await repository.conversation(with: conversation.identity)
+        XCTAssertEqual(stored?.history.filter { $0.role == .user }, [request.message])
+        XCTAssertEqual(captured.get()?.resolvedAttachments, [resolved])
+    }
 
     func testSend_AppendsAndPersistsTheUserMessageBeforeTheStreamIsConsumed() async throws {
         let repository = InMemoryConversationRepository()

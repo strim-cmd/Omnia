@@ -34,8 +34,8 @@ final class CapabilityMappingTests: XCTestCase {
         XCTAssertEqual(wire.messages, [ChatMessage(role: "user", content: "Write a haiku")])
     }
 
-    func testConversationRequest_MapsHistoryInOrderAndNeverStreams() {
-        let wire = CapabilityMapping.request(
+    func testConversationRequest_MapsHistoryInOrderAndNeverStreams() throws {
+        let wire = try CapabilityMapping.request(
             from: ConversationRequest(identity: identity, history: history, model: model)
         )
 
@@ -51,8 +51,8 @@ final class CapabilityMappingTests: XCTestCase {
         )
     }
 
-    func testStreamingRequest_MapsHistoryInOrderAndStreams() {
-        let wire = CapabilityMapping.request(
+    func testStreamingRequest_MapsHistoryInOrderAndStreams() throws {
+        let wire = try CapabilityMapping.request(
             from: StreamingRequest(identity: identity, history: history, model: model)
         )
 
@@ -62,8 +62,8 @@ final class CapabilityMappingTests: XCTestCase {
         XCTAssertEqual(wire.messages[1], ChatMessage(role: "user", content: "Hello"))
     }
 
-    func testStreamingRequest_KeepsAnEmptyHistoryEmpty() {
-        let wire = CapabilityMapping.request(
+    func testStreamingRequest_KeepsAnEmptyHistoryEmpty() throws {
+        let wire = try CapabilityMapping.request(
             from: StreamingRequest(identity: identity, history: [], model: model)
         )
 

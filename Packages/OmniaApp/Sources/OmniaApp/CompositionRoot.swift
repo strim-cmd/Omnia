@@ -55,6 +55,8 @@ public struct CompositionRoot: Sendable {
     public let providerModelService: ProviderModelService
     /// Real endpoint/credential validation used by provider forms.
     public let providerValidationService: ProviderValidationService
+    /// App-owned attachment staging, validation, resolution, and cleanup.
+    public let attachmentService: AttachmentService
 
     /// The send-message use case, delivered the runtime binding as its
     /// streaming contract.
@@ -67,6 +69,7 @@ public struct CompositionRoot: Sendable {
     /// The file provider repository, read by `prepare()` to register the stored
     /// connections.
     private let providerRepository: any ProviderRepository
+    private let conversationRepository: FileConversationRepository
 
     /// The manually configured models of a provider: the recorded
     /// OpenAI-compatible model (the OmniRoute combo, or any provider model name)
@@ -106,6 +109,7 @@ public struct CompositionRoot: Sendable {
         let conversationsDirectory = root.appendingPathComponent("Conversations", isDirectory: true)
         let providersDirectory = root.appendingPathComponent("Providers", isDirectory: true)
         let configurationDirectory = root.appendingPathComponent("Configuration", isDirectory: true)
+        let attachmentsDirectory = root.appendingPathComponent("Attachments", isDirectory: true)
 
         let workspaceRepository = FileWorkspaceRepository(directory: workspacesDirectory)
         let conversationRepository = FileConversationRepository(directory: conversationsDirectory)
@@ -172,12 +176,62 @@ public struct CompositionRoot: Sendable {
             credentialStorage: credentialStorage,
             preferredModels: preferredModels
         )
+        let attachmentProcessor = AttachmentContentProcessor()
+        let attachmentService = AttachmentService(
+            storage: FileAttachmentStorage(directory: attachmentsDirectory),
+            loadFile: { url, maximumByteCount in
+                let loaded = try attachmentProcessor.loadFile(
+                    url,
+                    maximumByteCount: maximumByteCount
+                )
+                return AttachmentImportCandidate(
+                    data: loaded.data,
+                    fileName: loaded.fileName,
+                    declaredMediaType: loaded.declaredMediaType
+                )
+            },
+            prepare: { candidate in
+                try attachmentProcessor.prepare(
+                    data: candidate.data,
+                    fileName: candidate.fileName,
+                    declaredMediaType: candidate.declaredMediaType
+                )
+            },
+            extractText: { attachment, data, maximumCharacters in
+                try attachmentProcessor.extractText(
+                    from: attachment,
+                    data: data,
+                    maximumCharacters: maximumCharacters
+                )
+            },
+            effectiveSupport: { capability, selection in
+                guard let provider = await lifecycleService.provider(
+                    with: selection.provider
+                ) else {
+                    return .unsupported
+                }
+                return try await providerModelService.effectiveSupport(
+                    for: capability,
+                    selection: selection,
+                    providerCapabilities: provider.connection.capabilities
+                )
+            }
+        )
         let workspaceService = WorkspaceService(workspaceRepository: workspaceRepository)
         let conversationService = ConversationService(
             conversationRepository: conversationRepository,
             workspaceRepository: workspaceRepository,
             defaultModelSelection: {
                 try await providerModelService.validDefaultSelection()
+            },
+            cleanupAttachments: { attachments in
+                let remaining = try await conversationRepository.allConversations()
+                let referenced = Set(
+                    remaining.flatMap(\.history).flatMap(\.attachments).map(\.storageKey)
+                )
+                try await attachmentService.remove(
+                    attachments.filter { !referenced.contains($0.storageKey) }
+                )
             }
         )
         let providerValidationService = ProviderValidationService(
@@ -206,7 +260,13 @@ public struct CompositionRoot: Sendable {
         let sendMessageUseCase = SendMessageUseCase(
             streamingContract: binding,
             selectionService: selectionService,
-            conversationRepository: conversationRepository
+            conversationRepository: conversationRepository,
+            resolveAttachments: { history, selection in
+                try await attachmentService.resolve(
+                    history: history,
+                    for: selection
+                )
+            }
         )
 
         self.lifecycleService = lifecycleService
@@ -218,12 +278,17 @@ public struct CompositionRoot: Sendable {
         self.configurationService = configurationService
         self.providerModelService = providerModelService
         self.providerValidationService = providerValidationService
+        self.attachmentService = attachmentService
         self.sendMessageUseCase = sendMessageUseCase
         self.providerRepository = providerRepository
+        self.conversationRepository = conversationRepository
 
         self.navigationSurface = NavigationSurface(
             conversationList: ConversationListSurface(service: conversationService),
-            conversationScreen: ConversationScreenSurface(useCase: sendMessageUseCase),
+            conversationScreen: ConversationScreenSurface(
+                useCase: sendMessageUseCase,
+                attachmentService: attachmentService
+            ),
             settings: SettingsSurface(
                 connectionService: providerConnectionService,
                 configurationService: configurationService,
@@ -266,6 +331,12 @@ public struct CompositionRoot: Sendable {
             workspaceService: workspaceService,
             configurationService: configurationService
         )
-        return try await bootstrap.resolve()
+        let defaultWorkspace = try await bootstrap.resolve()
+
+        let messages = try await conversationRepository
+            .allConversations()
+            .flatMap(\.history)
+        try await attachmentService.cleanupOrphans(referencedBy: messages)
+        return defaultWorkspace
     }
 }

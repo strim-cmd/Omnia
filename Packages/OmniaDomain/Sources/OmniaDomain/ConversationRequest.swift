@@ -14,17 +14,21 @@ public struct ConversationRequest: Equatable, Sendable {
     public let model: ModelReference
     /// The exact provider selected for this request, when explicitly resolved.
     public let provider: ProviderIdentity?
+    /// Transient, validated payloads for attachment metadata in history.
+    public let resolvedAttachments: [ResolvedAttachment]
 
     /// Creates a conversation request.
     public init(
         identity: CapabilityRequestIdentity,
         history: [Message],
         model: ModelReference,
-        provider: ProviderIdentity? = nil
+        provider: ProviderIdentity? = nil,
+        resolvedAttachments: [ResolvedAttachment] = []
     ) {
         self.identity = identity
         self.history = history
         self.model = model
         self.provider = provider
+        self.resolvedAttachments = resolvedAttachments
     }
 }

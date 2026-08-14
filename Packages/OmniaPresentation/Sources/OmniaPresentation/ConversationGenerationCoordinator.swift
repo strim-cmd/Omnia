@@ -279,6 +279,8 @@ actor ConversationGenerationCoordinator {
         return ConversationScreenState(
             messages: state.messages,
             draft: state.draft,
+            draftAttachments: state.draftAttachments,
+            attachmentIssue: state.attachmentIssue,
             streamingCondition: .interrupted(partialContent: partialContent),
             failure: state.failure,
             providerSelection: state.providerSelection
@@ -292,6 +294,8 @@ actor ConversationGenerationCoordinator {
         return ConversationScreenState(
             messages: interrupted.messages,
             draft: interrupted.draft,
+            draftAttachments: interrupted.draftAttachments,
+            attachmentIssue: interrupted.attachmentIssue,
             streamingCondition: interrupted.streamingCondition,
             failure: .unexpected,
             providerSelection: interrupted.providerSelection

@@ -39,10 +39,13 @@ internal enum CapabilityMapping {
     /// The message history becomes the `messages` list (`system`, `user`, and
     /// `assistant` roles in order), `ModelReference.name` becomes `model`, and
     /// `stream` is `false` (DES-010 §3.9.2).
-    static func request(from request: ConversationRequest) -> ChatCompletionRequest {
+    static func request(from request: ConversationRequest) throws -> ChatCompletionRequest {
         ChatCompletionRequest(
             model: request.model.name,
-            messages: request.history.map(Self.chatMessage(from:)),
+            messages: try chatMessages(
+                from: request.history,
+                resolvedAttachments: request.resolvedAttachments
+            ),
             stream: false,
             temperature: nil,
             maxTokens: nil
@@ -53,10 +56,13 @@ internal enum CapabilityMapping {
     ///
     /// The message history becomes the `messages` list, `ModelReference.name`
     /// becomes `model`, and `stream` is `true` (DES-010 §3.9.2).
-    static func request(from request: StreamingRequest) -> ChatCompletionRequest {
+    static func request(from request: StreamingRequest) throws -> ChatCompletionRequest {
         ChatCompletionRequest(
             model: request.model.name,
-            messages: request.history.map(Self.chatMessage(from:)),
+            messages: try chatMessages(
+                from: request.history,
+                resolvedAttachments: request.resolvedAttachments
+            ),
             stream: true,
             temperature: nil,
             maxTokens: nil
@@ -134,8 +140,65 @@ internal enum CapabilityMapping {
 
     // MARK: Helpers
 
-    private static func chatMessage(from message: Message) -> ChatMessage {
-        ChatMessage(role: wireRole(for: message.role), content: message.content)
+    private static func chatMessages(
+        from history: [Message],
+        resolvedAttachments: [ResolvedAttachment]
+    ) throws -> [ChatMessage] {
+        let resolved = Dictionary(
+            resolvedAttachments.map { ($0.attachment.identity, $0) },
+            uniquingKeysWith: { first, _ in first }
+        )
+        return try history.map { message in
+            guard !message.attachments.isEmpty else {
+                return ChatMessage(
+                    role: wireRole(for: message.role),
+                    content: message.content
+                )
+            }
+            var parts: [ChatContentPart] = []
+            if !message.content.isEmpty {
+                parts.append(.text(message.content))
+            }
+            for attachment in message.attachments {
+                guard let value = resolved[attachment.identity],
+                      value.attachment == attachment
+                else {
+                    throw CapabilityError.invalidRequest
+                }
+                switch value.payload {
+                case .image(let data, let mediaType):
+                    guard attachment.kind == .image,
+                          mediaType == attachment.mediaType,
+                          mediaType.hasPrefix("image/")
+                    else {
+                        throw CapabilityError.invalidRequest
+                    }
+                    parts.append(
+                        .imageURL(
+                            "data:\(mediaType);base64,\(data.base64EncodedString())"
+                        )
+                    )
+                case .extractedText(let text):
+                    guard attachment.kind == .pdf || attachment.kind == .plainText else {
+                        throw CapabilityError.invalidRequest
+                    }
+                    parts.append(
+                        .text(
+                            "[Attachment: \(safeName(attachment.fileName)) (\(attachment.mediaType))]\n\(text)"
+                        )
+                    )
+                }
+            }
+            guard !parts.isEmpty else {
+                throw CapabilityError.invalidRequest
+            }
+            return ChatMessage(role: wireRole(for: message.role), parts: parts)
+        }
+    }
+
+    private static func safeName(_ value: String) -> String {
+        value.replacingOccurrences(of: "\\", with: "/")
+            .split(separator: "/").last.map(String.init) ?? "Attachment"
     }
 
     private static func wireRole(for role: MessageRole) -> String {

@@ -1,5 +1,6 @@
 #if canImport(SwiftUI)
 
+import Foundation
 import OmniaApplication
 import SwiftUI
 #if canImport(UIKit)
@@ -265,7 +266,11 @@ public struct RootView: View {
             onCopy: copy(at:),
             onSelectModel: { selectModel($0, for: identity) },
             onOpenProviders: openProvidersFromConversation,
-            onOpenMenu: presentMenu
+            onOpenMenu: presentMenu,
+            onAddFiles: { addFiles($0, to: identity) },
+            onStageAttachments: { stageAttachments($0, for: identity) },
+            onRemoveAttachment: { removeAttachment($0, from: identity) },
+            onAttachmentFailure: { reportAttachmentFailure($0, for: identity) }
         )
     }
 
@@ -616,6 +621,9 @@ public struct RootView: View {
         Task { @MainActor in
             do {
                 await generationCoordinator.discard(identity)
+                for attachment in conversationStates[identity]?.draftAttachments ?? [] {
+                    try? await surface.conversationScreen.remove(attachment)
+                }
                 try await surface.conversationList.delete(identity)
                 conversationStates[identity] = nil
                 conversationDrafts[identity] = nil
@@ -638,26 +646,169 @@ public struct RootView: View {
     /// cooperative and distinct from failure (DES-008, ARC-001).
     private func send(_ text: String) {
         guard case .conversationScreen(let identity) = navigation.currentRoute else { return }
-        let message = Message(role: .user, content: text)
+        let baseHistory = conversationStates[identity]?.messages ?? []
+        let attachments = conversationStates[identity]?.draftAttachments ?? []
+        let message = Message(
+            role: .user,
+            content: text,
+            attachments: attachments
+        )
         let request = SendMessageRequest(
             conversation: identity,
             message: message,
             modelSelection: conversationModelSelections[identity]
         )
-        let history = (conversationStates[identity]?.messages ?? [])
-            + [MessagePresentation(message: message)]
+        let history = baseHistory + [MessagePresentation(message: message)]
         let conversationScreen = surface.conversationScreen
         startGeneration(
             for: identity,
             initialState: ConversationScreenState(
                 messages: history,
+                draft: text,
+                draftAttachments: attachments,
                 streamingCondition: .thinking
             )
         ) { consume in
             try await conversationScreen.performSend(
                 request,
                 rendering: history,
+                fallbackHistory: baseHistory,
+                preservingDraft: text,
+                draftAttachments: attachments,
+                onAccepted: {
+                    await MainActor.run {
+                        conversationDrafts[identity] = ""
+                        if let current = conversationStates[identity] {
+                            conversationStates[identity] = current
+                                .replacingDraft("")
+                                .replacingDraftAttachments([])
+                        }
+                    }
+                },
                 onState: consume
+            )
+        }
+    }
+
+    private func addFiles(_ urls: [URL], to identity: ConversationIdentity) {
+        Task { @MainActor in
+            let current = conversationStates[identity] ?? ConversationScreenState(messages: [])
+            do {
+                let attachments = try await surface.conversationScreen.stageFiles(
+                    urls,
+                    existing: current.draftAttachments
+                )
+                conversationStates[identity] = current.replacingDraftAttachments(attachments)
+                await validateAttachments(for: identity)
+            } catch let error as AttachmentError {
+                conversationStates[identity] = current.replacingDraftAttachments(
+                    current.draftAttachments,
+                    issue: error
+                )
+            } catch {
+                conversationStates[identity] = current.replacingDraftAttachments(
+                    current.draftAttachments,
+                    issue: .storageUnavailable
+                )
+            }
+        }
+    }
+
+    private func stageAttachments(
+        _ candidates: [AttachmentImportCandidate],
+        for identity: ConversationIdentity
+    ) {
+        Task { @MainActor in
+            let current = conversationStates[identity] ?? ConversationScreenState(messages: [])
+            do {
+                let attachments = try await surface.conversationScreen.stage(
+                    candidates,
+                    existing: current.draftAttachments
+                )
+                conversationStates[identity] = current.replacingDraftAttachments(attachments)
+                await validateAttachments(for: identity)
+            } catch let error as AttachmentError {
+                conversationStates[identity] = current.replacingDraftAttachments(
+                    current.draftAttachments,
+                    issue: error
+                )
+            } catch {
+                conversationStates[identity] = current.replacingDraftAttachments(
+                    current.draftAttachments,
+                    issue: .storageUnavailable
+                )
+            }
+        }
+    }
+
+    private func removeAttachment(
+        _ attachment: MessageAttachment,
+        from identity: ConversationIdentity
+    ) {
+        Task { @MainActor in
+            let current = conversationStates[identity] ?? ConversationScreenState(messages: [])
+            do {
+                try await surface.conversationScreen.remove(attachment)
+                let attachments = current.draftAttachments.filter {
+                    $0.identity != attachment.identity
+                }
+                conversationStates[identity] = current.replacingDraftAttachments(attachments)
+                await validateAttachments(for: identity)
+            } catch let error as AttachmentError {
+                conversationStates[identity] = current.replacingDraftAttachments(
+                    current.draftAttachments,
+                    issue: error
+                )
+            } catch {
+                conversationStates[identity] = current.replacingDraftAttachments(
+                    current.draftAttachments,
+                    issue: .storageUnavailable
+                )
+            }
+        }
+    }
+
+    private func reportAttachmentFailure(
+        _ error: AttachmentError,
+        for identity: ConversationIdentity
+    ) {
+        let current = conversationStates[identity] ?? ConversationScreenState(messages: [])
+        conversationStates[identity] = current.replacingDraftAttachments(
+            current.draftAttachments,
+            issue: error
+        )
+    }
+
+    @MainActor
+    private func validateAttachments(for identity: ConversationIdentity) async {
+        guard let current = conversationStates[identity] else { return }
+        guard !current.draftAttachments.isEmpty else {
+            conversationStates[identity] = current.replacingDraftAttachments([])
+            return
+        }
+        guard let selection = conversationModelSelections[identity] else {
+            conversationStates[identity] = current.replacingDraftAttachments(
+                current.draftAttachments
+            )
+            return
+        }
+        do {
+            try await surface.conversationScreen.validate(
+                current.draftAttachments,
+                for: selection
+            )
+            conversationStates[identity] = current.replacingDraftAttachments(
+                current.draftAttachments
+            )
+        } catch let error as AttachmentError {
+            conversationStates[identity] = current.replacingDraftAttachments(
+                current.draftAttachments,
+                issue: error
+            )
+        } catch {
+            conversationStates[identity] = current.replacingDraftAttachments(
+                current.draftAttachments,
+                issue: .storageUnavailable
             )
         }
     }
@@ -692,7 +843,11 @@ public struct RootView: View {
         let prompt = messages[promptIndex]
         let request = SendMessageRequest(
             conversation: identity,
-            message: Message(role: .user, content: prompt.content?.accessibilityText ?? ""),
+            message: Message(
+                role: .user,
+                content: prompt.content?.accessibilityText ?? "",
+                attachments: prompt.attachments
+            ),
             modelSelection: conversationModelSelections[identity]
         )
         let history = Array(messages.prefix(promptIndex + 1))
@@ -758,7 +913,11 @@ public struct RootView: View {
             let prompt = messages[lastUserIndex]
             let request = SendMessageRequest(
                 conversation: identity,
-                message: Message(role: .user, content: prompt.content?.accessibilityText ?? ""),
+                message: Message(
+                    role: .user,
+                    content: prompt.content?.accessibilityText ?? "",
+                    attachments: prompt.attachments
+                ),
                 modelSelection: conversationModelSelections[identity]
             )
             let history = Array(messages.prefix(lastUserIndex + 1))
@@ -847,6 +1006,7 @@ public struct RootView: View {
                     for: conversation
                 )
                 conversationModelSelections[conversation] = selection
+                await validateAttachments(for: conversation)
             } catch {
                 settingsState = failingSettingsState(error)
             }

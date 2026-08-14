@@ -3,11 +3,56 @@
 import Foundation
 import OmniaApplication
 import SwiftUI
+#if canImport(CoreTransferable)
+import CoreTransferable
+#endif
+#if canImport(PhotosUI)
+import PhotosUI
+#endif
+#if canImport(UniformTypeIdentifiers)
+import UniformTypeIdentifiers
+#endif
 #if canImport(UIKit)
 import UIKit
 #endif
 #if canImport(AppKit)
 import AppKit
+#endif
+
+#if canImport(CoreTransferable) && canImport(PhotosUI) && canImport(UniformTypeIdentifiers)
+/// Requests a file representation from PhotosPicker and reads only one byte
+/// beyond the explicit limit. The temporary URL never escapes this transfer.
+private struct BoundedPhotoTransfer: Transferable {
+    let data: Data
+
+    static var transferRepresentation: some TransferRepresentation {
+        FileRepresentation(importedContentType: .image) { received in
+            let maximumByteCount = AttachmentLimits().maximumFileBytes
+            guard maximumByteCount >= 0, maximumByteCount < Int.max else {
+                throw AttachmentError.storageUnavailable
+            }
+            do {
+                let handle = try FileHandle(forReadingFrom: received.file)
+                defer { try? handle.close() }
+                let data = try handle.read(upToCount: maximumByteCount + 1) ?? Data()
+                guard !data.isEmpty else {
+                    throw AttachmentError.empty(fileName: "Photo")
+                }
+                guard data.count <= maximumByteCount else {
+                    throw AttachmentError.fileTooLarge(
+                        fileName: "Photo",
+                        limit: maximumByteCount
+                    )
+                }
+                return BoundedPhotoTransfer(data: data)
+            } catch let error as AttachmentError {
+                throw error
+            } catch {
+                throw AttachmentError.unreadable(fileName: "Photo")
+            }
+        }
+    }
+}
 #endif
 
 /// The SwiftUI rendering of the conversation screen (DES-012 §3.3): the
@@ -51,6 +96,14 @@ public struct ConversationScreenView: View {
     public let onOpenProviders: () -> Void
     /// Translates the open-menu intent: the navigation drawer is presented.
     public let onOpenMenu: () -> Void
+    /// Imports security-scoped file-picker URLs into app-owned storage.
+    public let onAddFiles: ([URL]) -> Void
+    /// Imports in-memory photo-picker candidates into app-owned storage.
+    public let onStageAttachments: ([AttachmentImportCandidate]) -> Void
+    /// Removes one staged app-owned attachment.
+    public let onRemoveAttachment: (MessageAttachment) -> Void
+    /// Presents a safe picker/transfer failure without discarding the draft.
+    public let onAttachmentFailure: (AttachmentError) -> Void
 
     /// The coordinate space of the scroll view, used to measure the viewport
     /// and the bottom marker's position (UX audit U2).
@@ -77,6 +130,10 @@ public struct ConversationScreenView: View {
     /// The waveform pulse of the streaming indicator, toggled so the bars
     /// animate while a stream is active or thinking (new_design.md §5).
     @State private var waveformPulse = false
+    @State private var isFileImporterPresented = false
+    #if canImport(PhotosUI)
+    @State private var selectedPhotos: [PhotosPickerItem] = []
+    #endif
     /// Whether the composer owns keyboard focus. Focus is presentation-only:
     /// dismissing it never mutates the bound draft.
     @FocusState private var isComposerFocused: Bool
@@ -93,7 +150,11 @@ public struct ConversationScreenView: View {
         onCopy: @escaping (Int) -> Void,
         onSelectModel: @escaping (ProviderModelSelection) -> Void,
         onOpenProviders: @escaping () -> Void,
-        onOpenMenu: @escaping () -> Void
+        onOpenMenu: @escaping () -> Void,
+        onAddFiles: @escaping ([URL]) -> Void = { _ in },
+        onStageAttachments: @escaping ([AttachmentImportCandidate]) -> Void = { _ in },
+        onRemoveAttachment: @escaping (MessageAttachment) -> Void = { _ in },
+        onAttachmentFailure: @escaping (AttachmentError) -> Void = { _ in }
     ) {
         self.state = state
         self._draft = draft
@@ -105,6 +166,10 @@ public struct ConversationScreenView: View {
         self.onSelectModel = onSelectModel
         self.onOpenProviders = onOpenProviders
         self.onOpenMenu = onOpenMenu
+        self.onAddFiles = onAddFiles
+        self.onStageAttachments = onStageAttachments
+        self.onRemoveAttachment = onRemoveAttachment
+        self.onAttachmentFailure = onAttachmentFailure
     }
 
     public var body: some View {
@@ -179,6 +244,26 @@ public struct ConversationScreenView: View {
             announceStreamingTransition(from: previousStreamingCondition, to: condition)
             previousStreamingCondition = condition
         }
+        #if canImport(PhotosUI)
+        .onChange(of: selectedPhotos) { items in
+            loadPhotos(items)
+        }
+        #endif
+        #if canImport(UniformTypeIdentifiers)
+        .fileImporter(
+            isPresented: $isFileImporterPresented,
+            allowedContentTypes: [.image, .pdf, .plainText, .text, .data],
+            allowsMultipleSelection: true
+        ) { result in
+            if case .success(let urls) = result {
+                onAddFiles(urls)
+            } else if case .failure(let error) = result,
+                      !(error is CancellationError),
+                      (error as? CocoaError)?.code != .userCancelled {
+                onAttachmentFailure(.unreadable(fileName: "Attachment"))
+            }
+        }
+        #endif
     }
 
     /// The custom top bar of the screen: the menu button and centered
@@ -208,54 +293,124 @@ public struct ConversationScreenView: View {
     /// a 46-point input capsule whose trailing edge contains the 34-point
     /// send/stop circle. The capsule expands only as multiline input needs it.
     private var composer: some View {
-        HStack(alignment: .bottom, spacing: OmniaTheme.Spacing.sm) {
-            OmniaIconButton(
-                systemImage: "paperclip",
-                tint: OmniaTheme.Colors.textSecondary,
-                size: 44,
-                background: OmniaTheme.Colors.elevatedSurface,
-                action: {}
-            )
-            .accessibilityLabel(Text(Localized.attachment))
-            .frame(width: 44, height: 44)
-            .overlay(
-                Circle()
-                    .stroke(OmniaTheme.Colors.border, lineWidth: 0.5)
-            )
-            .padding(.bottom, 1)
-
-            ZStack(alignment: .bottomTrailing) {
-                TextField(
-                    "",
-                    text: $draft,
-                    prompt: Text(Localized.messagePlaceholder)
-                        .foregroundColor(OmniaTheme.Colors.textMuted),
-                    axis: .vertical
-                )
-                    .font(OmniaTheme.Typography.body)
-                    .foregroundStyle(OmniaTheme.Colors.textPrimary)
-                    .tint(OmniaTheme.Colors.accent)
-                    .autocorrectionDisabled()
-                    .textFieldStyle(.plain)
-                    .lineLimit(1...6)
-                    .frame(minHeight: 46, alignment: .center)
-                    .padding(.leading, OmniaTheme.Spacing.md)
-                    .padding(.trailing, 50)
-                    .focused($isComposerFocused)
-
-                composerActionButton
-                    .padding(1)
+        VStack(alignment: .leading, spacing: OmniaTheme.Spacing.xs) {
+            if !state.draftAttachments.isEmpty {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: OmniaTheme.Spacing.sm) {
+                        ForEach(state.draftAttachments, id: \.identity) { attachment in
+                            attachmentChip(attachment)
+                        }
+                    }
+                }
             }
-            .background(OmniaTheme.Colors.elevatedSurface, in: Capsule())
-            .overlay(
-                Capsule()
-                    .stroke(OmniaTheme.Colors.border, lineWidth: 0.5)
-            )
-            .shadow(color: OmniaTheme.Shadows.composer, radius: 10, x: 0, y: 4)
+            if let issue = state.attachmentIssue {
+                Text(Localized.attachmentError(issue))
+                    .font(OmniaTheme.Typography.secondary)
+                    .foregroundStyle(OmniaTheme.Colors.warning)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .accessibilityLabel(Text(Localized.attachmentError(issue)))
+            }
+            HStack(alignment: .bottom, spacing: OmniaTheme.Spacing.sm) {
+                attachmentPicker
+
+                ZStack(alignment: .bottomTrailing) {
+                    TextField(
+                        "",
+                        text: $draft,
+                        prompt: Text(Localized.messagePlaceholder)
+                            .foregroundColor(OmniaTheme.Colors.textMuted),
+                        axis: .vertical
+                    )
+                        .font(OmniaTheme.Typography.body)
+                        .foregroundStyle(OmniaTheme.Colors.textPrimary)
+                        .tint(OmniaTheme.Colors.accent)
+                        .autocorrectionDisabled()
+                        .textFieldStyle(.plain)
+                        .lineLimit(1...6)
+                        .frame(minHeight: 46, alignment: .center)
+                        .padding(.leading, OmniaTheme.Spacing.md)
+                        .padding(.trailing, 50)
+                        .focused($isComposerFocused)
+
+                    composerActionButton
+                        .padding(1)
+                }
+                .background(OmniaTheme.Colors.elevatedSurface, in: Capsule())
+                .overlay(
+                    Capsule()
+                        .stroke(OmniaTheme.Colors.border, lineWidth: 0.5)
+                )
+                .shadow(color: OmniaTheme.Shadows.composer, radius: 10, x: 0, y: 4)
+            }
         }
         .padding(.horizontal, OmniaTheme.Spacing.lg)
         .padding(.top, OmniaTheme.Spacing.sm)
         .padding(.bottom, OmniaTheme.Spacing.md)
+    }
+
+    @ViewBuilder
+    private var attachmentPicker: some View {
+        Menu {
+            #if canImport(PhotosUI)
+            PhotosPicker(
+                selection: $selectedPhotos,
+                maxSelectionCount: 8,
+                matching: .images
+            ) {
+                Label(Localized.addPhotos, systemImage: "photo.on.rectangle")
+            }
+            #endif
+            #if canImport(UniformTypeIdentifiers)
+            Button {
+                isFileImporterPresented = true
+            } label: {
+                Label(Localized.addFiles, systemImage: "doc")
+            }
+            #endif
+        } label: {
+            Image(systemName: "paperclip")
+                .font(.system(size: 17, weight: .semibold))
+                .foregroundStyle(OmniaTheme.Colors.textSecondary)
+                .frame(width: 44, height: 44)
+                .background(OmniaTheme.Colors.elevatedSurface, in: Circle())
+                .overlay(Circle().stroke(OmniaTheme.Colors.border, lineWidth: 0.5))
+        }
+        .accessibilityLabel(Text(Localized.attachment))
+        .disabled(isStreaming)
+        .padding(.bottom, 1)
+    }
+
+    private func attachmentChip(_ attachment: MessageAttachment) -> some View {
+        HStack(spacing: OmniaTheme.Spacing.xs) {
+            Image(systemName: attachmentIcon(attachment.kind))
+                .foregroundStyle(OmniaTheme.Colors.accent)
+            VStack(alignment: .leading, spacing: 1) {
+                Text(attachment.fileName)
+                    .lineLimit(1)
+                Text(
+                    attachment.mediaType + " · " + ByteCountFormatter.string(
+                        fromByteCount: Int64(attachment.byteCount),
+                        countStyle: .file
+                    )
+                )
+                .font(OmniaTheme.Typography.caption)
+                .foregroundStyle(OmniaTheme.Colors.textMuted)
+            }
+            Button {
+                onRemoveAttachment(attachment)
+            } label: {
+                Image(systemName: "xmark.circle.fill")
+                    .foregroundStyle(OmniaTheme.Colors.textMuted)
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(Text(Localized.removeAttachment(attachment.fileName)))
+        }
+        .font(OmniaTheme.Typography.secondary)
+        .padding(.leading, OmniaTheme.Spacing.sm)
+        .padding(.trailing, OmniaTheme.Spacing.xs)
+        .padding(.vertical, OmniaTheme.Spacing.xs)
+        .background(OmniaTheme.Colors.elevatedSurface, in: Capsule())
+        .overlay(Capsule().stroke(OmniaTheme.Colors.border, lineWidth: 0.5))
     }
 
     private var composerActionButton: some View {
@@ -316,7 +471,8 @@ public struct ConversationScreenView: View {
     /// pair to be currently selectable. An unavailable saved model keeps the
     /// draft intact until the user explicitly chooses a replacement.
     private var canSend: Bool {
-        guard !trimmedDraft.isEmpty else { return false }
+        guard !trimmedDraft.isEmpty || !state.draftAttachments.isEmpty else { return false }
+        guard state.attachmentIssue == nil else { return false }
         guard let selection = state.providerSelection else { return false }
         return selection.selectedModel != nil && selection.selectedIsAvailable
     }
@@ -328,8 +484,47 @@ public struct ConversationScreenView: View {
     private func submit() {
         guard !isStreaming, canSend else { return }
         onSend(draft)
-        draft = ""
     }
+
+    #if canImport(PhotosUI)
+    private func loadPhotos(_ items: [PhotosPickerItem]) {
+        guard !items.isEmpty else { return }
+        Task {
+            var candidates: [AttachmentImportCandidate] = []
+            var failure: AttachmentError?
+            for (index, item) in items.enumerated() {
+                do {
+                    guard let transfer = try await item.loadTransferable(
+                        type: BoundedPhotoTransfer.self
+                    ) else {
+                        failure = .unreadable(fileName: "Photo-\(index + 1)")
+                        break
+                    }
+                    candidates.append(
+                        AttachmentImportCandidate(
+                            data: transfer.data,
+                            fileName: "Photo-\(index + 1)"
+                        )
+                    )
+                } catch let error as AttachmentError {
+                    failure = error
+                    break
+                } catch {
+                    failure = .unreadable(fileName: "Photo-\(index + 1)")
+                    break
+                }
+            }
+            await MainActor.run {
+                if let failure {
+                    onAttachmentFailure(failure)
+                } else if !candidates.isEmpty {
+                    onStageAttachments(candidates)
+                }
+                selectedPhotos = []
+            }
+        }
+    }
+    #endif
 
     // MARK: Provider selection (UX audit V2)
 
@@ -604,24 +799,51 @@ public struct ConversationScreenView: View {
     /// content (new_design.md §5).
     private func userBubble(_ message: MessagePresentation) -> some View {
         VStack(alignment: .trailing, spacing: 4) {
-            if let content = message.content {
-                Text(content.accessibilityText)
-                    .font(OmniaTheme.Typography.body)
-                    .foregroundStyle(Color.white)
-                    .fixedSize(horizontal: false, vertical: true)
-                    .padding(OmniaTheme.Spacing.md)
-                    .background(
-                        LinearGradient(
-                            colors: [
-                                OmniaTheme.Colors.userBubbleStart,
-                                OmniaTheme.Colors.userBubbleEnd
-                            ],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        ),
-                        in: RoundedRectangle(cornerRadius: OmniaTheme.Radii.bubble, style: .continuous)
-                    )
+            if message.content != nil || !message.attachments.isEmpty {
+                VStack(alignment: .leading, spacing: OmniaTheme.Spacing.sm) {
+                    if let content = message.content {
+                        Text(content.accessibilityText)
+                            .font(OmniaTheme.Typography.body)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    ForEach(message.attachments, id: \.identity) { attachment in
+                        HStack(spacing: OmniaTheme.Spacing.xs) {
+                            Image(systemName: attachmentIcon(attachment.kind))
+                            Text(attachment.fileName).lineLimit(1)
+                            Text(
+                                attachment.mediaType + " · " + ByteCountFormatter.string(
+                                    fromByteCount: Int64(attachment.byteCount),
+                                    countStyle: .file
+                                )
+                            )
+                            .opacity(0.72)
+                        }
+                        .font(OmniaTheme.Typography.secondary)
+                        .accessibilityElement(children: .combine)
+                    }
+                }
+                .foregroundStyle(Color.white)
+                .padding(OmniaTheme.Spacing.md)
+                .background(
+                    LinearGradient(
+                        colors: [
+                            OmniaTheme.Colors.userBubbleStart,
+                            OmniaTheme.Colors.userBubbleEnd
+                        ],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    ),
+                    in: RoundedRectangle(cornerRadius: OmniaTheme.Radii.bubble, style: .continuous)
+                )
             }
+        }
+    }
+
+    private func attachmentIcon(_ kind: AttachmentKind) -> String {
+        switch kind {
+        case .image: return "photo"
+        case .pdf: return "doc.richtext"
+        case .plainText: return "doc.text"
         }
     }
 
@@ -960,6 +1182,8 @@ public struct ConversationScreenView: View {
                 return message(for: error)
             case .credentialStorage(let error):
                 return message(for: error)
+            case .attachment(let error):
+                return Localized.attachmentError(error)
             case .unexpected:
                 return Localized.unexpectedError
             }
@@ -992,6 +1216,8 @@ public struct ConversationScreenView: View {
             switch failure {
             case .providerUnavailable:
                 return Localized.noProviderAvailable
+            case .modelUnavailable(let model):
+                return Localized.modelUnavailable(model.name)
             case .invalidRequest:
                 return Localized.requestSendFailed
             case .invalidResponse:

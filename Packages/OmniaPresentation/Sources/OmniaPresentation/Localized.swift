@@ -1,4 +1,5 @@
 import Foundation
+import OmniaApplication
 
 /// Localized strings for the presentation layer (UX audit A5).
 ///
@@ -21,6 +22,8 @@ public enum Localized {
     public static var appearance: String { localized("appearance") }
     public static var assistantIsResponding: String { localized("assistant_is_responding") }
     public static var attachment: String { localized("attachment") }
+    public static var addPhotos: String { localized("add_photos") }
+    public static var addFiles: String { localized("add_files") }
     public static var audio: String { localized("audio") }
     public static var automatic: String { localized("automatic") }
     public static var cancel: String { localized("cancel") }
@@ -143,5 +146,61 @@ public enum Localized {
     }
     public static func modelUnavailable(_ model: String) -> String {
         String(format: localized("model_unavailable"), model)
+    }
+    public static func removeAttachment(_ name: String) -> String {
+        String(format: localized("remove_attachment"), name)
+    }
+    public static func attachmentError(_ error: AttachmentError) -> String {
+        switch error {
+        case .unsupportedType(let fileName):
+            return String(format: localized("attachment_unsupported_type"), fileName)
+        case .unreadable(let fileName):
+            return String(format: localized("attachment_unreadable"), fileName)
+        case .empty(let fileName):
+            return String(format: localized("attachment_empty"), fileName)
+        case .fileTooLarge(let fileName, let limit):
+            return String(
+                format: localized("attachment_file_too_large"),
+                fileName,
+                ByteCountFormatter.string(fromByteCount: Int64(limit), countStyle: .file)
+            )
+        case .aggregateTooLarge(let limit):
+            return String(
+                format: localized("attachment_aggregate_too_large"),
+                ByteCountFormatter.string(fromByteCount: Int64(limit), countStyle: .file)
+            )
+        case .tooManyFiles(let limit):
+            return String(format: localized("attachment_too_many"), limit)
+        case .duplicate(let fileName):
+            return String(format: localized("attachment_duplicate"), fileName)
+        case .capabilityUnsupported(let kind):
+            return String(
+                format: localized("attachment_capability_unsupported"),
+                attachmentKind(kind)
+            )
+        case .capabilityUnknown(let kind):
+            return String(
+                format: localized("attachment_capability_unknown"),
+                attachmentKind(kind)
+            )
+        case .extractionFailed(let fileName):
+            return String(format: localized("attachment_extraction_failed"), fileName)
+        case .extractedTextTooLarge(let fileName, let limit):
+            return String(
+                format: localized("attachment_text_too_large"),
+                fileName,
+                limit
+            )
+        case .storageUnavailable:
+            return localized("attachment_storage_unavailable")
+        }
+    }
+
+    private static func attachmentKind(_ kind: AttachmentKind) -> String {
+        switch kind {
+        case .image: return localized("attachment_kind_image")
+        case .pdf: return localized("attachment_kind_pdf")
+        case .plainText: return localized("attachment_kind_text")
+        }
     }
 }

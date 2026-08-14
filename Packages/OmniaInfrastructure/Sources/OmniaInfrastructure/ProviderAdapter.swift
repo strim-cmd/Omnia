@@ -96,7 +96,7 @@ public struct OpenAICompatibleProviderAdapter: TextGenerationContract, Conversat
     /// DES-010 §3.9.3; a credential-resolution failure surfaces as the Domain
     /// `CredentialStorageError`, never wrapped (DES-009 §3.7, §3.9).
     public func sendMessage(_ request: ConversationRequest) async throws -> ConversationResponse {
-        let wireRequest = CapabilityMapping.request(from: request)
+        let wireRequest = try CapabilityMapping.request(from: request)
         let response: ChatCompletionResponse
         do {
             response = try await client.chatCompletions(
@@ -128,7 +128,7 @@ public struct OpenAICompatibleProviderAdapter: TextGenerationContract, Conversat
     /// (DES-010 §3.9.3); a credential-resolution failure surfaces as the Domain
     /// `CredentialStorageError`, never wrapped (DES-009 §3.7, §3.9).
     public func stream(_ request: StreamingRequest) async throws -> AsyncThrowingStream<StreamingUpdate, Error> {
-        let wireRequest = CapabilityMapping.request(from: request)
+        let wireRequest = try CapabilityMapping.request(from: request)
         let chunkStream: AsyncThrowingStream<ChatCompletionChunk, any Error>
         do {
             chunkStream = try await client.streamChatCompletions(

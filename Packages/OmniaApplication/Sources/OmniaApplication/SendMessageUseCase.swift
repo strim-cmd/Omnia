@@ -31,16 +31,25 @@ public struct SendMessageUseCase: Sendable {
     private let streamingContract: any StreamingContract
     private let selectionService: ProviderSelectionService
     private let conversationRepository: any ConversationRepository
+    private let resolveAttachments: @Sendable (
+        [Message],
+        ProviderModelSelection
+    ) async throws -> [ResolvedAttachment]
 
     /// Creates a send-message use case over the given Domain contracts.
     public init(
         streamingContract: any StreamingContract,
         selectionService: ProviderSelectionService,
-        conversationRepository: any ConversationRepository
+        conversationRepository: any ConversationRepository,
+        resolveAttachments: @escaping @Sendable (
+            [Message],
+            ProviderModelSelection
+        ) async throws -> [ResolvedAttachment] = { _, _ in [] }
     ) {
         self.streamingContract = streamingContract
         self.selectionService = selectionService
         self.conversationRepository = conversationRepository
+        self.resolveAttachments = resolveAttachments
     }
 
     /// Performs the streaming flow for `request` and delivers the Domain
@@ -61,8 +70,12 @@ public struct SendMessageUseCase: Sendable {
     public func send(
         _ request: SendMessageRequest
     ) async throws -> AsyncThrowingStream<StreamingUpdate, Error> {
-        let (conversation, selection) = try await prepareSend(request)
-        return makeStream(initialConversation: conversation, selection: selection)
+        let prepared = try await prepareSend(request)
+        return makeStream(
+            initialConversation: prepared.conversation,
+            selection: prepared.selection,
+            resolvedAttachments: prepared.attachments
+        )
     }
 
     /// Resumes the interrupted response of a conversation, delivering the
@@ -81,8 +94,12 @@ public struct SendMessageUseCase: Sendable {
     public func resume(
         _ conversation: ConversationIdentity
     ) async throws -> AsyncThrowingStream<StreamingUpdate, Error> {
-        let (conversation, selection) = try await prepareResume(conversation)
-        return makeStream(initialConversation: conversation, selection: selection)
+        let prepared = try await prepareResume(conversation)
+        return makeStream(
+            initialConversation: prepared.conversation,
+            selection: prepared.selection,
+            resolvedAttachments: prepared.attachments
+        )
     }
 
     /// Performs a send in the caller's task, delivering each update only after
@@ -90,12 +107,15 @@ public struct SendMessageUseCase: Sendable {
     /// the interrupted partial response has been persisted.
     public func performSend(
         _ request: SendMessageRequest,
+        onAccepted: @escaping @Sendable () async -> Void = {},
         onUpdate: @escaping @Sendable (StreamingUpdate) async -> Void
     ) async throws {
-        let (conversation, selection) = try await prepareSend(request)
+        let prepared = try await prepareSend(request)
+        await onAccepted()
         try await consume(
-            initialConversation: conversation,
-            selection: selection,
+            initialConversation: prepared.conversation,
+            selection: prepared.selection,
+            resolvedAttachments: prepared.attachments,
             onUpdate: onUpdate
         )
     }
@@ -106,17 +126,22 @@ public struct SendMessageUseCase: Sendable {
         _ conversation: ConversationIdentity,
         onUpdate: @escaping @Sendable (StreamingUpdate) async -> Void
     ) async throws {
-        let (conversation, selection) = try await prepareResume(conversation)
+        let prepared = try await prepareResume(conversation)
         try await consume(
-            initialConversation: conversation,
-            selection: selection,
+            initialConversation: prepared.conversation,
+            selection: prepared.selection,
+            resolvedAttachments: prepared.attachments,
             onUpdate: onUpdate
         )
     }
 
     private func prepareSend(
         _ request: SendMessageRequest
-    ) async throws -> (Conversation, ProviderModelSelection) {
+    ) async throws -> (
+        conversation: Conversation,
+        selection: ProviderModelSelection,
+        attachments: [ResolvedAttachment]
+    ) {
         try validate(request)
         guard var conversation = try await conversationRepository.conversation(with: request.conversation) else {
             throw ApplicationValidationError.invalid(reason: "The conversation is not stored.")
@@ -141,14 +166,19 @@ public struct SendMessageUseCase: Sendable {
         // disappeared, the user can choose a replacement and retry without a
         // previously persisted copy of the same draft becoming a duplicate.
         try conversation.append(request.message)
+        let attachments = try await resolveAttachments(conversation.history, resolved)
         try await conversationRepository.save(conversation)
         try conversation.beginStreaming()
-        return (conversation, resolved)
+        return (conversation, resolved, attachments)
     }
 
     private func prepareResume(
         _ identity: ConversationIdentity
-    ) async throws -> (Conversation, ProviderModelSelection) {
+    ) async throws -> (
+        conversation: Conversation,
+        selection: ProviderModelSelection,
+        attachments: [ResolvedAttachment]
+    ) {
         guard var conversation = try await conversationRepository.conversation(with: identity) else {
             throw ApplicationValidationError.invalid(reason: "The conversation is not stored.")
         }
@@ -170,13 +200,16 @@ public struct SendMessageUseCase: Sendable {
         case .failure:
             throw CapabilityError.providerUnavailable
         }
+        let attachments = try await resolveAttachments(conversation.history, resolved)
         try conversation.beginStreaming()
-        return (conversation, resolved)
+        return (conversation, resolved, attachments)
     }
 
     /// Validates the request at the application boundary (ARC-009, DES-011 §3.6).
     private func validate(_ request: SendMessageRequest) throws {
-        guard !request.message.content.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+        guard !request.message.content.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                || !request.message.attachments.isEmpty
+        else {
             throw ApplicationValidationError.invalid(reason: "The user message is empty.")
         }
     }
@@ -185,14 +218,16 @@ public struct SendMessageUseCase: Sendable {
     /// events, and persists the terminal aggregate state (DES-011 §3.3).
     private func makeStream(
         initialConversation: Conversation,
-        selection: ProviderModelSelection
+        selection: ProviderModelSelection,
+        resolvedAttachments: [ResolvedAttachment]
     ) -> AsyncThrowingStream<StreamingUpdate, Error> {
         AsyncThrowingStream { continuation in
             let task = Task {
                 do {
                     try await consume(
                         initialConversation: initialConversation,
-                        selection: selection
+                        selection: selection,
+                        resolvedAttachments: resolvedAttachments
                     ) { update in
                         continuation.yield(update)
                     }
@@ -214,6 +249,7 @@ public struct SendMessageUseCase: Sendable {
     private func consume(
         initialConversation: Conversation,
         selection: ProviderModelSelection,
+        resolvedAttachments: [ResolvedAttachment],
         onUpdate: @escaping @Sendable (StreamingUpdate) async -> Void
     ) async throws {
         var conversation = initialConversation
@@ -221,7 +257,8 @@ public struct SendMessageUseCase: Sendable {
             identity: CapabilityRequestIdentity(),
             history: conversation.history,
             model: selection.model,
-            provider: selection.provider
+            provider: selection.provider,
+            resolvedAttachments: resolvedAttachments
         )
         do {
             let capabilityStream = try await streamingContract.stream(request)

@@ -24,7 +24,86 @@ internal struct ChatCompletionRequest: Codable, Equatable, Sendable {
 /// the wire form is independent of the Domain conversation model.
 internal struct ChatMessage: Codable, Equatable, Sendable {
     var role: String
-    var content: String
+    var content: ChatMessageContent
+
+    init(role: String, content: String) {
+        self.role = role
+        self.content = .text(content)
+    }
+
+    init(role: String, parts: [ChatContentPart]) {
+        self.role = role
+        self.content = .parts(parts)
+    }
+}
+
+/// Chat-completions accepts either a legacy string or typed multimodal parts.
+internal enum ChatMessageContent: Codable, Equatable, Sendable {
+    case text(String)
+    case parts([ChatContentPart])
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        if let text = try? container.decode(String.self) {
+            self = .text(text)
+        } else {
+            self = .parts(try container.decode([ChatContentPart].self))
+        }
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.singleValueContainer()
+        switch self {
+        case .text(let text):
+            try container.encode(text)
+        case .parts(let parts):
+            try container.encode(parts)
+        }
+    }
+}
+
+internal enum ChatContentPart: Codable, Equatable, Sendable {
+    case text(String)
+    case imageURL(String)
+
+    private enum CodingKeys: String, CodingKey {
+        case type, text
+        case imageURL = "image_url"
+    }
+
+    private struct ImageURLValue: Codable, Equatable, Sendable {
+        let url: String
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        switch try container.decode(String.self, forKey: .type) {
+        case "text":
+            self = .text(try container.decode(String.self, forKey: .text))
+        case "image_url":
+            self = .imageURL(
+                try container.decode(ImageURLValue.self, forKey: .imageURL).url
+            )
+        default:
+            throw DecodingError.dataCorruptedError(
+                forKey: .type,
+                in: container,
+                debugDescription: "Unsupported chat content part."
+            )
+        }
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        switch self {
+        case .text(let text):
+            try container.encode("text", forKey: .type)
+            try container.encode(text, forKey: .text)
+        case .imageURL(let url):
+            try container.encode("image_url", forKey: .type)
+            try container.encode(ImageURLValue(url: url), forKey: .imageURL)
+        }
+    }
 }
 
 /// The chat-completions response wire model (DES-010 §3.5).

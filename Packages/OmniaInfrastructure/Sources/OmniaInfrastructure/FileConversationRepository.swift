@@ -41,6 +41,18 @@ public final class FileConversationRepository: ConversationRepository, Sendable 
         return try serializer.fromDTO(dto)
     }
 
+    /// Returns every stored conversation in stable identity order. This
+    /// Infrastructure-only maintenance surface supports attachment reference
+    /// audits without widening the Domain repository contract.
+    public func allConversations() async throws -> [Conversation] {
+        var conversations: [Conversation] = []
+        for key in try store.allKeys() {
+            guard let dto: ConversationDTO = try store.load(key: key) else { continue }
+            conversations.append(try serializer.fromDTO(dto))
+        }
+        return conversations
+    }
+
     /// Removes the stored conversation with `identity`.
     ///
     /// Removing a conversation that is not stored is not an error; the

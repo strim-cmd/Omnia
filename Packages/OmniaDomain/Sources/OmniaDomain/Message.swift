@@ -22,10 +22,17 @@ public struct Message: Equatable, Hashable, Sendable {
     public let role: MessageRole
     /// The message content.
     public let content: String
+    /// Durable attachment metadata in the order selected by the user.
+    public let attachments: [MessageAttachment]
 
     /// Creates a message contribution with the given role and content.
-    public init(role: MessageRole, content: String) {
+    public init(
+        role: MessageRole,
+        content: String,
+        attachments: [MessageAttachment] = []
+    ) {
         self.role = role
         self.content = content
+        self.attachments = attachments
     }
 }

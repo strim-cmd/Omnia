@@ -25,16 +25,21 @@ public struct ConversationService: Sendable {
     private let conversationRepository: any ConversationRepository
     private let workspaceRepository: any WorkspaceRepository
     private let defaultModelSelection: @Sendable () async throws -> ProviderModelSelection?
+    private let cleanupAttachments: @Sendable ([MessageAttachment]) async throws -> Void
 
     /// Creates a conversation service over the given repository contracts.
     public init(
         conversationRepository: any ConversationRepository,
         workspaceRepository: any WorkspaceRepository,
-        defaultModelSelection: @escaping @Sendable () async throws -> ProviderModelSelection? = { nil }
+        defaultModelSelection: @escaping @Sendable () async throws -> ProviderModelSelection? = { nil },
+        cleanupAttachments: @escaping @Sendable (
+            [MessageAttachment]
+        ) async throws -> Void = { _ in }
     ) {
         self.conversationRepository = conversationRepository
         self.workspaceRepository = workspaceRepository
         self.defaultModelSelection = defaultModelSelection
+        self.cleanupAttachments = cleanupAttachments
     }
 
     /// Creates an empty conversation with a fresh identity and persists it
@@ -121,6 +126,11 @@ public struct ConversationService: Sendable {
     /// Removing a conversation that is not stored is not an error; the
     /// operation is idempotent (DES-009 §3.5).
     public func delete(_ identity: ConversationIdentity) async throws {
+        let attachments = try await conversationRepository
+            .conversation(with: identity)?
+            .history
+            .flatMap(\.attachments) ?? []
         try await conversationRepository.delete(identity)
+        try await cleanupAttachments(attachments)
     }
 }
