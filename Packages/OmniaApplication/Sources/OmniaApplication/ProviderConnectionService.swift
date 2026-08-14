@@ -78,7 +78,7 @@ public struct ProviderConnectionService: Sendable {
     public func configure(
         _ request: ConfigureProviderRequest
     ) async throws -> ProviderConnection {
-        try await configureValidated(request, endpoint: nil, model: nil)
+        try await configureValidated(request, endpoint: nil, model: nil, apiKind: .default)
     }
 
     /// Configures a new provider connection for `request` and records its
@@ -97,34 +97,39 @@ public struct ProviderConnectionService: Sendable {
         endpoint: String
     ) async throws -> ProviderConnection {
         let endpoint = try Self.validatedEndpoint(endpoint)
-        return try await configureValidated(request, endpoint: endpoint, model: nil)
+        return try await configureValidated(request, endpoint: endpoint, model: nil, apiKind: .default)
     }
 
     /// Configures a new provider connection for `request`, records its
-    /// OpenAI-compatible endpoint, and records its optional model — the model
-    /// and endpoint collection of the connection form (DES-011 §3.9, §3.10,
-    /// PRESENTATION API §3.4).
+    /// OpenAI-compatible endpoint, records its optional model, and records the
+    /// API family the connection targets — the endpoint, model, and API family
+    /// collection of the connection form (DES-011 §3.9, §3.10, PRESENTATION
+    /// API §3.4).
     ///
     /// The endpoint is validated with the same rule as
     /// `updateEndpoint(_:for:)`, and `model` — when given — is validated with
     /// the same rule as `updateModel(_:for:)`, both before any domain operation
     /// (ARC-009); the validated endpoint and model are then recorded through
-    /// `updateEndpoint(_:for:)` and `updateModel(_:for:)`, keyed by the fresh
-    /// connection identity. `nil` records no manual model; discovery/cache may
-    /// still supply a catalog. The endpoint and model never enter the
-    /// `ConfigureProviderRequest` or any Domain aggregate (DES-011 §3.9, §3.10,
-    /// ARC-004).
+    /// `updateEndpoint(_:for:)` and `updateModel(_:for:)`, and the API family
+    /// through `updateAPIKind(_:for:)`, keyed by the fresh connection identity.
+    /// `nil` records no manual model; discovery/cache may still supply a
+    /// catalog. A caller that omits `apiKind` records the default
+    /// OpenAI-compatible family, so existing call sites are unchanged. The
+    /// endpoint, model, and API family never enter the `ConfigureProviderRequest`
+    /// or any Domain aggregate (DES-011 §3.9, §3.10, ARC-004).
     public func configure(
         _ request: ConfigureProviderRequest,
         endpoint: String,
-        model: String?
+        model: String?,
+        apiKind: ProviderAPIKind = ProviderAPIKind.default
     ) async throws -> ProviderConnection {
         let endpoint = try Self.validatedEndpoint(endpoint)
         let validatedModel = try model.map(Self.validatedModel)
         return try await configureValidated(
             request,
             endpoint: endpoint,
-            model: validatedModel
+            model: validatedModel,
+            apiKind: apiKind
         )
     }
 
@@ -158,6 +163,10 @@ public struct ProviderConnectionService: Sendable {
             for: Self.modelKey(for: identity),
             at: .providerSettings
         )
+        let apiKind = try await configurationRepository.value(
+            for: Self.apiKindKey(for: identity),
+            at: .providerSettings
+        )
         let credential: Credential?
         if let reference {
             do {
@@ -186,6 +195,10 @@ public struct ProviderConnectionService: Sendable {
                 Self.modelKey(for: identity),
                 at: .providerSettings
             )
+            try await configurationRepository.remove(
+                Self.apiKindKey(for: identity),
+                at: .providerSettings
+            )
             await lifecycleService.unregister(identity)
         } catch {
             // Restore the complete connection snapshot if a later delete step
@@ -202,6 +215,13 @@ public struct ProviderConnectionService: Sendable {
                 try? await configurationRepository.store(
                     model,
                     for: Self.modelKey(for: identity),
+                    at: .providerSettings
+                )
+            }
+            if let apiKind {
+                try? await configurationRepository.store(
+                    apiKind,
+                    for: Self.apiKindKey(for: identity),
                     at: .providerSettings
                 )
             }
@@ -223,8 +243,8 @@ public struct ProviderConnectionService: Sendable {
     /// the unified provider-edit flow of the providers surface (DES-011 §3.1):
     /// the connection's declared display name, capabilities, limits, and
     /// version are replaced with `request`'s, and its OpenAI-compatible
-    /// endpoint and optional model are recorded — mirroring the connection form
-    /// (DES-011 §3.9, §3.10).
+    /// endpoint, optional model, and API family are recorded — mirroring the
+    /// connection form (DES-011 §3.9, §3.10).
     ///
     /// The connection declaration is user-owned connection configuration
     /// (ARC-005) and the lifecycle state is preserved: the persisted provider
@@ -240,14 +260,16 @@ public struct ProviderConnectionService: Sendable {
     /// validated with the same rule as `updateEndpoint(_:for:)`; and `model` —
     /// when given — with the same rule as `updateModel(_:for:)`. `nil` (or an
     /// empty trimmed) model records no manual model, removing any previously
-    /// recorded one. Updating a
+    /// recorded one. A caller that omits `apiKind` records the default
+    /// OpenAI-compatible family, so existing call sites are unchanged. Updating a
     /// connection that is not stored is rejected with the typed application
     /// error of DES-011 §3.6.
     public func update(
         _ request: ProviderUpdateRequest,
         for identity: ProviderIdentity,
         endpoint: String,
-        model: String?
+        model: String?,
+        apiKind: ProviderAPIKind = ProviderAPIKind.default
     ) async throws -> ProviderConnection {
         try Self.validateUpdate(request)
         let validatedEndpoint = try Self.validatedEndpoint(endpoint)
@@ -267,6 +289,7 @@ public struct ProviderConnectionService: Sendable {
         try await providerRepository.save(existing.replacingConnection(connection))
         await lifecycleService.update(connection)
         try await updateEndpoint(validatedEndpoint, for: identity)
+        try await updateAPIKind(apiKind, for: identity)
         if let validatedModel {
             try await updateModel(validatedModel, for: identity)
         } else {
@@ -317,6 +340,19 @@ public struct ProviderConnectionService: Sendable {
         ConfigurationKey<String>("providerModel.\(identity.canonicalString)")
     }
 
+    /// The provider-settings configuration key that records the API family of a
+    /// provider connection (the OpenAI-compatible chat-completions family or the
+    /// Gemini family), scoped by the provider identity — the documented key the
+    /// settings surface writes and the Composition Root's runtime adapter
+    /// binding reads, so the writer and the reader never diverge (DES-011 §3.4,
+    /// DES-013 §3.3, DES-004). A provider with no recorded kind resolves to the
+    /// OpenAI-compatible default (ARC-004).
+    public static func apiKindKey(
+        for identity: ProviderIdentity
+    ) -> ConfigurationKey<ProviderAPIKind> {
+        ConfigurationKey<ProviderAPIKind>("providerAPIKind.\(identity.canonicalString)")
+    }
+
     /// Records the provider connection's OpenAI-compatible endpoint as a typed
     /// configuration value at the provider-settings level, keyed by the provider
     /// identity (DES-011 §3.9).
@@ -365,6 +401,28 @@ public struct ProviderConnectionService: Sendable {
         )
     }
 
+    /// Records the provider connection's API family as a typed configuration
+    /// value at the provider-settings level, keyed by the provider identity
+    /// (DES-011 §3.4, ARC-004).
+    ///
+    /// The kind is connection configuration the user owns (ARC-005); it never
+    /// enters the `ProviderConnection` or `Provider` aggregate (DES-009 §3.1),
+    /// and the service never builds a transport or an adapter — the family is
+    /// resolved by the Composition Root when a request is built, in the layer
+    /// that owns transport (DES-010 §3.9.3, DES-013 §3.3, ARC-004). Recording a
+    /// kind is idempotent and unconditional: the configuration repository
+    /// replaces the previous value.
+    public func updateAPIKind(
+        _ kind: ProviderAPIKind,
+        for identity: ProviderIdentity
+    ) async throws {
+        try await configurationRepository.store(
+            kind,
+            for: Self.apiKindKey(for: identity),
+            at: .providerSettings
+        )
+    }
+
     /// Returns the recorded OpenAI-compatible model of the provider connection
     /// with `identity`, or `nil` when none is recorded (DES-011 §3.10).
     public func model(
@@ -374,6 +432,20 @@ public struct ProviderConnectionService: Sendable {
             for: Self.modelKey(for: identity),
             at: .providerSettings
         )
+    }
+
+    /// Returns the recorded API family of the provider connection with
+    /// `identity`, or the OpenAI-compatible default when none is recorded — the
+    /// family the connection form has always collected, so providers configured
+    /// before the kind was recorded keep serving unchanged (DES-011 §3.4,
+    /// ARC-004).
+    public func apiKind(
+        for identity: ProviderIdentity
+    ) async throws -> ProviderAPIKind {
+        try await configurationRepository.value(
+            for: Self.apiKindKey(for: identity),
+            at: .providerSettings
+        ) ?? ProviderAPIKind.default
     }
 
     /// Validates an endpoint at the boundary (ARC-009, DES-011 §3.9): the
@@ -460,13 +532,14 @@ public struct ProviderConnectionService: Sendable {
     }
 
     /// Persists a validated provider declaration, secret reference, optional
-    /// endpoint/model, and ready lifecycle as one rollback-safe application
-    /// operation. A failed step cannot leave a selectable provider or an
-    /// unreferenced credential behind.
+    /// endpoint/model, API family, and ready lifecycle as one rollback-safe
+    /// application operation. A failed step cannot leave a selectable provider or
+    /// an unreferenced credential behind.
     private func configureValidated(
         _ request: ConfigureProviderRequest,
         endpoint: String?,
-        model: String?
+        model: String?,
+        apiKind: ProviderAPIKind
     ) async throws -> ProviderConnection {
         try validate(request)
         let identity = ProviderIdentity()
@@ -504,6 +577,11 @@ public struct ProviderConnectionService: Sendable {
                     at: .providerSettings
                 )
             }
+            try await configurationRepository.store(
+                apiKind,
+                for: Self.apiKindKey(for: identity),
+                at: .providerSettings
+            )
             try await makeReady(connection)
             return connection
         } catch {
@@ -514,6 +592,10 @@ public struct ProviderConnectionService: Sendable {
             )
             try? await configurationRepository.remove(
                 Self.endpointKey(for: identity),
+                at: .providerSettings
+            )
+            try? await configurationRepository.remove(
+                Self.apiKindKey(for: identity),
                 at: .providerSettings
             )
             try? await configurationRepository.remove(

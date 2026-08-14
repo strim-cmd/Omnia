@@ -58,6 +58,12 @@ private func modelKey(
     ConfigurationKey<String>("providerModel.\(identity.canonicalString)")
 }
 
+private func apiKindKey(
+    for identity: ProviderIdentity
+) -> ConfigurationKey<ProviderAPIKind> {
+    ConfigurationKey<ProviderAPIKind>("providerAPIKind.\(identity.canonicalString)")
+}
+
 private final class InMemoryProviderRepository: ProviderRepository, @unchecked Sendable {
     private let lock = NSLock()
     private var storage: [ProviderIdentity: Provider] = [:]
@@ -301,6 +307,49 @@ private final class FailingConfigurationRepository: ConfigurationRepository, @un
 
     var storeCallCount: Int {
         lock.withLock { storeCount }
+    }
+}
+
+private final class APIKindFailingConfigurationRepository: ConfigurationRepository, @unchecked Sendable {
+    private let lock = NSLock()
+    private var storage: [ConfigurationLevel: [String: Any]] = [:]
+
+    private func slot<Value>(for key: ConfigurationKey<Value>, as type: Value.Type) -> String {
+        "\(key.name)\u{0}\(ObjectIdentifier(type))"
+    }
+
+    func store<Value: Equatable & Sendable>(
+        _ value: Value,
+        for key: ConfigurationKey<Value>,
+        at level: ConfigurationLevel
+    ) async throws {
+        if key.name.hasPrefix("providerAPIKind") {
+            throw RepositoryError.storageUnavailable
+        }
+        let slot = slot(for: key, as: Value.self)
+        lock.withLock {
+            storage[level, default: [:]][slot] = value
+        }
+    }
+
+    func value<Value: Equatable & Sendable>(
+        for key: ConfigurationKey<Value>,
+        at level: ConfigurationLevel
+    ) async throws -> Value? {
+        let slot = slot(for: key, as: Value.self)
+        return lock.withLock {
+            storage[level]?[slot] as? Value
+        }
+    }
+
+    func remove<Value: Equatable & Sendable>(
+        _ key: ConfigurationKey<Value>,
+        at level: ConfigurationLevel
+    ) async throws {
+        let slot = slot(for: key, as: Value.self)
+        lock.withLock {
+            storage[level]?[slot] = nil
+        }
     }
 }
 
@@ -1175,6 +1224,133 @@ final class ProviderConnectionServiceTests: XCTestCase {
 
         let removedState = await lifecycle.state(of: connection.identity)
         XCTAssertNil(removedState)
+    }
+
+    // MARK: API kind
+
+    func testUpdateAPIKind_RecordsTheKindAtProviderSettingsLevel() async throws {
+        let (_, _, configurationRepository, service) = makeServiceWithInMemoryDoubles()
+        let identity = ProviderIdentity()
+        try await service.updateAPIKind(.gemini, for: identity)
+
+        let stored = try await configurationRepository.value(
+            for: apiKindKey(for: identity),
+            at: .providerSettings
+        )
+        XCTAssertEqual(stored, .gemini)
+    }
+
+    func testAPIKind_ReturnsTheRecordedKind() async throws {
+        let (_, _, _, service) = makeServiceWithInMemoryDoubles()
+        let identity = ProviderIdentity()
+        try await service.updateAPIKind(.gemini, for: identity)
+
+        let kind = try await service.apiKind(for: identity)
+        XCTAssertEqual(kind, .gemini)
+    }
+
+    func testAPIKind_ReturnsTheOpenAICompatibleDefaultWhenNoneIsRecorded() async throws {
+        let (_, _, _, service) = makeServiceWithInMemoryDoubles()
+        let kind = try await service.apiKind(for: ProviderIdentity())
+        XCTAssertEqual(kind, .openAICompatible)
+    }
+
+    func testConfigureWithAPIKind_RecordsTheKindKeyedByConnectionIdentity() async throws {
+        let (_, _, _, service) = makeServiceWithInMemoryDoubles()
+        let connection = try await service.configure(
+            request(),
+            endpoint: "https://generativelanguage.googleapis.com/v1beta",
+            apiKind: .gemini
+        )
+
+        let kind = try await service.apiKind(for: connection.identity)
+        XCTAssertEqual(kind, .gemini)
+    }
+
+    func testConfigure_OmittingAPIKindRecordsTheOpenAICompatibleDefault() async throws {
+        let (_, _, _, service) = makeServiceWithInMemoryDoubles()
+        let connection = try await service.configure(
+            request(),
+            endpoint: "https://api.example.com/v1"
+        )
+
+        let kind = try await service.apiKind(for: connection.identity)
+        XCTAssertEqual(kind, .openAICompatible)
+    }
+
+    func testUpdate_RecordsTheAPIKind() async throws {
+        let (_, _, _, service) = makeServiceWithInMemoryDoubles()
+        let connection = try await service.configure(request())
+
+        _ = try await service.update(
+            updateRequest(),
+            for: connection.identity,
+            endpoint: "https://api.example.com/v2",
+            model: nil,
+            apiKind: .gemini
+        )
+
+        let kind = try await service.apiKind(for: connection.identity)
+        XCTAssertEqual(kind, .gemini)
+    }
+
+    func testRemove_RemovesTheRecordedAPIKind() async throws {
+        let (_, _, configurationRepository, service) = makeServiceWithInMemoryDoubles()
+        let identity = ProviderIdentity()
+        try await service.updateAPIKind(.gemini, for: identity)
+        let key = apiKindKey(for: identity)
+        let recorded = try await configurationRepository.value(for: key, at: .providerSettings)
+        XCTAssertNotNil(recorded)
+
+        try await service.remove(identity)
+
+        let stored = try await configurationRepository.value(for: key, at: .providerSettings)
+        XCTAssertNil(stored)
+    }
+
+    func testUpdateAPIKind_RecordFailureSurfacesAsRepositoryError() async {
+        let service = makeService(
+            providerRepository: InMemoryProviderRepository(),
+            credentialStorage: InMemoryCredentialStorage(),
+            configurationRepository: FailingConfigurationRepository()
+        )
+        await assertSurfacesRepositoryError {
+            try await service.updateAPIKind(.gemini, for: ProviderIdentity())
+        }
+    }
+
+    func testAPIKind_ReadFailureSurfacesAsRepositoryError() async {
+        let service = makeService(
+            providerRepository: InMemoryProviderRepository(),
+            credentialStorage: InMemoryCredentialStorage(),
+            configurationRepository: FailingConfigurationRepository()
+        )
+        await assertSurfacesRepositoryError {
+            _ = try await service.apiKind(for: ProviderIdentity())
+        }
+    }
+
+    func testConfigure_APIKindRecordFailureSurfacesAsRepositoryError() async {
+        let providerRepository = InMemoryProviderRepository()
+        let credentialStorage = InMemoryCredentialStorage()
+        let configurationRepository = APIKindFailingConfigurationRepository()
+        let service = makeService(
+            providerRepository: providerRepository,
+            credentialStorage: credentialStorage,
+            configurationRepository: configurationRepository
+        )
+        await assertSurfacesRepositoryError {
+            _ = try await service.configure(
+                request(),
+                endpoint: "https://generativelanguage.googleapis.com/v1beta",
+                apiKind: .gemini
+            )
+        }
+        XCTAssertEqual(providerRepository.saveCallCount, 1)
+        XCTAssertEqual(credentialStorage.storeCallCount, 1)
+        XCTAssertEqual(credentialStorage.removeCallCount, 1)
+        let providers = try? await providerRepository.allProviders()
+        XCTAssertTrue(providers?.isEmpty == true)
     }
 
     // MARK: Update
