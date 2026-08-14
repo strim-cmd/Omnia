@@ -88,6 +88,7 @@ public struct ResolvedAttachment: Equatable, Sendable {
 public enum AttachmentError: Error, Equatable, Sendable {
     case unsupportedType(fileName: String)
     case unreadable(fileName: String)
+    case photoLoadFailed(fileName: String)
     case empty(fileName: String)
     case fileTooLarge(fileName: String, limit: Int)
     case aggregateTooLarge(limit: Int)
@@ -95,6 +96,7 @@ public enum AttachmentError: Error, Equatable, Sendable {
     case duplicate(fileName: String)
     case capabilityUnsupported(AttachmentKind)
     case capabilityUnknown(AttachmentKind)
+    case providerRejected
     case extractionFailed(fileName: String)
     case extractedTextTooLarge(fileName: String, limit: Int)
     case storageUnavailable

@@ -53,6 +53,36 @@ final class AttachmentInfrastructureTests: XCTestCase {
         XCTAssertEqual(text.mediaType, "application/json")
     }
 
+    func testFileImporterClassifiesJPGAndPNGAsImagesWhilePDFRemainsDocument() throws {
+        let root = try temporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let fixtures: [(String, Data, AttachmentKind, String)] = [
+            ("camera.jpg", Data([0xFF, 0xD8, 0xFF, 0x00]), .image, "image/jpeg"),
+            (
+                "screenshot.png",
+                Data([0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A]),
+                .image,
+                "image/png"
+            ),
+            ("manual.pdf", Data("%PDF-1.7".utf8), .pdf, "application/pdf"),
+        ]
+        let processor = AttachmentContentProcessor()
+
+        for (name, data, expectedKind, expectedMediaType) in fixtures {
+            let url = root.appendingPathComponent(name)
+            try data.write(to: url)
+            let loaded = try processor.loadFile(url, maximumByteCount: 1024)
+            let prepared = try processor.prepare(
+                data: loaded.data,
+                fileName: loaded.fileName,
+                declaredMediaType: loaded.declaredMediaType
+            )
+
+            XCTAssertEqual(prepared.kind, expectedKind, name)
+            XCTAssertEqual(prepared.mediaType, expectedMediaType, name)
+        }
+    }
+
     func testContentProcessorRejectsUnsafeEmptyBinaryAndUnsupportedInput() throws {
         let processor = AttachmentContentProcessor()
         for candidate in [

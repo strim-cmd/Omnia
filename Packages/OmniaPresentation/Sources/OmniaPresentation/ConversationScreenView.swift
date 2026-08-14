@@ -31,25 +31,19 @@ private struct BoundedPhotoTransfer: Transferable {
             guard maximumByteCount >= 0, maximumByteCount < Int.max else {
                 throw AttachmentError.storageUnavailable
             }
-            do {
-                let handle = try FileHandle(forReadingFrom: received.file)
-                defer { try? handle.close() }
-                let data = try handle.read(upToCount: maximumByteCount + 1) ?? Data()
-                guard !data.isEmpty else {
-                    throw AttachmentError.empty(fileName: "Photo")
-                }
-                guard data.count <= maximumByteCount else {
-                    throw AttachmentError.fileTooLarge(
-                        fileName: "Photo",
-                        limit: maximumByteCount
-                    )
-                }
-                return BoundedPhotoTransfer(data: data)
-            } catch let error as AttachmentError {
-                throw error
-            } catch {
-                throw AttachmentError.unreadable(fileName: "Photo")
+            let handle = try FileHandle(forReadingFrom: received.file)
+            defer { try? handle.close() }
+            let data = try handle.read(upToCount: maximumByteCount + 1) ?? Data()
+            guard !data.isEmpty else {
+                throw AttachmentError.empty(fileName: "Photo")
             }
+            guard data.count <= maximumByteCount else {
+                throw AttachmentError.fileTooLarge(
+                    fileName: "Photo",
+                    limit: maximumByteCount
+                )
+            }
+            return BoundedPhotoTransfer(data: data)
         }
     }
 }
@@ -133,7 +127,7 @@ public struct ConversationScreenView: View {
     /// The waveform pulse of the streaming indicator, toggled so the bars
     /// animate while a stream is active or thinking (new_design.md §5).
     @State private var waveformPulse = false
-    @State private var isFileImporterPresented = false
+    @State private var attachmentPickerPresentation = AttachmentPickerPresentationState()
     @State private var isModelSelectionPresented = false
     #if canImport(PhotosUI)
     @State private var selectedPhotos: [PhotosPickerItem] = []
@@ -258,13 +252,19 @@ public struct ConversationScreenView: View {
             modelSelectionActions
         }
         #if canImport(PhotosUI)
+        .photosPicker(
+            isPresented: $attachmentPickerPresentation.isPhotoPickerPresented,
+            selection: $selectedPhotos,
+            maxSelectionCount: 8,
+            matching: .images
+        )
         .onChange(of: selectedPhotos) { items in
             loadPhotos(items)
         }
         #endif
         #if canImport(UniformTypeIdentifiers)
         .fileImporter(
-            isPresented: $isFileImporterPresented,
+            isPresented: $attachmentPickerPresentation.isFileImporterPresented,
             allowedContentTypes: [.image, .pdf, .plainText, .text, .data],
             allowsMultipleSelection: true
         ) { result in
@@ -365,17 +365,15 @@ public struct ConversationScreenView: View {
     private var attachmentPicker: some View {
         Menu {
             #if canImport(PhotosUI)
-            PhotosPicker(
-                selection: $selectedPhotos,
-                maxSelectionCount: 8,
-                matching: .images
-            ) {
+            Button {
+                attachmentPickerPresentation.presentPhotos()
+            } label: {
                 Label(Localized.addPhotos, systemImage: "photo.on.rectangle")
             }
             #endif
             #if canImport(UniformTypeIdentifiers)
             Button {
-                isFileImporterPresented = true
+                attachmentPickerPresentation.presentFiles()
             } label: {
                 Label(Localized.addFiles, systemImage: "doc")
             }
@@ -510,20 +508,32 @@ public struct ConversationScreenView: View {
                     guard let transfer = try await item.loadTransferable(
                         type: BoundedPhotoTransfer.self
                     ) else {
-                        failure = .unreadable(fileName: "Photo-\(index + 1)")
+                        failure = PhotoAttachmentImport.loadFailure(selectionIndex: index)
                         break
                     }
+                    #if canImport(UniformTypeIdentifiers)
+                    let contentType = item.supportedContentTypes.first {
+                        $0.conforms(to: .image)
+                    }
+                    let declaredMediaType = contentType?.preferredMIMEType
+                    let preferredFilenameExtension = contentType?.preferredFilenameExtension
+                    #else
+                    let declaredMediaType: String? = nil
+                    let preferredFilenameExtension: String? = nil
+                    #endif
                     candidates.append(
-                        AttachmentImportCandidate(
+                        PhotoAttachmentImport.candidate(
                             data: transfer.data,
-                            fileName: "Photo-\(index + 1)"
+                            selectionIndex: index,
+                            declaredMediaType: declaredMediaType,
+                            preferredFilenameExtension: preferredFilenameExtension
                         )
                     )
                 } catch let error as AttachmentError {
                     failure = error
                     break
                 } catch {
-                    failure = .unreadable(fileName: "Photo-\(index + 1)")
+                    failure = PhotoAttachmentImport.loadFailure(selectionIndex: index)
                     break
                 }
             }

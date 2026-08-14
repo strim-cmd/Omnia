@@ -45,6 +45,31 @@ private actor AttachmentPresentationStateRecorder {
 }
 
 final class AttachmentPresentationTests: XCTestCase {
+    func testAddPhotoPresentationCanOpenCancelAndOpenAgain() {
+        var presentation = AttachmentPickerPresentationState()
+
+        presentation.presentPhotos()
+        XCTAssertTrue(presentation.isPhotoPickerPresented)
+
+        presentation.dismissPhotos()
+        XCTAssertFalse(presentation.isPhotoPickerPresented)
+
+        presentation.presentPhotos()
+        XCTAssertTrue(presentation.isPhotoPickerPresented)
+    }
+
+    func testPhotoLoadFailureHasDedicatedCopyInsteadOfModelCapabilityCopy() {
+        let photoFailure = Localized.attachmentError(
+            .photoLoadFailed(fileName: "Photo-1")
+        )
+        let capabilityFailure = Localized.attachmentError(
+            .capabilityUnsupported(.image)
+        )
+
+        XCTAssertEqual(photoFailure, "Photo-1 could not be loaded from Photos.")
+        XCTAssertNotEqual(photoFailure, capabilityFailure)
+    }
+
     func testMessageAndStateExposeMetadataAndCopyHelpersPreserveStaging() {
         let attachment = makeAttachment()
         let presentation = MessagePresentation(

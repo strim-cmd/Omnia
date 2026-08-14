@@ -831,6 +831,59 @@ final class SendMessageUseCaseTests: XCTestCase {
         XCTAssertEqual(stored.streamingState, .interrupted(partialContent: ""))
     }
 
+    func testSend_MapsProviderInvalidRequestWithImageToAttachmentRejection() async throws {
+        let repository = InMemoryConversationRepository()
+        let conversation = Conversation(identity: ConversationIdentity())
+        try await repository.save(conversation)
+        let (selection, _) = await makeSelectionService(modelsByProvider: [
+            providerA: [ModelReference(name: "vision-model")],
+        ])
+        let attachment = MessageAttachment(
+            identity: AttachmentIdentity(),
+            fileName: "photo.jpg",
+            mediaType: "image/jpeg",
+            kind: .image,
+            byteCount: 4,
+            storageKey: "opaque.jpg"
+        )
+        let resolved = ResolvedAttachment(
+            attachment: attachment,
+            payload: .image(
+                data: Data([0xFF, 0xD8, 0xFF, 0x00]),
+                mediaType: "image/jpeg"
+            )
+        )
+        let useCase = makeUseCase(
+            contract: ThrowingStreamingContract(error: CapabilityError.invalidRequest),
+            selectionService: selection,
+            repository: repository,
+            resolveAttachments: { _, _ in [resolved] }
+        )
+        let stream = try await useCase.send(
+            SendMessageRequest(
+                conversation: conversation.identity,
+                message: Message(
+                    role: .user,
+                    content: "Describe",
+                    attachments: [attachment]
+                )
+            )
+        )
+
+        do {
+            for try await _ in stream {}
+            XCTFail("expected the provider rejection")
+        } catch {
+            XCTAssertEqual(error as? AttachmentError, .providerRejected)
+        }
+
+        let storedConversation = try await repository.conversation(
+            with: conversation.identity
+        )
+        let stored = try XCTUnwrap(storedConversation)
+        XCTAssertEqual(stored.streamingState, .interrupted(partialContent: ""))
+    }
+
     func testSend_SurfacesCredentialResolutionFailureAsIs() async throws {
         let repository = InMemoryConversationRepository()
         let conversation = Conversation(identity: ConversationIdentity())

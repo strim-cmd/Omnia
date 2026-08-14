@@ -191,6 +191,8 @@ public enum Localized {
             return String(format: localized("attachment_unsupported_type"), fileName)
         case .unreadable(let fileName):
             return String(format: localized("attachment_unreadable"), fileName)
+        case .photoLoadFailed(let fileName):
+            return String(format: localized("attachment_photo_load_failed"), fileName)
         case .empty(let fileName):
             return String(format: localized("attachment_empty"), fileName)
         case .fileTooLarge(let fileName, let limit):
@@ -218,6 +220,8 @@ public enum Localized {
                 format: localized("attachment_capability_unknown"),
                 attachmentKind(kind)
             )
+        case .providerRejected:
+            return localized("attachment_provider_rejected")
         case .extractionFailed(let fileName):
             return String(format: localized("attachment_extraction_failed"), fileName)
         case .extractedTextTooLarge(let fileName, let limit):

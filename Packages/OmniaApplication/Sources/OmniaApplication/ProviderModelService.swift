@@ -233,21 +233,23 @@ public actor ProviderModelService {
         selection: ProviderModelSelection,
         providerCapabilities: ProviderCapabilities
     ) async throws -> ModelCapabilitySupport {
-        guard providerCapabilities.contains(capability) else {
-            return .unsupported
-        }
         let override = try await configurationService.value(
             for: Self.capabilityOverrideKey(for: selection),
             at: .providerSettings
         )
-        if let override {
-            return override.support(for: capability)
+        if let modelSupport = override?.support(for: capability),
+           modelSupport != .unknown {
+            return modelSupport
         }
-        // Generic model lists do not establish multimodal input support.
+        // Vision and document input are model-specific. The provider
+        // declaration is positive evidence only: omission (including the
+        // default connection form) is not proof that every selected model is
+        // text-only. Unknown remains an explicit preflight state until the
+        // user declares the exact model supported or unsupported.
         if capability == .vision || capability == .documentInput {
             return .unknown
         }
-        return .supported
+        return providerCapabilities.contains(capability) ? .supported : .unsupported
     }
 
     private func descriptors(

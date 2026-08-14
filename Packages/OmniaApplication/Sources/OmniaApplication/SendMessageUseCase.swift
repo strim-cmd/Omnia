@@ -291,9 +291,30 @@ public struct SendMessageUseCase: Sendable {
             )
             throw CancellationError()
         } catch {
-            try? await preserveForFailure(&conversation, error: error)
-            throw error
+            let surfacedError = Self.attachmentAwareError(
+                error,
+                resolvedAttachments: resolvedAttachments
+            )
+            try? await preserveForFailure(&conversation, error: surfacedError)
+            throw surfacedError
         }
+    }
+
+    /// A provider-side invalid request is attachment-specific only when the
+    /// exact wire request contained resolved attachments. This keeps ordinary
+    /// generation failures unchanged while avoiding a misleading local model-
+    /// capability message after provider preflight already succeeded.
+    private static func attachmentAwareError(
+        _ error: any Error,
+        resolvedAttachments: [ResolvedAttachment]
+    ) -> any Error {
+        guard !resolvedAttachments.isEmpty,
+              let capabilityError = error as? CapabilityError,
+              capabilityError == .invalidRequest
+        else {
+            return error
+        }
+        return AttachmentError.providerRejected
     }
 
     /// Applies `update` to the conversation, persisting the terminal state

@@ -26,6 +26,48 @@ public struct AttachmentImportCandidate: Sendable, CustomStringConvertible, Cust
     }
 }
 
+/// Builds picker-independent photo candidates for the canonical attachment
+/// pipeline. PhotosUI stays in Presentation; Application receives only bounded
+/// bytes and normalized metadata, exactly like the generic file-import path.
+public enum PhotoAttachmentImport {
+    public static func candidate(
+        data: Data,
+        selectionIndex: Int,
+        declaredMediaType: String?,
+        preferredFilenameExtension: String?
+    ) -> AttachmentImportCandidate {
+        let baseName = "Photo-\(max(0, selectionIndex) + 1)"
+        let fileExtension = normalizedExtension(preferredFilenameExtension)
+        let fileName = fileExtension.map { baseName + "." + $0 } ?? baseName
+        let mediaType = declaredMediaType?
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .lowercased()
+        return AttachmentImportCandidate(
+            data: data,
+            fileName: fileName,
+            declaredMediaType: mediaType?.isEmpty == false ? mediaType : nil
+        )
+    }
+
+    public static func loadFailure(selectionIndex: Int) -> AttachmentError {
+        .photoLoadFailed(fileName: "Photo-\(max(0, selectionIndex) + 1)")
+    }
+
+    private static func normalizedExtension(_ value: String?) -> String? {
+        guard let value else { return nil }
+        let normalized = value
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .lowercased()
+        guard !normalized.isEmpty,
+              normalized.count <= 10,
+              normalized.allSatisfy({ $0.isLetter || $0.isNumber })
+        else {
+            return nil
+        }
+        return normalized
+    }
+}
+
 /// Explicit, deterministic limits for the v1 attachment pipeline.
 public struct AttachmentLimits: Equatable, Sendable {
     public let maximumCount: Int

@@ -161,6 +161,7 @@
 "remove_attachment" = "Remove %@";
 "attachment_unsupported_type" = "%@ is not a supported image, PDF, or text file.";
 "attachment_unreadable" = "%@ could not be read.";
+"attachment_photo_load_failed" = "%@ could not be loaded from Photos.";
 "attachment_empty" = "%@ is empty.";
 "attachment_file_too_large" = "%@ exceeds the %@ per-file limit.";
 "attachment_aggregate_too_large" = "Attachments exceed the %@ total limit.";
@@ -168,6 +169,7 @@
 "attachment_duplicate" = "%@ is already attached.";
 "attachment_capability_unsupported" = "The selected model does not support %@ attachments.";
 "attachment_capability_unknown" = "Support for %@ attachments is unknown for the selected model. Confirm it in model capabilities first.";
+"attachment_provider_rejected" = "The provider rejected the attached input. Verify the selected model's attachment support and try again.";
 "attachment_extraction_failed" = "Readable text could not be extracted from %@.";
 "attachment_text_too_large" = "Extracted text from %@ exceeds the %d-character limit.";
 "attachment_storage_unavailable" = "Attachment storage is temporarily unavailable. Please try again.";

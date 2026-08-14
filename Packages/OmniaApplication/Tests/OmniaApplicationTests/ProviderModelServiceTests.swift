@@ -243,6 +243,52 @@ final class ProviderModelServiceTests: XCTestCase {
         XCTAssertFalse(key.contains("/"))
         XCTAssertFalse(key.contains("Ю"))
     }
+
+    func testMultimodalSupportUsesExactModelOverrideWhenProviderDeclarationOmitsVision() async throws {
+        let repository = ModelConfigurationRepository()
+        let lifecycle = try await readyLifecycle(provider)
+        let model = ModelReference(name: "custom-model")
+        let script = ModelDiscoveryScript(.models([model]))
+        let service = makeService(
+            repository: repository,
+            lifecycle: lifecycle,
+            script: script
+        )
+        _ = try await service.refreshCatalog(for: provider)
+        let selection = ProviderModelSelection(provider: provider, model: model)
+        let textOnlyProviderDeclaration = ProviderCapabilities(
+            capabilities: [.streaming]
+        )
+
+        let unknown = try await service.effectiveSupport(
+            for: .vision,
+            selection: selection,
+            providerCapabilities: textOnlyProviderDeclaration
+        )
+        XCTAssertEqual(unknown, .unknown)
+
+        try await service.setCapabilityOverride(
+            ModelCapabilityProfile(supported: [.vision]),
+            for: selection
+        )
+        let supported = try await service.effectiveSupport(
+            for: .vision,
+            selection: selection,
+            providerCapabilities: textOnlyProviderDeclaration
+        )
+        XCTAssertEqual(supported, .supported)
+
+        try await service.setCapabilityOverride(
+            ModelCapabilityProfile(unsupported: [.vision]),
+            for: selection
+        )
+        let unsupported = try await service.effectiveSupport(
+            for: .vision,
+            selection: selection,
+            providerCapabilities: textOnlyProviderDeclaration
+        )
+        XCTAssertEqual(unsupported, .unsupported)
+    }
 }
 
 final class ProviderValidationServiceTests: XCTestCase {

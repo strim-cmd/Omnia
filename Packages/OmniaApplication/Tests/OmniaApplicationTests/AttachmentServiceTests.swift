@@ -258,6 +258,14 @@ final class AttachmentServiceTests: XCTestCase {
             XCTAssertEqual(error as? AttachmentError, .capabilityUnsupported(.image))
         }
 
+        await support.set(.unknown, for: .vision)
+        do {
+            try await service.validate(attachments, for: attachmentSelection)
+            XCTFail("expected unverified image capability result")
+        } catch {
+            XCTAssertEqual(error as? AttachmentError, .capabilityUnknown(.image))
+        }
+
         await support.set(.supported, for: .vision)
         await support.set(.unknown, for: .documentInput)
         do {

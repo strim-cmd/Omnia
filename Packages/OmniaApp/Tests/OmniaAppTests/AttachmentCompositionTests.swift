@@ -79,6 +79,63 @@ final class AttachmentCompositionTests: XCTestCase {
         XCTAssertFalse(FileManager.default.fileExists(atPath: file.path))
     }
 
+    func testPhotoSelectionCreatesPendingCanonicalImageAttachment() async throws {
+        let rootURL = try temporaryRoot()
+        defer { try? FileManager.default.removeItem(at: rootURL) }
+        let root = CompositionRoot(storageRoot: rootURL)
+        _ = try await root.prepare()
+
+        let staged = try await root.attachmentService.stage(
+            [
+                PhotoAttachmentImport.candidate(
+                    data: Data([0xFF, 0xD8, 0xFF, 0x00]),
+                    selectionIndex: 0,
+                    declaredMediaType: "image/jpeg",
+                    preferredFilenameExtension: "jpeg"
+                ),
+            ],
+            existing: []
+        )
+
+        XCTAssertEqual(staged.count, 1)
+        XCTAssertEqual(staged[0].fileName, "Photo-1.jpg")
+        XCTAssertEqual(staged[0].mediaType, "image/jpeg")
+        XCTAssertEqual(staged[0].kind, .image)
+        XCTAssertEqual(staged[0].byteCount, 4)
+        XCTAssertFalse(staged[0].storageKey.isEmpty)
+    }
+
+    func testPhotoAndFileSelectedJPGHaveEquivalentCapabilityClassification() async throws {
+        let rootURL = try temporaryRoot()
+        defer { try? FileManager.default.removeItem(at: rootURL) }
+        let root = CompositionRoot(storageRoot: rootURL)
+        _ = try await root.prepare()
+        let jpeg = Data([0xFF, 0xD8, 0xFF, 0x00])
+        let fileURL = rootURL.appendingPathComponent("same-image.jpeg")
+        try jpeg.write(to: fileURL)
+
+        let photoAttachment = try await root.attachmentService.stage(
+            [
+                PhotoAttachmentImport.candidate(
+                    data: jpeg,
+                    selectionIndex: 0,
+                    declaredMediaType: "image/jpeg",
+                    preferredFilenameExtension: "jpg"
+                ),
+            ],
+            existing: []
+        )[0]
+        let fileAttachment = try await root.attachmentService.stageFiles(
+            [fileURL],
+            existing: []
+        )[0]
+
+        XCTAssertEqual(photoAttachment.kind, .image)
+        XCTAssertEqual(fileAttachment.kind, .image)
+        XCTAssertEqual(photoAttachment.kind, fileAttachment.kind)
+        XCTAssertEqual(photoAttachment.mediaType, fileAttachment.mediaType)
+    }
+
     private func stageText(using root: CompositionRoot) async throws -> MessageAttachment {
         try await root.attachmentService.stage(
             [
