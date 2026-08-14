@@ -84,6 +84,90 @@ final class ConversationTests: XCTestCase {
         }
     }
 
+    func testFirstUserMessageCreatesNormalizedAutomaticTitleOnce() throws {
+        var conversation = Conversation(identity: try makeIdentity())
+
+        try conversation.append(Message(role: .user, content: "  First\n  prompt  "))
+        try conversation.append(Message(role: .user, content: "Second prompt"))
+
+        XCTAssertEqual(conversation.title, "First prompt")
+        XCTAssertEqual(conversation.titleOrigin, .automatic)
+    }
+
+    func testAttachmentOnlyUserMessageCreatesSafeAutomaticTitle() throws {
+        let attachment = MessageAttachment(
+            identity: AttachmentIdentity(),
+            fileName: "report.pdf",
+            mediaType: "application/pdf",
+            kind: .pdf,
+            byteCount: 42,
+            storageKey: "attachments/report.pdf"
+        )
+        var conversation = Conversation(identity: try makeIdentity())
+
+        try conversation.append(Message(role: .user, content: "", attachments: [attachment]))
+
+        XCTAssertEqual(conversation.title, "report.pdf")
+    }
+
+    func testRenameNormalizesTruncatesAndTakesPrecedence() throws {
+        var conversation = Conversation(identity: try makeIdentity())
+        try conversation.append(Message(role: .user, content: "Automatic"))
+
+        try conversation.rename(to: "  My\n" + String(repeating: "x", count: 200))
+        try conversation.append(Message(role: .user, content: "Never replace"))
+
+        XCTAssertEqual(conversation.titleOrigin, .user)
+        XCTAssertEqual(conversation.title?.count, 160)
+        XCTAssertTrue(conversation.title?.hasPrefix("My x") == true)
+    }
+
+    func testRenameRejectsWhitespaceWithoutChangingMetadata() throws {
+        var conversation = Conversation(identity: try makeIdentity())
+        try conversation.append(Message(role: .user, content: "Automatic"))
+
+        XCTAssertThrowsError(try conversation.rename(to: " \n ")) { error in
+            XCTAssertEqual(error as? ConversationMetadataError, .invalidTitle)
+        }
+        XCTAssertEqual(conversation.title, "Automatic")
+        XCTAssertEqual(conversation.titleOrigin, .automatic)
+    }
+
+    func testActivityDateIsMonotonic() throws {
+        let created = Date(timeIntervalSince1970: 200)
+        var conversation = Conversation(
+            identity: try makeIdentity(),
+            createdAt: created,
+            updatedAt: created
+        )
+
+        try conversation.append(
+            Message(role: .user, content: "Hello"),
+            at: Date(timeIntervalSince1970: 100)
+        )
+        try conversation.rename(to: "Renamed", at: Date(timeIntervalSince1970: 300))
+
+        XCTAssertEqual(conversation.updatedAt, Date(timeIntervalSince1970: 300))
+    }
+
+    func testMergeMetadataPreservesConcurrentUserRename() throws {
+        let created = Date(timeIntervalSince1970: 100)
+        var generation = Conversation(
+            identity: try makeIdentity(),
+            createdAt: created,
+            updatedAt: created
+        )
+        try generation.append(Message(role: .user, content: "Automatic"), at: created)
+        var latest = generation
+        try latest.rename(to: "User title", at: Date(timeIntervalSince1970: 200))
+
+        generation.mergeMetadata(from: latest)
+
+        XCTAssertEqual(generation.title, "User title")
+        XCTAssertEqual(generation.titleOrigin, .user)
+        XCTAssertEqual(generation.updatedAt, Date(timeIntervalSince1970: 200))
+    }
+
     // MARK: Streaming
 
     func testBeginStreaming_FromIdleStartsEmptyStream() throws {

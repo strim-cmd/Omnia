@@ -42,17 +42,30 @@ internal struct ConversationDTO: Codable, Sendable {
     let streamingState: ConversationStreamingStateDTO
     /// Added in v1.0. Missing in pre-v1 documents and therefore decoded as nil.
     let modelSelection: ProviderModelSelection?
+    /// Added in v1.0 M3. Missing values migrate deterministically.
+    let title: String?
+    let titleOrigin: String?
+    let createdAt: Date?
+    let updatedAt: Date?
 
     init(
         identity: ConversationIdentity,
         history: [MessageDTO],
         streamingState: ConversationStreamingStateDTO,
-        modelSelection: ProviderModelSelection? = nil
+        modelSelection: ProviderModelSelection? = nil,
+        title: String? = nil,
+        titleOrigin: String? = nil,
+        createdAt: Date? = nil,
+        updatedAt: Date? = nil
     ) {
         self.identity = identity
         self.history = history
         self.streamingState = streamingState
         self.modelSelection = modelSelection
+        self.title = title
+        self.titleOrigin = titleOrigin
+        self.createdAt = createdAt
+        self.updatedAt = updatedAt
     }
 }
 
@@ -77,7 +90,11 @@ internal struct ConversationSerializer: Sendable {
                 )
             },
             streamingState: Self.streamingStateDTO(from: conversation.streamingState),
-            modelSelection: conversation.modelSelection
+            modelSelection: conversation.modelSelection,
+            title: conversation.title,
+            titleOrigin: conversation.titleOrigin.rawValue,
+            createdAt: conversation.createdAt,
+            updatedAt: conversation.updatedAt
         )
     }
 
@@ -86,9 +103,37 @@ internal struct ConversationSerializer: Sendable {
     /// - Throws: `RepositoryError.storageUnavailable` when the stored form is
     ///   not a valid `Conversation` representation.
     func fromDTO(_ dto: ConversationDTO) throws -> Conversation {
+        let legacyDate = Date(timeIntervalSince1970: 0)
+        let createdAt = dto.createdAt ?? legacyDate
+        let updatedAt = dto.updatedAt ?? createdAt
+        guard updatedAt >= createdAt else {
+            throw RepositoryError.storageUnavailable
+        }
+        let titleOrigin: ConversationTitleOrigin
+        if let value = dto.titleOrigin {
+            guard let restored = ConversationTitleOrigin(rawValue: value) else {
+                throw RepositoryError.storageUnavailable
+            }
+            titleOrigin = restored
+        } else {
+            titleOrigin = .automatic
+        }
+        if let title = dto.title {
+            let normalized = title.split(whereSeparator: { $0.isWhitespace }).joined(separator: " ")
+            let limit = titleOrigin == .user ? 160 : 80
+            guard !normalized.isEmpty, normalized == title, title.count <= limit else {
+                throw RepositoryError.storageUnavailable
+            }
+        } else if titleOrigin == .user {
+            throw RepositoryError.storageUnavailable
+        }
         var conversation = Conversation(
             identity: dto.identity,
-            modelSelection: dto.modelSelection
+            modelSelection: dto.modelSelection,
+            title: dto.title,
+            titleOrigin: titleOrigin,
+            createdAt: createdAt,
+            updatedAt: updatedAt
         )
         for message in dto.history {
             guard let role = MessageRole(serializedName: message.role) else {

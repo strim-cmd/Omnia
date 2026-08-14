@@ -182,20 +182,33 @@ final class CapabilityMappingTests: XCTestCase {
         )
     }
 
-    func testErrorTranslation_HttpStatusBecomesProviderUnavailable() {
-        for code in [401, 403, 429, 500] {
+    func testErrorTranslation_HttpStatusRetainsActionableCategory() {
+        let cases: [(Int, CapabilityError)] = [
+            (400, .invalidRequest),
+            (401, .unauthorized),
+            (404, .invalidEndpoint),
+            (408, .timedOut),
+            (429, .rateLimited),
+            (503, .serverFailure),
+            (451, .providerUnavailable),
+        ]
+        for (code, expected) in cases {
             XCTAssertEqual(
                 CapabilityMapping.capabilityError(from: .httpStatus(code)),
-                .providerUnavailable,
-                "Status \(code) should surface as providerUnavailable"
+                expected,
+                "Status \(code) should retain its safe category"
             )
         }
     }
 
-    func testErrorTranslation_NetworkFailureBecomesProviderUnavailable() {
+    func testErrorTranslation_NetworkAndTimeoutStayDistinct() {
         XCTAssertEqual(
             CapabilityMapping.capabilityError(from: .networkFailure),
-            .providerUnavailable
+            .networkUnavailable
+        )
+        XCTAssertEqual(
+            CapabilityMapping.capabilityError(from: .timedOut),
+            .timedOut
         )
     }
 }

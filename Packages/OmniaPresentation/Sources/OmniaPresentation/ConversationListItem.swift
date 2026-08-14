@@ -1,3 +1,4 @@
+import Foundation
 import OmniaApplication
 import OmniaFoundation
 
@@ -21,17 +22,25 @@ public struct ConversationListItem: Equatable, Sendable {
     /// The display preview of the conversation row, when the conversation has
     /// content to preview.
     public let displayPreview: String?
+    /// Durable creation and latest-activity timestamps used for sorting and
+    /// local-calendar grouping.
+    public let createdAt: Date
+    public let updatedAt: Date
 
     /// Creates a conversation list item with the given identity and display
     /// content.
     public init(
         identity: ConversationIdentity,
         displayTitle: String,
-        displayPreview: String?
+        displayPreview: String?,
+        createdAt: Date = Date(timeIntervalSince1970: 0),
+        updatedAt: Date = Date(timeIntervalSince1970: 0)
     ) {
         self.identity = identity
         self.displayTitle = displayTitle
         self.displayPreview = displayPreview
+        self.createdAt = createdAt
+        self.updatedAt = updatedAt
     }
 
     /// Creates a conversation list item derived from a conversation's content
@@ -48,8 +57,12 @@ public struct ConversationListItem: Equatable, Sendable {
             ?? conversation.history.first(where: { $0.role == .assistant })
         self.init(
             identity: conversation.identity,
-            displayTitle: titleMessage.map { Self.singleLine($0.content) } ?? "",
-            displayPreview: conversation.history.last.map { Self.singleLine($0.content) }
+            displayTitle: conversation.title
+                ?? titleMessage.map { Self.singleLine($0.content) }
+                ?? "",
+            displayPreview: conversation.history.last.map { Self.singleLine($0.content) },
+            createdAt: conversation.createdAt,
+            updatedAt: conversation.updatedAt
         )
     }
 

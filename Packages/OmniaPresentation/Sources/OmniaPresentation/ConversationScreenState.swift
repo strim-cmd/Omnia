@@ -26,6 +26,15 @@ import OmniaFoundation
 /// connection state of each provider, never provider-specific detail (ARC-001,
 /// ARC-004, ARC-005).
 public struct ConversationScreenState: Equatable, Sendable {
+    /// The contextual recovery the view should offer for a terminal failure.
+    public enum RecoveryAction: Equatable, Sendable {
+        case retry
+        case continueResponse
+        case changeModel
+        case editProvider
+        case removeAttachments
+        case dismiss
+    }
     /// A typed failure the conversation screen presents (DES-012 §3.2).
     ///
     /// The failure is the typed error the `SendMessageUseCase` surfaced —
@@ -260,6 +269,41 @@ public struct ConversationScreenState: Equatable, Sendable {
         failure != nil
     }
 
+    public var recoveryAction: RecoveryAction? {
+        guard let failure else { return nil }
+        let interrupted: Bool
+        if case .interrupted = streamingCondition {
+            interrupted = true
+        } else {
+            interrupted = false
+        }
+        switch failure {
+        case .repository:
+            return .retry
+        case .application:
+            return .dismiss
+        case .credentialStorage:
+            return .editProvider
+        case .attachment:
+            return draftAttachments.isEmpty ? .dismiss : .removeAttachments
+        case .unexpected:
+            return .retry
+        case .capability(let error):
+            switch error {
+            case .providerUnavailable, .unauthorized, .invalidEndpoint:
+                return .editProvider
+            case .modelUnavailable:
+                return .changeModel
+            case .networkUnavailable, .timedOut, .rateLimited, .serverFailure, .invalidResponse:
+                return interrupted ? .continueResponse : .retry
+            case .streamingInterrupted:
+                return .continueResponse
+            case .invalidRequest:
+                return .dismiss
+            }
+        }
+    }
+
     /// Returns a copy of the state with the rendered draft replaced, preserving
     /// the history, the streaming condition, and the failure. The draft is the
     /// user's in-progress composer input — rendered from state through a
@@ -329,6 +373,20 @@ public struct ConversationScreenState: Equatable, Sendable {
             streamingCondition: streamingCondition,
             failure: failure,
             providerSelection: selection
+        )
+    }
+
+    /// Returns a copy with a replacement terminal failure, preserving user
+    /// input, attachments, selection, history, and streaming state.
+    public func replacingFailure(_ failure: Failure?) -> ConversationScreenState {
+        ConversationScreenState(
+            messages: messages,
+            draft: draft,
+            draftAttachments: draftAttachments,
+            attachmentIssue: attachmentIssue,
+            streamingCondition: streamingCondition,
+            failure: failure,
+            providerSelection: providerSelection
         )
     }
 }

@@ -1,3 +1,4 @@
+import Foundation
 import OmniaDomain
 
 /// The conversation application service: create, load (select), list by
@@ -26,6 +27,7 @@ public struct ConversationService: Sendable {
     private let workspaceRepository: any WorkspaceRepository
     private let defaultModelSelection: @Sendable () async throws -> ProviderModelSelection?
     private let cleanupAttachments: @Sendable ([MessageAttachment]) async throws -> Void
+    private let now: @Sendable () -> Date
 
     /// Creates a conversation service over the given repository contracts.
     public init(
@@ -34,20 +36,25 @@ public struct ConversationService: Sendable {
         defaultModelSelection: @escaping @Sendable () async throws -> ProviderModelSelection? = { nil },
         cleanupAttachments: @escaping @Sendable (
             [MessageAttachment]
-        ) async throws -> Void = { _ in }
+        ) async throws -> Void = { _ in },
+        now: @escaping @Sendable () -> Date = { Date() }
     ) {
         self.conversationRepository = conversationRepository
         self.workspaceRepository = workspaceRepository
         self.defaultModelSelection = defaultModelSelection
         self.cleanupAttachments = cleanupAttachments
+        self.now = now
     }
 
     /// Creates an empty conversation with a fresh identity and persists it
     /// (DES-002).
     public func createConversation() async throws -> Conversation {
+        let timestamp = now()
         let conversation = Conversation(
             identity: ConversationIdentity(),
-            modelSelection: try await defaultModelSelection()
+            modelSelection: try await defaultModelSelection(),
+            createdAt: timestamp,
+            updatedAt: timestamp
         )
         try await conversationRepository.save(conversation)
         return conversation
@@ -66,13 +73,24 @@ public struct ConversationService: Sendable {
         guard let workspace = try await workspaceRepository.workspace(with: workspace) else {
             throw ApplicationValidationError.invalid(reason: "The workspace is not stored.")
         }
+        let timestamp = now()
         let conversation = Conversation(
             identity: ConversationIdentity(),
-            modelSelection: try await defaultModelSelection()
+            modelSelection: try await defaultModelSelection(),
+            createdAt: timestamp,
+            updatedAt: timestamp
         )
         try await conversationRepository.save(conversation)
         let updated = workspace.adding(conversation: conversation.identity)
-        try await workspaceRepository.save(updated)
+        do {
+            try await workspaceRepository.save(updated)
+        } catch {
+            // The conversation is not reachable until membership persists. If
+            // the second half fails, remove the just-created record so a rapid
+            // retry cannot accumulate invisible orphan conversations.
+            try? await conversationRepository.delete(conversation.identity)
+            throw error
+        }
         return conversation
     }
 
@@ -97,13 +115,34 @@ public struct ConversationService: Sendable {
         return conversation
     }
 
+    /// Persists a user-authored title without changing message history or the
+    /// per-conversation provider/model choice.
+    public func rename(
+        _ identity: ConversationIdentity,
+        to title: String
+    ) async throws -> Conversation {
+        guard var conversation = try await conversationRepository.conversation(with: identity) else {
+            throw ApplicationValidationError.invalid(reason: "The conversation is not stored.")
+        }
+        do {
+            try conversation.rename(to: title, at: now())
+        } catch ConversationMetadataError.invalidTitle {
+            throw ApplicationValidationError.invalid(
+                reason: "The conversation title cannot be empty."
+            )
+        }
+        try await conversationRepository.save(conversation)
+        return conversation
+    }
+
     /// Returns the conversations that belong to `workspace`, via the
     /// workspace's membership, in identity order (DES-011 §3.2).
     ///
     /// The membership lists conversation identities; each identity is loaded by
     /// the repository, and an identity with no stored conversation is skipped.
     /// A workspace that is not stored owns no conversations and yields an empty
-    /// list. The result is deterministic (ARC-001, DES-011 §5).
+    /// list. Results are ordered by most recent activity, with stable creation
+    /// and identity tie-breakers (ARC-001, DES-011 §5).
     public func conversations(in workspace: WorkspaceIdentity) async throws -> [Conversation] {
         guard let workspace = try await workspaceRepository.workspace(with: workspace) else {
             return []
@@ -118,7 +157,11 @@ public struct ConversationService: Sendable {
                 conversations.append(conversation)
             }
         }
-        return conversations
+        return conversations.sorted {
+            if $0.updatedAt != $1.updatedAt { return $0.updatedAt > $1.updatedAt }
+            if $0.createdAt != $1.createdAt { return $0.createdAt > $1.createdAt }
+            return $0.identity.canonicalString < $1.identity.canonicalString
+        }
     }
 
     /// Removes the conversation with `identity` (user ownership, ARC-005).
@@ -130,7 +173,31 @@ public struct ConversationService: Sendable {
             .conversation(with: identity)?
             .history
             .flatMap(\.attachments) ?? []
-        try await conversationRepository.delete(identity)
+
+        let owningWorkspaces = try await workspaceRepository
+            .allWorkspaces()
+            .filter { $0.contains(conversation: identity) }
+        var detachedWorkspaces: [Workspace] = []
+        do {
+            for workspace in owningWorkspaces {
+                // Record the original before attempting the save: a repository
+                // may persist and still surface an I/O failure, and restoration
+                // remains safe when it did not.
+                detachedWorkspaces.append(workspace)
+                try await workspaceRepository.save(
+                    workspace.removing(conversation: identity)
+                )
+            }
+            try await conversationRepository.delete(identity)
+        } catch {
+            // Keep the record reachable when either membership persistence or
+            // conversation deletion fails. Restoration is best-effort because
+            // the original repository failure remains the actionable cause.
+            for workspace in detachedWorkspaces {
+                try? await workspaceRepository.save(workspace)
+            }
+            throw error
+        }
         try await cleanupAttachments(attachments)
     }
 }

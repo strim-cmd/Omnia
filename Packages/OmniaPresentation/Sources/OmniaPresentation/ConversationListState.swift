@@ -1,5 +1,26 @@
+import Foundation
 import OmniaApplication
 import OmniaFoundation
+
+/// The local-calendar activity buckets shown by the conversation list.
+public enum ConversationDateGroup: Int, CaseIterable, Equatable, Hashable, Sendable {
+    case future
+    case today
+    case yesterday
+    case previousSevenDays
+    case older
+}
+
+/// One ordered conversation-list section.
+public struct ConversationListSection: Equatable, Sendable {
+    public let group: ConversationDateGroup
+    public let items: [ConversationListItem]
+
+    public init(group: ConversationDateGroup, items: [ConversationListItem]) {
+        self.group = group
+        self.items = items
+    }
+}
 
 /// The ready-to-render state of the conversation list: the ordered
 /// conversation list items and the empty and error conditions the list
@@ -40,5 +61,40 @@ public struct ConversationListState: Equatable, Sendable {
     /// The error condition: a list operation failed.
     public var hasError: Bool {
         failure != nil
+    }
+
+    /// Groups already-sorted rows against the caller's local calendar. Calendar
+    /// and clock injection keep midnight, locale/time-zone, old, and future
+    /// boundary behavior deterministic in tests.
+    public func sections(
+        now: Date = Date(),
+        calendar: Calendar = .autoupdatingCurrent
+    ) -> [ConversationListSection] {
+        let buckets = Dictionary(grouping: items) {
+            Self.group(for: $0.updatedAt, now: now, calendar: calendar)
+        }
+        return ConversationDateGroup.allCases.compactMap { group in
+            guard let values = buckets[group], !values.isEmpty else { return nil }
+            return ConversationListSection(group: group, items: values)
+        }
+    }
+
+    public static func group(
+        for date: Date,
+        now: Date,
+        calendar: Calendar
+    ) -> ConversationDateGroup {
+        let today = calendar.startOfDay(for: now)
+        guard let tomorrow = calendar.date(byAdding: .day, value: 1, to: today),
+              let yesterday = calendar.date(byAdding: .day, value: -1, to: today),
+              let sevenDaysAgo = calendar.date(byAdding: .day, value: -7, to: today)
+        else {
+            return .older
+        }
+        if date >= tomorrow { return .future }
+        if date >= today { return .today }
+        if date >= yesterday { return .yesterday }
+        if date >= sevenDaysAgo { return .previousSevenDays }
+        return .older
     }
 }

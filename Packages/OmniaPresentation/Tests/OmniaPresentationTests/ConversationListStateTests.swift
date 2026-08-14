@@ -1,3 +1,4 @@
+import Foundation
 import OmniaApplication
 import XCTest
 @testable import OmniaPresentation
@@ -38,6 +39,58 @@ final class ConversationListStateTests: XCTestCase {
         )
         XCTAssertTrue(state.hasError)
         XCTAssertEqual(state.failure, .storageUnavailable)
+    }
+
+    func testSections_GroupAtLocalCalendarBoundariesIncludingOldAndFutureDates() throws {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = try XCTUnwrap(TimeZone(secondsFromGMT: 3_600))
+        let now = try XCTUnwrap(
+            calendar.date(from: DateComponents(year: 2026, month: 8, day: 14, hour: 0, minute: 30))
+        )
+        func row(_ suffix: String, days: Int) throws -> ConversationListItem {
+            let identity = try XCTUnwrap(
+                ConversationIdentity(restoring: "550E8400-E29B-41D4-A716-4466554400\(suffix)")
+            )
+            let date = try XCTUnwrap(calendar.date(byAdding: .day, value: days, to: now))
+            return ConversationListItem(
+                identity: identity,
+                displayTitle: suffix,
+                displayPreview: nil,
+                createdAt: date,
+                updatedAt: date
+            )
+        }
+        let state = ConversationListState(items: [
+            try row("04", days: 2),
+            try row("00", days: 0),
+            try row("01", days: -1),
+            try row("02", days: -5),
+            try row("03", days: -30),
+        ])
+
+        let sections = state.sections(now: now, calendar: calendar)
+
+        XCTAssertEqual(
+            sections.map(\.group),
+            [.future, .today, .yesterday, .previousSevenDays, .older]
+        )
+        XCTAssertEqual(sections.flatMap(\.items).map(\.displayTitle), ["04", "00", "01", "02", "03"])
+    }
+
+    func testGroup_UsesCalendarDayInsteadOfElapsedTwentyFourHours() throws {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = try XCTUnwrap(TimeZone(identifier: "Europe/Berlin"))
+        let now = try XCTUnwrap(
+            calendar.date(from: DateComponents(year: 2026, month: 3, day: 30, hour: 0, minute: 15))
+        )
+        let previousDay = try XCTUnwrap(
+            calendar.date(from: DateComponents(year: 2026, month: 3, day: 29, hour: 23, minute: 55))
+        )
+
+        XCTAssertEqual(
+            ConversationListState.group(for: previousDay, now: now, calendar: calendar),
+            .yesterday
+        )
     }
 
     // MARK: Equality

@@ -104,6 +104,9 @@ public struct ConversationScreenView: View {
     public let onRemoveAttachment: (MessageAttachment) -> Void
     /// Presents a safe picker/transfer failure without discarding the draft.
     public let onAttachmentFailure: (AttachmentError) -> Void
+    /// Dismisses a terminal error without changing messages, draft, staged
+    /// attachments, or streaming state.
+    public let onDismissFailure: () -> Void
 
     /// The coordinate space of the scroll view, used to measure the viewport
     /// and the bottom marker's position (UX audit U2).
@@ -131,6 +134,7 @@ public struct ConversationScreenView: View {
     /// animate while a stream is active or thinking (new_design.md §5).
     @State private var waveformPulse = false
     @State private var isFileImporterPresented = false
+    @State private var isModelSelectionPresented = false
     #if canImport(PhotosUI)
     @State private var selectedPhotos: [PhotosPickerItem] = []
     #endif
@@ -154,7 +158,8 @@ public struct ConversationScreenView: View {
         onAddFiles: @escaping ([URL]) -> Void = { _ in },
         onStageAttachments: @escaping ([AttachmentImportCandidate]) -> Void = { _ in },
         onRemoveAttachment: @escaping (MessageAttachment) -> Void = { _ in },
-        onAttachmentFailure: @escaping (AttachmentError) -> Void = { _ in }
+        onAttachmentFailure: @escaping (AttachmentError) -> Void = { _ in },
+        onDismissFailure: @escaping () -> Void = {}
     ) {
         self.state = state
         self._draft = draft
@@ -170,6 +175,7 @@ public struct ConversationScreenView: View {
         self.onStageAttachments = onStageAttachments
         self.onRemoveAttachment = onRemoveAttachment
         self.onAttachmentFailure = onAttachmentFailure
+        self.onDismissFailure = onDismissFailure
     }
 
     public var body: some View {
@@ -243,6 +249,13 @@ public struct ConversationScreenView: View {
         .onChange(of: state.streamingCondition) { condition in
             announceStreamingTransition(from: previousStreamingCondition, to: condition)
             previousStreamingCondition = condition
+        }
+        .confirmationDialog(
+            Localized.changeModel,
+            isPresented: $isModelSelectionPresented,
+            titleVisibility: .visible
+        ) {
+            modelSelectionActions
         }
         #if canImport(PhotosUI)
         .onChange(of: selectedPhotos) { items in
@@ -527,6 +540,35 @@ public struct ConversationScreenView: View {
     #endif
 
     // MARK: Provider selection (UX audit V2)
+
+    @ViewBuilder
+    private var modelSelectionActions: some View {
+        if let selection = state.providerSelection {
+            ForEach(selection.modelCatalogs, id: \.provider) { catalog in
+                ForEach(catalog.models, id: \.selection) { descriptor in
+                    Button(
+                        "\(providerName(catalog.provider, in: selection)) — \(descriptor.selection.model.name)"
+                    ) {
+                        onSelectModel(descriptor.selection)
+                    }
+                    .disabled(
+                        selection.providers.first { $0.identity == catalog.provider }
+                            .map { !ConversationScreenState.ProviderSelection.isAvailable($0.state) }
+                            ?? true
+                    )
+                }
+            }
+        }
+        Button(Localized.cancel, role: .cancel) {}
+    }
+
+    private func providerName(
+        _ identity: ProviderIdentity,
+        in selection: ConversationScreenState.ProviderSelection
+    ) -> String {
+        selection.providers.first { $0.identity == identity }?.displayName
+            ?? Localized.unavailable
+    }
 
     /// The ready-to-render provider selection of the screen: the loading state
     /// while the provider connections have not loaded, the empty state when no
@@ -1103,11 +1145,53 @@ public struct ConversationScreenView: View {
     /// surface, the failure presented as it is, never silent (ARC-001,
     /// new_design.md §11).
     private func errorState(_ failure: ConversationScreenState.Failure) -> some View {
+        let recovery = state.recoveryAction
         ErrorBannerView(
             message: FailureCopy.message(for: failure),
             title: Localized.error,
-            onRetry: onRetry
+            actionTitle: recovery.map(recoveryTitle) ?? Localized.retry,
+            actionSystemImage: recovery.map(recoverySystemImage) ?? "arrow.clockwise",
+            onRetry: recovery.map { action in
+                { performRecovery(action) }
+            }
         )
+    }
+
+    private func recoveryTitle(_ action: ConversationScreenState.RecoveryAction) -> String {
+        switch action {
+        case .retry: return Localized.retry
+        case .continueResponse: return Localized.continueResponse
+        case .changeModel: return Localized.changeModel
+        case .editProvider: return Localized.editProvider
+        case .removeAttachments: return Localized.removeAttachments
+        case .dismiss: return Localized.dismiss
+        }
+    }
+
+    private func recoverySystemImage(_ action: ConversationScreenState.RecoveryAction) -> String {
+        switch action {
+        case .retry: return "arrow.clockwise"
+        case .continueResponse: return "play.fill"
+        case .changeModel: return "cpu"
+        case .editProvider: return "pencil"
+        case .removeAttachments: return "paperclip.badge.ellipsis"
+        case .dismiss: return "xmark"
+        }
+    }
+
+    private func performRecovery(_ action: ConversationScreenState.RecoveryAction) {
+        switch action {
+        case .retry, .continueResponse:
+            onRetry()
+        case .changeModel:
+            isModelSelectionPresented = true
+        case .editProvider:
+            onOpenProviders()
+        case .removeAttachments:
+            state.draftAttachments.forEach(onRemoveAttachment)
+        case .dismiss:
+            onDismissFailure()
+        }
     }
 
     /// Announces the streaming lifecycle transition to VoiceOver: a response
@@ -1216,6 +1300,18 @@ public struct ConversationScreenView: View {
             switch failure {
             case .providerUnavailable:
                 return Localized.noProviderAvailable
+            case .networkUnavailable:
+                return Localized.requestNetworkUnavailable
+            case .unauthorized:
+                return Localized.requestUnauthorized
+            case .invalidEndpoint:
+                return Localized.requestInvalidEndpoint
+            case .timedOut:
+                return Localized.requestTimedOut
+            case .rateLimited:
+                return Localized.requestRateLimited
+            case .serverFailure:
+                return Localized.requestServerFailure
             case .modelUnavailable(let model):
                 return Localized.modelUnavailable(model.name)
             case .invalidRequest:

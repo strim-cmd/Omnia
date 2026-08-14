@@ -305,7 +305,7 @@ final class ProviderAdapterTests: XCTestCase {
         }
     }
 
-    func testGenerateText_SurfacesProviderUnavailableOnHttpStatus() async throws {
+    func testGenerateText_SurfacesServerFailureOnServerStatus() async throws {
         let transport = FakeTransport(sendResult: .failure(.httpStatus(503)))
         let (adapter, _) = try await makeAdapter(transport: transport)
 
@@ -317,15 +317,15 @@ final class ProviderAdapterTests: XCTestCase {
                     model: ModelReference(name: "gpt-4o")
                 )
             )
-            XCTFail("Expected CapabilityError.providerUnavailable")
-        } catch CapabilityError.providerUnavailable {
+            XCTFail("Expected CapabilityError.serverFailure")
+        } catch CapabilityError.serverFailure {
             // expected
         } catch {
             XCTFail("Unexpected error: \(error)")
         }
     }
 
-    func testGenerateText_SurfacesProviderUnavailableOnNetworkFailure() async throws {
+    func testGenerateText_SurfacesNetworkUnavailableOnNetworkFailure() async throws {
         let transport = FakeTransport(sendResult: .failure(.networkFailure))
         let (adapter, _) = try await makeAdapter(transport: transport)
 
@@ -337,8 +337,8 @@ final class ProviderAdapterTests: XCTestCase {
                     model: ModelReference(name: "gpt-4o")
                 )
             )
-            XCTFail("Expected CapabilityError.providerUnavailable")
-        } catch CapabilityError.providerUnavailable {
+            XCTFail("Expected CapabilityError.networkUnavailable")
+        } catch CapabilityError.networkUnavailable {
             // expected
         } catch {
             XCTFail("Unexpected error: \(error)")
@@ -463,28 +463,28 @@ final class ProviderAdapterTests: XCTestCase {
         }
     }
 
-    func testSendMessage_SurfacesProviderUnavailableOnHttpStatus() async throws {
+    func testSendMessage_SurfacesServerFailureOnServerStatus() async throws {
         let transport = FakeTransport(sendResult: .failure(.httpStatus(503)))
         let (adapter, _) = try await makeAdapter(transport: transport)
 
         do {
             _ = try await adapter.sendMessage(conversationRequest)
-            XCTFail("Expected CapabilityError.providerUnavailable")
-        } catch CapabilityError.providerUnavailable {
+            XCTFail("Expected CapabilityError.serverFailure")
+        } catch CapabilityError.serverFailure {
             // expected
         } catch {
             XCTFail("Unexpected error: \(error)")
         }
     }
 
-    func testSendMessage_SurfacesProviderUnavailableOnNetworkFailure() async throws {
+    func testSendMessage_SurfacesNetworkUnavailableOnNetworkFailure() async throws {
         let transport = FakeTransport(sendResult: .failure(.networkFailure))
         let (adapter, _) = try await makeAdapter(transport: transport)
 
         do {
             _ = try await adapter.sendMessage(conversationRequest)
-            XCTFail("Expected CapabilityError.providerUnavailable")
-        } catch CapabilityError.providerUnavailable {
+            XCTFail("Expected CapabilityError.networkUnavailable")
+        } catch CapabilityError.networkUnavailable {
             // expected
         } catch {
             XCTFail("Unexpected error: \(error)")
@@ -667,6 +667,32 @@ final class ProviderAdapterTests: XCTestCase {
             return XCTFail("Expected a content delta before the failure")
         }
         XCTAssertEqual(content, "Hello")
+    }
+
+    func testStream_MapsTransportCategoryBeforeAnyPartialContent() async throws {
+        let cases: [(ProviderTransportError, CapabilityError)] = [
+            (.networkFailure, .networkUnavailable),
+            (.timedOut, .timedOut),
+            (.httpStatus(401), .unauthorized),
+            (.httpStatus(404), .invalidEndpoint),
+            (.httpStatus(429), .rateLimited),
+            (.httpStatus(503), .serverFailure),
+            (.invalidResponse, .invalidResponse),
+        ]
+        for (transportError, expected) in cases {
+            let transport = FakeStreamingTransport(
+                chunks: [],
+                terminal: .throwError(transportError)
+            )
+            let (adapter, _) = try await makeAdapter(transport: transport)
+            let stream = try await adapter.stream(streamingRequest)
+            do {
+                for try await _ in stream {}
+                XCTFail("Expected \(expected)")
+            } catch let error as CapabilityError {
+                XCTAssertEqual(error, expected)
+            }
+        }
     }
 
     func testStream_SurfacesTheCredentialStorageErrorWithoutWrappingIt() async throws {

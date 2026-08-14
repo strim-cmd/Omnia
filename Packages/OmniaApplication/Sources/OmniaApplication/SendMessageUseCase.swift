@@ -1,3 +1,4 @@
+import Foundation
 import OmniaDomain
 
 /// The send-message use case: the streaming orchestration flow of the
@@ -35,6 +36,7 @@ public struct SendMessageUseCase: Sendable {
         [Message],
         ProviderModelSelection
     ) async throws -> [ResolvedAttachment]
+    private let now: @Sendable () -> Date
 
     /// Creates a send-message use case over the given Domain contracts.
     public init(
@@ -44,12 +46,14 @@ public struct SendMessageUseCase: Sendable {
         resolveAttachments: @escaping @Sendable (
             [Message],
             ProviderModelSelection
-        ) async throws -> [ResolvedAttachment] = { _, _ in [] }
+        ) async throws -> [ResolvedAttachment] = { _, _ in [] },
+        now: @escaping @Sendable () -> Date = { Date() }
     ) {
         self.streamingContract = streamingContract
         self.selectionService = selectionService
         self.conversationRepository = conversationRepository
         self.resolveAttachments = resolveAttachments
+        self.now = now
     }
 
     /// Performs the streaming flow for `request` and delivers the Domain
@@ -165,7 +169,7 @@ public struct SendMessageUseCase: Sendable {
         // Resolve the exact route before mutating history. If a saved model has
         // disappeared, the user can choose a replacement and retry without a
         // previously persisted copy of the same draft becoming a duplicate.
-        try conversation.append(request.message)
+        try conversation.append(request.message, at: now())
         let attachments = try await resolveAttachments(conversation.history, resolved)
         try await conversationRepository.save(conversation)
         try conversation.beginStreaming()
@@ -301,12 +305,12 @@ public struct SendMessageUseCase: Sendable {
             try conversation.appendPartial(content)
         case .completion(_, let message):
             try reconcilePartial(&conversation, to: message.content)
-            try conversation.completeStreaming()
-            try await conversationRepository.save(conversation)
+            try conversation.completeStreaming(at: now())
+            try await savePreservingMetadata(&conversation)
         case .interruption(_, let partialContent):
             try reconcilePartial(&conversation, to: partialContent)
-            try conversation.interruptStreaming()
-            try await conversationRepository.save(conversation)
+            try conversation.interruptStreaming(at: now())
+            try await savePreservingMetadata(&conversation)
         }
     }
 
@@ -324,7 +328,17 @@ public struct SendMessageUseCase: Sendable {
     /// Marks the conversation interrupted, preserving the accumulated partial
     /// content, and persists it (DES-009 §3.3).
     private func interruptAndPersist(_ conversation: inout Conversation) async throws {
-        try conversation.interruptStreaming()
+        try conversation.interruptStreaming(at: now())
+        try await savePreservingMetadata(&conversation)
+    }
+
+    /// A generation runs from an isolated aggregate snapshot. Preserve a user
+    /// rename that was saved while that generation was in flight before the
+    /// terminal streaming snapshot is committed.
+    private func savePreservingMetadata(_ conversation: inout Conversation) async throws {
+        if let latest = try await conversationRepository.conversation(with: conversation.identity) {
+            conversation.mergeMetadata(from: latest)
+        }
         try await conversationRepository.save(conversation)
     }
 

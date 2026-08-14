@@ -57,6 +57,30 @@ final class ConversationSerializerTests: XCTestCase {
         XCTAssertEqual(restored.identity, identity)
         XCTAssertEqual(restored.history, [Message(role: .user, content: "Hello")])
         XCTAssertNil(restored.modelSelection)
+        XCTAssertEqual(restored.title, "Hello")
+        XCTAssertEqual(restored.titleOrigin, .automatic)
+        XCTAssertEqual(restored.createdAt, Date(timeIntervalSince1970: 0))
+        XCTAssertEqual(restored.updatedAt, Date(timeIntervalSince1970: 0))
+    }
+
+    func testRoundTrip_PreservesTitleOriginAndActivityDates() throws {
+        let created = Date(timeIntervalSince1970: 100)
+        let updated = Date(timeIntervalSince1970: 200)
+        var conversation = Conversation(
+            identity: ConversationIdentity(),
+            createdAt: created,
+            updatedAt: created
+        )
+        try conversation.append(Message(role: .user, content: "Automatic"), at: created)
+        try conversation.rename(to: "User title", at: updated)
+
+        let restored = try serializer.decode(from: serializer.encode(conversation))
+
+        XCTAssertEqual(restored, conversation)
+        XCTAssertEqual(restored.title, "User title")
+        XCTAssertEqual(restored.titleOrigin, .user)
+        XCTAssertEqual(restored.createdAt, created)
+        XCTAssertEqual(restored.updatedAt, updated)
     }
 
     func testRoundTrip_PreservesActiveStreamingState() throws {
@@ -126,6 +150,34 @@ final class ConversationSerializerTests: XCTestCase {
             identity: ConversationIdentity(),
             history: [],
             streamingState: ConversationStreamingStateDTO(state: "bogus", partialContent: nil)
+        )
+
+        XCTAssertThrowsError(try serializer.decode(from: JSONEncoder().encode(dto))) { error in
+            XCTAssertEqual(error as? RepositoryError, .storageUnavailable)
+        }
+    }
+
+    func testDecode_UserTitleWithoutValueThrowsStorageUnavailable() throws {
+        let dto = ConversationDTO(
+            identity: ConversationIdentity(),
+            history: [],
+            streamingState: ConversationStreamingStateDTO(state: "idle", partialContent: nil),
+            title: nil,
+            titleOrigin: ConversationTitleOrigin.user.rawValue
+        )
+
+        XCTAssertThrowsError(try serializer.decode(from: JSONEncoder().encode(dto))) { error in
+            XCTAssertEqual(error as? RepositoryError, .storageUnavailable)
+        }
+    }
+
+    func testDecode_UpdatedBeforeCreatedThrowsStorageUnavailable() throws {
+        let dto = ConversationDTO(
+            identity: ConversationIdentity(),
+            history: [],
+            streamingState: ConversationStreamingStateDTO(state: "idle", partialContent: nil),
+            createdAt: Date(timeIntervalSince1970: 200),
+            updatedAt: Date(timeIntervalSince1970: 100)
         )
 
         XCTAssertThrowsError(try serializer.decode(from: JSONEncoder().encode(dto))) { error in

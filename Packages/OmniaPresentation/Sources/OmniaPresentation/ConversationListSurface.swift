@@ -94,6 +94,14 @@ public struct ConversationListSurface: Sendable {
         try await service.selectModel(selection, for: identity)
     }
 
+    /// Persists an explicit user title for one conversation.
+    public func rename(
+        _ identity: ConversationIdentity,
+        to title: String
+    ) async throws -> Conversation {
+        try await service.rename(identity, to: title)
+    }
+
     /// Deletes the conversation with `identity` — the user's removal of their
     /// own content (DES-012 §3.3, ARC-005).
     ///

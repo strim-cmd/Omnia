@@ -446,6 +446,18 @@ public struct SettingsView: View {
             switch failure {
             case .providerUnavailable:
                 return Localized.noProviderAvailable
+            case .networkUnavailable:
+                return Localized.requestNetworkUnavailable
+            case .unauthorized:
+                return Localized.requestUnauthorized
+            case .invalidEndpoint:
+                return Localized.requestInvalidEndpoint
+            case .timedOut:
+                return Localized.requestTimedOut
+            case .rateLimited:
+                return Localized.requestRateLimited
+            case .serverFailure:
+                return Localized.requestServerFailure
             case .modelUnavailable(let model):
                 return Localized.modelUnavailable(model.name)
             case .invalidRequest:

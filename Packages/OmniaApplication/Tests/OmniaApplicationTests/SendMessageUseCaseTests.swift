@@ -172,13 +172,15 @@ private func makeUseCase(
     resolveAttachments: @escaping @Sendable (
         [Message],
         ProviderModelSelection
-    ) async throws -> [ResolvedAttachment] = { _, _ in [] }
+    ) async throws -> [ResolvedAttachment] = { _, _ in [] },
+    now: @escaping @Sendable () -> Date = { Date() }
 ) -> SendMessageUseCase {
     SendMessageUseCase(
         streamingContract: contract,
         selectionService: selectionService,
         conversationRepository: repository,
-        resolveAttachments: resolveAttachments
+        resolveAttachments: resolveAttachments,
+        now: now
     )
 }
 
@@ -404,6 +406,53 @@ final class SendMessageUseCaseTests: XCTestCase {
             Message(role: .assistant, content: "Complete"),
         ])
         XCTAssertEqual(stored.streamingState, .idle)
+    }
+
+    func testSend_CompletionPreservesUserRenameSavedWhileStreaming() async throws {
+        let repository = InMemoryConversationRepository()
+        let created = Date(timeIntervalSince1970: 100)
+        let conversation = Conversation(
+            identity: ConversationIdentity(),
+            createdAt: created,
+            updatedAt: created
+        )
+        try await repository.save(conversation)
+        let (selection, _) = await makeSelectionService(modelsByProvider: [
+            providerA: [ModelReference(name: "model")],
+        ])
+        let capability = AsyncThrowingStream<StreamingUpdate, Error>.makeStream()
+        let useCase = makeUseCase(
+            contract: ScriptedStreamingContract { _ in capability.stream },
+            selectionService: selection,
+            repository: repository,
+            now: { Date(timeIntervalSince1970: 300) }
+        )
+        let stream = try await useCase.send(
+            SendMessageRequest(
+                conversation: conversation.identity,
+                message: Message(role: .user, content: "Automatic")
+            )
+        )
+        let accepted = try await repository.conversation(with: conversation.identity)
+        var renamed = try XCTUnwrap(accepted)
+        try renamed.rename(to: "User title", at: Date(timeIntervalSince1970: 400))
+        try await repository.save(renamed)
+
+        capability.continuation.yield(
+            .completion(
+                identity: CapabilityRequestIdentity(),
+                message: Message(role: .assistant, content: "Done")
+            )
+        )
+        capability.continuation.finish()
+        for try await _ in stream {}
+
+        let completed = try await repository.conversation(with: conversation.identity)
+        let stored = try XCTUnwrap(completed)
+        XCTAssertEqual(stored.title, "User title")
+        XCTAssertEqual(stored.titleOrigin, .user)
+        XCTAssertEqual(stored.updatedAt, Date(timeIntervalSince1970: 400))
+        XCTAssertEqual(stored.history.map(\.content), ["Automatic", "Done"])
     }
 
     func testPerformSend_CancellationPersistsPartialBeforeTaskFinishes() async throws {

@@ -32,6 +32,8 @@ public struct ConversationListView: View {
     /// Translates the delete intent for the conversation with the given
     /// identity.
     public let onDelete: (ConversationIdentity) -> Void
+    /// Translates an explicit user rename.
+    public let onRename: (ConversationIdentity, String) -> Void
     /// Translates the open-menu intent: the navigation drawer is presented.
     public let onOpenMenu: () -> Void
 
@@ -40,6 +42,10 @@ public struct ConversationListView: View {
     /// A full swipe never deletes: the confirm step is explicit and the
     /// system confirmation dialog is the accessibility path (UX audit U5).
     @State private var pendingDeletion: ConversationIdentity?
+    /// The conversation currently presented in the rename sheet and its
+    /// editable title. The existing value is retained if saving fails.
+    @State private var pendingRename: ConversationIdentity?
+    @State private var renameDraft = ""
     /// The one conversation whose card is settled left to expose the circular
     /// delete affordance. Opening or tapping elsewhere closes the prior row.
     @State private var revealedConversation: ConversationIdentity?
@@ -54,12 +60,14 @@ public struct ConversationListView: View {
         onCreate: @escaping () -> Void,
         onSelect: @escaping (ConversationIdentity) -> Void,
         onDelete: @escaping (ConversationIdentity) -> Void,
+        onRename: @escaping (ConversationIdentity, String) -> Void = { _, _ in },
         onOpenMenu: @escaping () -> Void = {}
     ) {
         self.state = state
         self.onCreate = onCreate
         self.onSelect = onSelect
         self.onDelete = onDelete
+        self.onRename = onRename
         self.onOpenMenu = onOpenMenu
     }
 
@@ -96,6 +104,40 @@ public struct ConversationListView: View {
         } message: { _ in
             Text(Localized.deleteConversationConfirmation)
         }
+        .sheet(
+            isPresented: Binding(
+                get: { pendingRename != nil },
+                set: { presented in
+                    if !presented { pendingRename = nil }
+                }
+            )
+        ) {
+            renameSheet
+        }
+    }
+
+    private var renameSheet: some View {
+        VStack(alignment: .leading, spacing: OmniaTheme.Spacing.lg) {
+            Text(Localized.renameConversation)
+                .font(OmniaTheme.Typography.screenTitle)
+            TextField(Localized.conversationTitle, text: $renameDraft)
+                .textFieldStyle(.roundedBorder)
+                .accessibilityLabel(Text(Localized.conversationTitle))
+            HStack {
+                OmniaButton(title: Localized.cancel, style: .secondary) {
+                    pendingRename = nil
+                }
+                Spacer()
+                OmniaButton(title: Localized.save, systemImage: "checkmark") {
+                    guard let identity = pendingRename else { return }
+                    onRename(identity, renameDraft)
+                    pendingRename = nil
+                }
+                .disabled(renameDraft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+            }
+        }
+        .padding(OmniaTheme.Spacing.xl)
+        .frame(minWidth: 300)
     }
 
     /// The light custom top bar of the list: the menu button, the centered
@@ -150,18 +192,24 @@ public struct ConversationListView: View {
         .padding(.bottom, OmniaTheme.Spacing.sm)
     }
 
-    /// The group header of the list: the reference groups conversation rows by
-    /// date — Today, Yesterday, Previous 7 Days — and the current data model
-    /// carries no timestamp, so the list presents the single Today group with
-    /// the same date-marker typography as the conversation screen
-    /// (new_design.md §6, CHAT.md). A group header never renders for a search
-    /// that has no matches, which the no-results row already explains.
-    private var todayGroupHeader: some View {
-        Text(Localized.today)
+    /// A local-calendar group header. Search results keep their activity group
+    /// instead of being flattened into a misleading Today section.
+    private func groupHeader(_ group: ConversationDateGroup) -> some View {
+        Text(groupTitle(group))
             .font(OmniaTheme.Typography.caption)
             .foregroundStyle(OmniaTheme.Colors.textMuted)
             .frame(maxWidth: .infinity, alignment: .leading)
             .textCase(.uppercase)
+    }
+
+    private func groupTitle(_ group: ConversationDateGroup) -> String {
+        switch group {
+        case .future: return Localized.future
+        case .today: return Localized.today
+        case .yesterday: return Localized.yesterday
+        case .previousSevenDays: return Localized.previousSevenDays
+        case .older: return Localized.older
+        }
     }
 
     /// Conversation cards inside full-width List rows. The card itself moves
@@ -174,28 +222,29 @@ public struct ConversationListView: View {
             } else if hasQuery && filteredItems.isEmpty {
                 noResultsRow
             } else {
-                todayGroupHeader
-                    .listRowBackground(Color.clear)
-                    .listRowSeparator(.hidden)
-                    .listRowInsets(
-                        EdgeInsets(
-                            top: OmniaTheme.Spacing.sm,
-                            leading: OmniaTheme.Spacing.lg,
-                            bottom: OmniaTheme.Spacing.xs,
-                            trailing: OmniaTheme.Spacing.lg
+                ForEach(filteredSections, id: \.group) { section in
+                    groupHeader(section.group)
+                        .listRowBackground(Color.clear)
+                        .listRowSeparator(.hidden)
+                        .listRowInsets(
+                            EdgeInsets(
+                                top: OmniaTheme.Spacing.sm,
+                                leading: OmniaTheme.Spacing.lg,
+                                bottom: OmniaTheme.Spacing.xs,
+                                trailing: OmniaTheme.Spacing.lg
+                            )
                         )
-                    )
-                ForEach(filteredItems, id: \.identity) { item in
-                    ConversationSwipeRevealRow(
-                        identity: item.identity,
-                        revealedConversation: $revealedConversation,
-                        onDelete: {
-                            revealedConversation = nil
-                            pendingDeletion = item.identity
+                    ForEach(section.items, id: \.identity) { item in
+                        ConversationSwipeRevealRow(
+                            identity: item.identity,
+                            revealedConversation: $revealedConversation,
+                            onDelete: {
+                                revealedConversation = nil
+                                pendingDeletion = item.identity
+                            }
+                        ) {
+                            row(item)
                         }
-                    ) {
-                        row(item)
-                    }
                         .listRowBackground(Color.clear)
                         .listRowSeparator(.hidden)
                         .listRowInsets(
@@ -206,6 +255,7 @@ public struct ConversationListView: View {
                                 trailing: 0
                             )
                         )
+                    }
                 }
             }
         }
@@ -235,6 +285,10 @@ public struct ConversationListView: View {
 
     private var hasQuery: Bool {
         !query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
+    private var filteredSections: [ConversationListSection] {
+        ConversationListState(items: filteredItems).sections()
     }
 
     private func row(_ item: ConversationListItem) -> some View {
@@ -269,17 +323,31 @@ public struct ConversationListView: View {
         }
         .buttonStyle(.plain)
         .accessibilityElement(children: .combine)
+        .accessibilityAction(named: Text(Localized.rename)) {
+            beginRename(item)
+        }
         .accessibilityAction(named: Text(Localized.delete)) {
             revealedConversation = nil
             pendingDeletion = item.identity
         }
         .contextMenu {
+            Button {
+                beginRename(item)
+            } label: {
+                Label(Localized.rename, systemImage: "pencil")
+            }
             Button(role: .destructive) {
                 pendingDeletion = item.identity
             } label: {
                 Label(Localized.delete, systemImage: "trash")
             }
         }
+    }
+
+    private func beginRename(_ item: ConversationListItem) {
+        revealedConversation = nil
+        renameDraft = item.displayTitle
+        pendingRename = item.identity
     }
 
     private func closeRevealedConversation() {

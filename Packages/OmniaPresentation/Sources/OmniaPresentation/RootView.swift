@@ -58,6 +58,9 @@ public struct RootView: View {
     @State private var isDarkMode = true
     /// The ready-to-render conversation list state.
     @State private var listState: ConversationListState?
+    /// Guards rapid repeated create intents until the first operation either
+    /// opens its new conversation or fails.
+    @State private var isCreatingConversation = false
     /// Ready-to-render conversation screen states keyed by conversation
     /// identity. Navigation chooses which entry is visible; asynchronous loads
     /// and generation updates can never overwrite a different conversation.
@@ -126,6 +129,7 @@ public struct RootView: View {
                             onCreate: createConversation,
                             onSelect: openConversation,
                             onDelete: deleteConversation,
+                            onRename: renameConversation,
                             onOpenMenu: presentMenu
                         )
                     } else {
@@ -270,7 +274,8 @@ public struct RootView: View {
             onAddFiles: { addFiles($0, to: identity) },
             onStageAttachments: { stageAttachments($0, for: identity) },
             onRemoveAttachment: { removeAttachment($0, from: identity) },
-            onAttachmentFailure: { reportAttachmentFailure($0, for: identity) }
+            onAttachmentFailure: { reportAttachmentFailure($0, for: identity) },
+            onDismissFailure: { dismissFailure(for: identity) }
         )
     }
 
@@ -476,6 +481,11 @@ public struct RootView: View {
         )
     }
 
+    private func dismissFailure(for identity: ConversationIdentity) {
+        guard let current = conversationStates[identity] else { return }
+        conversationStates[identity] = current.replacingFailure(nil)
+    }
+
     /// Attaches the current provider selection to the screen state, so the
     /// conversation screen presents the provider selector (UX audit V2). The
     /// shell composes the selection across the settings and conversation
@@ -568,7 +578,10 @@ public struct RootView: View {
     /// the membership-driven list (DES-012 §3.3, DES-011 §3.8) — its screen is
     /// presented, and the list reloads when the shell returns to it.
     private func createConversation() {
+        guard !isCreatingConversation else { return }
+        isCreatingConversation = true
         Task { @MainActor in
+            defer { isCreatingConversation = false }
             do {
                 let created = try await surface.conversationList.create(in: workspace)
                 let conversation = try await prepareModelSelection(for: created)
@@ -587,6 +600,25 @@ public struct RootView: View {
                 listState = ConversationListState(items: listState?.items ?? [], failure: error)
             } catch {
                 listState = ConversationListState(items: listState?.items ?? [], failure: .storageUnavailable)
+            }
+        }
+    }
+
+    /// Persists an explicit title and reloads the activity-sorted list. A
+    /// generation completing concurrently merges the newer user title before
+    /// it saves its terminal snapshot.
+    private func renameConversation(_ identity: ConversationIdentity, to title: String) {
+        Task { @MainActor in
+            do {
+                _ = try await surface.conversationList.rename(identity, to: title)
+                await loadConversationList()
+            } catch let error as RepositoryError {
+                listState = ConversationListState(items: listState?.items ?? [], failure: error)
+            } catch {
+                listState = ConversationListState(
+                    items: listState?.items ?? [],
+                    failure: .storageUnavailable
+                )
             }
         }
     }

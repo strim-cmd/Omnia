@@ -8,6 +8,12 @@ final class CapabilityErrorTests: XCTestCase {
     func testTaxonomy_FrozenCasesAreDistinct() {
         let all = [
             CapabilityError.providerUnavailable,
+            .networkUnavailable,
+            .unauthorized,
+            .invalidEndpoint,
+            .timedOut,
+            .rateLimited,
+            .serverFailure,
             .modelUnavailable(model: ModelReference(name: "missing")),
             .invalidRequest,
             .invalidResponse,
@@ -25,6 +31,18 @@ final class CapabilityErrorTests: XCTestCase {
             switch error {
             case .providerUnavailable:
                 return "providerUnavailable"
+            case .networkUnavailable:
+                return "networkUnavailable"
+            case .unauthorized:
+                return "unauthorized"
+            case .invalidEndpoint:
+                return "invalidEndpoint"
+            case .timedOut:
+                return "timedOut"
+            case .rateLimited:
+                return "rateLimited"
+            case .serverFailure:
+                return "serverFailure"
             case .modelUnavailable:
                 return "modelUnavailable"
             case .invalidRequest:
@@ -37,6 +55,12 @@ final class CapabilityErrorTests: XCTestCase {
         }
         let labels = [
             label(of: .providerUnavailable),
+            label(of: .networkUnavailable),
+            label(of: .unauthorized),
+            label(of: .invalidEndpoint),
+            label(of: .timedOut),
+            label(of: .rateLimited),
+            label(of: .serverFailure),
             label(of: .modelUnavailable(model: ModelReference(name: "missing"))),
             label(of: .invalidRequest),
             label(of: .invalidResponse),
@@ -44,7 +68,11 @@ final class CapabilityErrorTests: XCTestCase {
         ]
         XCTAssertEqual(
             labels,
-            ["providerUnavailable", "modelUnavailable", "invalidRequest", "invalidResponse", "streamingInterrupted"]
+            [
+                "providerUnavailable", "networkUnavailable", "unauthorized",
+                "invalidEndpoint", "timedOut", "rateLimited", "serverFailure",
+                "modelUnavailable", "invalidRequest", "invalidResponse", "streamingInterrupted",
+            ]
         )
     }
 
@@ -95,6 +123,12 @@ final class CapabilityErrorTests: XCTestCase {
     func testErrors_ThrowAndCastBackAsTypedValues() {
         let errors: [CapabilityError] = [
             .providerUnavailable,
+            .networkUnavailable,
+            .unauthorized,
+            .invalidEndpoint,
+            .timedOut,
+            .rateLimited,
+            .serverFailure,
             .modelUnavailable(model: ModelReference(name: "missing")),
             .invalidRequest,
             .invalidResponse,

@@ -167,6 +167,11 @@ public struct OpenAICompatibleProviderAdapter: TextGenerationContract, Conversat
                     }
                 } catch is CancellationError {
                     continuation.yield(.interruption(identity: identity, partialContent: partialContent))
+                } catch let error as ProviderTransportError where partialContent.isEmpty {
+                    continuation.finish(
+                        throwing: CapabilityMapping.capabilityError(from: error)
+                    )
+                    return
                 } catch {
                     if Task.isCancelled {
                         continuation.yield(.interruption(identity: identity, partialContent: partialContent))

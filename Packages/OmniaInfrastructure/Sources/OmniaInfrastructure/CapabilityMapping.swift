@@ -125,16 +125,29 @@ internal enum CapabilityMapping {
     ///   the wire — becomes `CapabilityError.invalidRequest`.
     /// - `invalidResponse` — the capability response could not be decoded —
     ///   becomes `CapabilityError.invalidResponse`.
-    /// - `httpStatus` and `networkFailure` — the provider could not deliver the
-    ///   requested capability — become `CapabilityError.providerUnavailable`.
+    /// HTTP and network failures retain only their stable, actionable category;
+    /// bodies, headers, credentials, and private request content never cross
+    /// this boundary.
     static func capabilityError(from error: ProviderTransportError) -> CapabilityError {
         switch error {
         case .invalidRequest:
             return .invalidRequest
         case .invalidResponse:
             return .invalidResponse
-        case .httpStatus, .networkFailure, .timedOut:
-            return .providerUnavailable
+        case .httpStatus(let status):
+            switch status {
+            case 400, 409, 413, 415, 422: return .invalidRequest
+            case 401, 403: return .unauthorized
+            case 404, 405, 410: return .invalidEndpoint
+            case 408: return .timedOut
+            case 429: return .rateLimited
+            case 500...599: return .serverFailure
+            default: return .providerUnavailable
+            }
+        case .networkFailure:
+            return .networkUnavailable
+        case .timedOut:
+            return .timedOut
         }
     }
 

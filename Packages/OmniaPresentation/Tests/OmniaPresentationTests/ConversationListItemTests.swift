@@ -1,3 +1,4 @@
+import Foundation
 import OmniaApplication
 import XCTest
 @testable import OmniaPresentation
@@ -84,6 +85,24 @@ final class ConversationListItemTests: XCTestCase {
         )
         let item = ConversationListItem(conversation: conversation)
         XCTAssertEqual(item.displayTitle, "line1 line2 line3")
+    }
+
+    func testDerivation_UsesExplicitTitleAndDurableDates() throws {
+        let created = Date(timeIntervalSince1970: 100)
+        let updated = Date(timeIntervalSince1970: 200)
+        var conversation = Conversation(
+            identity: try identity(),
+            createdAt: created,
+            updatedAt: created
+        )
+        try conversation.append(Message(role: .user, content: "Automatic"), at: created)
+        try conversation.rename(to: "User title", at: updated)
+
+        let item = ConversationListItem(conversation: conversation)
+
+        XCTAssertEqual(item.displayTitle, "User title")
+        XCTAssertEqual(item.createdAt, created)
+        XCTAssertEqual(item.updatedAt, updated)
     }
 
     // MARK: Equality

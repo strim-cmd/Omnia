@@ -1,3 +1,5 @@
+import Foundation
+
 /// The streaming state of a conversation (DES-009 §3.3, ARC-001).
 ///
 /// The state records where a stream stands. An interruption preserves the
@@ -20,6 +22,19 @@ public enum ConversationStreamError: Error, Equatable, Sendable {
     case notStreaming
 }
 
+public enum ConversationMetadataError: Error, Equatable, Sendable {
+    /// A user-authored title contains no visible content after normalization.
+    case invalidTitle
+}
+
+/// Records whether a durable title was derived from the first user input or
+/// explicitly chosen by the user. A user title always wins when independently
+/// updated metadata is merged with an in-flight generation snapshot.
+public enum ConversationTitleOrigin: String, Equatable, Sendable {
+    case automatic
+    case user
+}
+
 /// The Conversation aggregate: a recorded interaction with identity and
 /// continuity (ARC-003 Entity, DES-009 §3.3).
 ///
@@ -38,16 +53,31 @@ public struct Conversation: Equatable, Sendable {
     public private(set) var streamingState: ConversationStreamingState
     /// The exact provider/model pair selected for this conversation.
     public private(set) var modelSelection: ProviderModelSelection?
+    /// A durable display title. Automatic titles are derived locally from the
+    /// first usable user input; an explicit user rename always takes precedence.
+    public private(set) var title: String?
+    public private(set) var titleOrigin: ConversationTitleOrigin
+    /// Durable activity metadata used for deterministic list grouping/sorting.
+    public let createdAt: Date
+    public private(set) var updatedAt: Date
 
     /// Creates an empty conversation with the given identity.
     public init(
         identity: ConversationIdentity,
-        modelSelection: ProviderModelSelection? = nil
+        modelSelection: ProviderModelSelection? = nil,
+        title: String? = nil,
+        titleOrigin: ConversationTitleOrigin = .automatic,
+        createdAt: Date = Date(timeIntervalSince1970: 0),
+        updatedAt: Date? = nil
     ) {
         self.identity = identity
         self.history = []
         self.streamingState = .idle
         self.modelSelection = modelSelection
+        self.title = title
+        self.titleOrigin = titleOrigin
+        self.createdAt = createdAt
+        self.updatedAt = updatedAt ?? createdAt
     }
 
     /// The partial content of the active or interrupted stream, if any.
@@ -78,15 +108,52 @@ public struct Conversation: Equatable, Sendable {
         modelSelection = selection
     }
 
+    /// Persists an explicit user title. Automatic title derivation can never
+    /// overwrite this value.
+    public mutating func rename(to value: String, at timestamp: Date? = nil) throws {
+        let normalized = Self.normalizedTitle(value)
+        guard !normalized.isEmpty else {
+            throw ConversationMetadataError.invalidTitle
+        }
+        title = String(normalized.prefix(160))
+        titleOrigin = .user
+        recordActivity(timestamp)
+    }
+
+    /// Merges metadata from a newer repository snapshot without touching this
+    /// aggregate's message or streaming state. This is used when generation
+    /// completes from an older in-memory snapshot after a concurrent rename.
+    public mutating func mergeMetadata(from latest: Conversation) {
+        guard latest.identity == identity else { return }
+        if latest.titleOrigin == .user {
+            title = latest.title
+            titleOrigin = .user
+        } else if titleOrigin != .user, let latestTitle = latest.title {
+            title = latestTitle
+        }
+        updatedAt = max(updatedAt, latest.updatedAt)
+    }
+
     /// Appends `message` to the history.
     ///
     /// Rejected while a stream is active; the history is preserved and never
     /// rewritten (DES-009 §3.3).
-    public mutating func append(_ message: Message) throws {
+    public mutating func append(_ message: Message, at timestamp: Date? = nil) throws {
         guard !isStreaming else {
             throw ConversationStreamError.streamInProgress
         }
         history.append(message)
+        if titleOrigin == .automatic, title == nil, message.role == .user {
+            let contentTitle = Self.normalizedTitle(message.content)
+            let attachmentTitle = message.attachments.first.map {
+                Self.normalizedTitle($0.fileName)
+            } ?? ""
+            let automatic = contentTitle.isEmpty ? attachmentTitle : contentTitle
+            if !automatic.isEmpty {
+                title = String(automatic.prefix(80))
+            }
+        }
+        recordActivity(timestamp)
     }
 
     /// Starts a stream, ready to receive partial content.
@@ -115,20 +182,31 @@ public struct Conversation: Equatable, Sendable {
 
     /// Completes the stream: the accumulated partial content becomes an
     /// assistant message in the history, and the stream ends.
-    public mutating func completeStreaming() throws {
+    public mutating func completeStreaming(at timestamp: Date? = nil) throws {
         guard case .streaming(let partialContent) = streamingState else {
             throw ConversationStreamError.notStreaming
         }
         history.append(Message(role: .assistant, content: partialContent))
         streamingState = .idle
+        recordActivity(timestamp)
     }
 
     /// Interrupts the stream: the partial content is preserved and marked
     /// incomplete; the full history is never discarded (ARC-001, DES-009 §3.3).
-    public mutating func interruptStreaming() throws {
+    public mutating func interruptStreaming(at timestamp: Date? = nil) throws {
         guard case .streaming(let partialContent) = streamingState else {
             throw ConversationStreamError.notStreaming
         }
         streamingState = .interrupted(partialContent: partialContent)
+        recordActivity(timestamp)
+    }
+
+    private mutating func recordActivity(_ timestamp: Date?) {
+        guard let timestamp else { return }
+        updatedAt = max(updatedAt, timestamp)
+    }
+
+    private static func normalizedTitle(_ value: String) -> String {
+        value.split(whereSeparator: { $0.isWhitespace }).joined(separator: " ")
     }
 }

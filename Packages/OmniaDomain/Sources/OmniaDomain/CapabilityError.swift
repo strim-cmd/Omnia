@@ -12,6 +12,19 @@ public enum CapabilityError: Error, Equatable, Sendable {
     /// No provider can deliver the requested capability, or the provider is
     /// unavailable (ARC-004).
     case providerUnavailable
+    /// The endpoint could not be reached because the network path is offline
+    /// or otherwise unavailable.
+    case networkUnavailable
+    /// The endpoint rejected the supplied credential.
+    case unauthorized
+    /// The configured capability endpoint does not exist or is invalid.
+    case invalidEndpoint
+    /// The provider did not answer within the request timeout.
+    case timedOut
+    /// The provider rate-limited the request.
+    case rateLimited
+    /// The provider returned a server-side failure.
+    case serverFailure
     /// The conversation's explicitly selected model is no longer available.
     case modelUnavailable(model: ModelReference)
     /// The capability request is invalid in Domain terms.

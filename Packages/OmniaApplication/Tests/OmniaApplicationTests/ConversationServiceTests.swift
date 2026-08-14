@@ -24,6 +24,10 @@ private final class InMemoryConversationRepository: ConversationRepository, @unc
             storage[identity] = nil
         }
     }
+
+    var storedCount: Int {
+        lock.withLock { storage.count }
+    }
 }
 
 private final class InMemoryWorkspaceRepository: WorkspaceRepository, @unchecked Sendable {
@@ -150,12 +154,14 @@ final class ConversationServiceTests: XCTestCase {
     private func makeService(
         conversationRepository: some ConversationRepository,
         workspaceRepository: some WorkspaceRepository,
-        defaultModelSelection: @escaping @Sendable () async throws -> ProviderModelSelection? = { nil }
+        defaultModelSelection: @escaping @Sendable () async throws -> ProviderModelSelection? = { nil },
+        now: @escaping @Sendable () -> Date = { Date() }
     ) -> ConversationService {
         ConversationService(
             conversationRepository: conversationRepository,
             workspaceRepository: workspaceRepository,
-            defaultModelSelection: defaultModelSelection
+            defaultModelSelection: defaultModelSelection,
+            now: now
         )
     }
 
@@ -182,6 +188,20 @@ final class ConversationServiceTests: XCTestCase {
         let created = try await service.createConversation()
         let loaded = try await conversationRepository.conversation(with: created.identity)
         XCTAssertEqual(loaded, created)
+    }
+
+    func testCreateConversation_UsesOneInjectedTimestamp() async throws {
+        let timestamp = Date(timeIntervalSince1970: 123)
+        let service = makeService(
+            conversationRepository: InMemoryConversationRepository(),
+            workspaceRepository: InMemoryWorkspaceRepository(),
+            now: { timestamp }
+        )
+
+        let created = try await service.createConversation()
+
+        XCTAssertEqual(created.createdAt, timestamp)
+        XCTAssertEqual(created.updatedAt, timestamp)
     }
 
     func testCreateConversation_AssignsAFreshIdentity() async throws {
@@ -332,9 +352,10 @@ final class ConversationServiceTests: XCTestCase {
     }
 
     func testCreateConversationInWorkspace_WorkspaceSaveFailureSurfacesAsRepositoryError() async throws {
+        let conversationRepository = InMemoryConversationRepository()
         let workspaceRepository = WorkspaceRepositorySaveFailsAfterSeed()
         let service = makeService(
-            conversationRepository: InMemoryConversationRepository(),
+            conversationRepository: conversationRepository,
             workspaceRepository: workspaceRepository
         )
         let workspace = Workspace(identity: WorkspaceIdentity(), name: "Research")
@@ -344,6 +365,7 @@ final class ConversationServiceTests: XCTestCase {
         }
         let stored = try await workspaceRepository.workspace(with: workspace.identity)
         XCTAssertTrue(stored?.conversationIdentities.isEmpty == true)
+        XCTAssertEqual(conversationRepository.storedCount, 0)
     }
 
     func testCreateConversationInWorkspace_WorkspaceLoadFailureSurfacesAsRepositoryError() async {
@@ -401,6 +423,48 @@ final class ConversationServiceTests: XCTestCase {
         ])
     }
 
+    func testRename_PersistsNormalizedUserTitleAndActivityDate() async throws {
+        let repository = InMemoryConversationRepository()
+        let timestamp = Date(timeIntervalSince1970: 500)
+        let conversation = Conversation(identity: ConversationIdentity())
+        try await repository.save(conversation)
+        let service = makeService(
+            conversationRepository: repository,
+            workspaceRepository: InMemoryWorkspaceRepository(),
+            now: { timestamp }
+        )
+
+        let renamed = try await service.rename(conversation.identity, to: "  Research\nnotes ")
+
+        XCTAssertEqual(renamed.title, "Research notes")
+        XCTAssertEqual(renamed.titleOrigin, .user)
+        XCTAssertEqual(renamed.updatedAt, timestamp)
+        let storedRename = try await repository.conversation(with: conversation.identity)
+        XCTAssertEqual(storedRename, renamed)
+    }
+
+    func testRename_RejectsEmptyTitleWithoutChangingStoredConversation() async throws {
+        let repository = InMemoryConversationRepository()
+        let conversation = Conversation(identity: ConversationIdentity())
+        try await repository.save(conversation)
+        let service = makeService(
+            conversationRepository: repository,
+            workspaceRepository: InMemoryWorkspaceRepository()
+        )
+
+        do {
+            _ = try await service.rename(conversation.identity, to: " \n ")
+            XCTFail("expected a validation failure")
+        } catch {
+            XCTAssertEqual(
+                error as? ApplicationValidationError,
+                .invalid(reason: "The conversation title cannot be empty.")
+            )
+        }
+        let unchanged = try await repository.conversation(with: conversation.identity)
+        XCTAssertEqual(unchanged, conversation)
+    }
+
     // MARK: List by workspace membership
 
     func testConversations_ReturnsWorkspaceMembershipInIdentityOrder() async throws {
@@ -443,6 +507,37 @@ final class ConversationServiceTests: XCTestCase {
         let conversations = try await service.conversations(in: workspace.identity)
 
         XCTAssertTrue(conversations.isEmpty)
+    }
+
+    func testConversations_OrdersRecentActivityFirstWithStableTies() async throws {
+        let repository = InMemoryConversationRepository()
+        let workspaceRepository = InMemoryWorkspaceRepository()
+        let oldest = Conversation(
+            identity: ConversationIdentity(),
+            createdAt: Date(timeIntervalSince1970: 100),
+            updatedAt: Date(timeIntervalSince1970: 100)
+        )
+        let newest = Conversation(
+            identity: ConversationIdentity(),
+            createdAt: Date(timeIntervalSince1970: 200),
+            updatedAt: Date(timeIntervalSince1970: 300)
+        )
+        try await repository.save(oldest)
+        try await repository.save(newest)
+        let workspace = Workspace(
+            identity: WorkspaceIdentity(),
+            name: "Research",
+            conversationIdentities: [oldest.identity, newest.identity]
+        )
+        try await workspaceRepository.save(workspace)
+        let service = makeService(
+            conversationRepository: repository,
+            workspaceRepository: workspaceRepository
+        )
+
+        let conversations = try await service.conversations(in: workspace.identity)
+
+        XCTAssertEqual(conversations.map(\.identity), [newest.identity, oldest.identity])
     }
 
     func testConversations_UnknownWorkspaceReturnsEmptyList() async throws {
@@ -501,6 +596,63 @@ final class ConversationServiceTests: XCTestCase {
         let identity = ConversationIdentity()
         try await service.delete(identity)
         try await service.delete(identity)
+    }
+
+    func testDelete_RemovesMembershipFromEveryOwningWorkspace() async throws {
+        let conversationRepository = InMemoryConversationRepository()
+        let workspaceRepository = InMemoryWorkspaceRepository()
+        let service = makeService(
+            conversationRepository: conversationRepository,
+            workspaceRepository: workspaceRepository
+        )
+        let identity = ConversationIdentity()
+        let unrelated = ConversationIdentity()
+        try await conversationRepository.save(Conversation(identity: identity))
+        let first = Workspace(
+            identity: WorkspaceIdentity(),
+            name: "First",
+            conversationIdentities: [identity, unrelated]
+        )
+        let second = Workspace(
+            identity: WorkspaceIdentity(),
+            name: "Second",
+            conversationIdentities: [identity]
+        )
+        try await workspaceRepository.save(first)
+        try await workspaceRepository.save(second)
+
+        try await service.delete(identity)
+
+        let storedFirst = try await workspaceRepository.workspace(with: first.identity)
+        let storedSecond = try await workspaceRepository.workspace(with: second.identity)
+        XCTAssertEqual(storedFirst?.conversationIdentities, [unrelated])
+        XCTAssertTrue(storedSecond?.conversationIdentities.isEmpty == true)
+    }
+
+    func testDelete_WorkspaceSaveFailurePreservesConversationAndMembership() async throws {
+        let conversationRepository = InMemoryConversationRepository()
+        let workspaceRepository = WorkspaceRepositorySaveFailsAfterSeed()
+        let service = makeService(
+            conversationRepository: conversationRepository,
+            workspaceRepository: workspaceRepository
+        )
+        let conversation = Conversation(identity: ConversationIdentity())
+        let workspace = Workspace(
+            identity: WorkspaceIdentity(),
+            name: "Research",
+            conversationIdentities: [conversation.identity]
+        )
+        try await conversationRepository.save(conversation)
+        workspaceRepository.seed(workspace)
+
+        await assertSurfacesStorageUnavailable {
+            try await service.delete(conversation.identity)
+        }
+
+        let storedConversation = try await conversationRepository.conversation(with: conversation.identity)
+        let storedWorkspace = try await workspaceRepository.workspace(with: workspace.identity)
+        XCTAssertEqual(storedConversation, conversation)
+        XCTAssertEqual(storedWorkspace, workspace)
     }
 
     // MARK: Repository failures surface as-is

@@ -284,8 +284,9 @@ final class InfrastructureSprint2VerificationTests: XCTestCase {
         let cases: [(ProviderTransportError, CapabilityError)] = [
             (.invalidRequest, .invalidRequest),
             (.invalidResponse, .invalidResponse),
-            (.httpStatus(503), .providerUnavailable),
-            (.networkFailure, .providerUnavailable),
+            (.httpStatus(503), .serverFailure),
+            (.networkFailure, .networkUnavailable),
+            (.timedOut, .timedOut),
         ]
         for (transportError, expected) in cases {
             let transport = FakeVerificationTransport(sendResult: .failure(transportError))

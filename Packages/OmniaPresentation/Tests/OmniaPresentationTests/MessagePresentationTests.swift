@@ -47,7 +47,7 @@ final class MessagePresentationTests: XCTestCase {
             presentation.content?.segments,
             [
                 .text("Before"),
-                .codeBlock(content: "code"),
+                .codeBlock(content: "code", language: nil),
                 .text("After"),
             ]
         )

@@ -338,6 +338,23 @@ final class ConversationListSurfaceTests: XCTestCase {
         XCTAssertNil(selected)
     }
 
+    func testRename_PersistsUserTitle() async throws {
+        let conversation = try await makeConversation("Automatic")
+        let repository = InMemoryConversationRepository()
+        try await repository.save(conversation)
+        let surface = makeSurface(
+            conversationRepository: repository,
+            workspaceRepository: InMemoryWorkspaceRepository()
+        )
+
+        let renamed = try await surface.rename(conversation.identity, to: "Project notes")
+
+        XCTAssertEqual(renamed.title, "Project notes")
+        XCTAssertEqual(renamed.titleOrigin, .user)
+        let stored = try await repository.conversation(with: conversation.identity)
+        XCTAssertEqual(stored?.title, "Project notes")
+    }
+
     func testDelete_RemovesTheConversation() async throws {
         let conversation = try await makeConversation("Hello")
         let repository = InMemoryConversationRepository()

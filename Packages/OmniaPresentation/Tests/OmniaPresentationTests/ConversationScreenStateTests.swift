@@ -120,6 +120,87 @@ final class ConversationScreenStateTests: XCTestCase {
         XCTAssertNotEqual(unexpected, ConversationScreenState(messages: []))
     }
 
+    func testFailure_ContextualRecoveryActionsAreTruthful() {
+        let cases: [(
+            ConversationScreenState.Failure,
+            ConversationScreenState.StreamingCondition?,
+            ConversationScreenState.RecoveryAction
+        )] = [
+            (.repository(.storageUnavailable), nil, .retry),
+            (.credentialStorage(.credentialNotFound), nil, .editProvider),
+            (.application(.invalid(reason: "invalid")), nil, .dismiss),
+            (.capability(.providerUnavailable), nil, .editProvider),
+            (.capability(.unauthorized), nil, .editProvider),
+            (.capability(.invalidEndpoint), nil, .editProvider),
+            (
+                .capability(.modelUnavailable(model: ModelReference(name: "missing"))),
+                nil,
+                .changeModel
+            ),
+            (.capability(.networkUnavailable), nil, .retry),
+            (
+                .capability(.rateLimited),
+                .interrupted(partialContent: "Partial"),
+                .continueResponse
+            ),
+            (.capability(.streamingInterrupted(partialContent: "Partial")), nil, .continueResponse),
+            (.capability(.invalidRequest), nil, .dismiss),
+            (.unexpected, nil, .retry),
+        ]
+
+        for (failure, condition, expected) in cases {
+            XCTAssertEqual(
+                ConversationScreenState(
+                    messages: [],
+                    streamingCondition: condition,
+                    failure: failure
+                ).recoveryAction,
+                expected
+            )
+        }
+    }
+
+    func testFailure_AttachmentRecoveryRemovesStagedItemsOrDismisses() {
+        let attachment = MessageAttachment(
+            identity: AttachmentIdentity(),
+            fileName: "report.pdf",
+            mediaType: "application/pdf",
+            kind: .pdf,
+            byteCount: 10,
+            storageKey: "opaque.pdf"
+        )
+        let failure = ConversationScreenState.Failure.attachment(.capabilityUnsupported(.pdf))
+
+        XCTAssertEqual(
+            ConversationScreenState(
+                messages: [],
+                draftAttachments: [attachment],
+                failure: failure
+            ).recoveryAction,
+            .removeAttachments
+        )
+        XCTAssertEqual(
+            ConversationScreenState(messages: [], failure: failure).recoveryAction,
+            .dismiss
+        )
+    }
+
+    func testReplacingFailurePreservesAllOtherState() {
+        let state = ConversationScreenState(
+            messages: [presentation("Reply")],
+            draft: "Draft",
+            streamingCondition: .interrupted(partialContent: "Part"),
+            failure: .capability(.networkUnavailable)
+        )
+
+        let dismissed = state.replacingFailure(nil)
+
+        XCTAssertNil(dismissed.failure)
+        XCTAssertEqual(dismissed.messages, state.messages)
+        XCTAssertEqual(dismissed.draft, "Draft")
+        XCTAssertEqual(dismissed.streamingCondition, state.streamingCondition)
+    }
+
     // MARK: Draft rehydration (UX audit U4)
 
     func testReplacingDraft_UpdatesDraftAndPreservesContent() {

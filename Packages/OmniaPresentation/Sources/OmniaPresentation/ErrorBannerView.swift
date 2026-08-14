@@ -12,6 +12,8 @@ struct ErrorBannerView: View {
     var title: String? = nil
     var systemImage: String = "exclamationmark.triangle"
     var backgroundColor: Color = OmniaTheme.Colors.errorSubtle
+    var actionTitle: String = Localized.retry
+    var actionSystemImage: String = "arrow.clockwise"
     var onRetry: (() -> Void)?
 
     var body: some View {
@@ -32,8 +34,8 @@ struct ErrorBannerView: View {
             if let onRetry {
                 Spacer(minLength: OmniaTheme.Spacing.sm)
                 OmniaButton(
-                    title: Localized.retry,
-                    systemImage: "arrow.clockwise",
+                    title: actionTitle,
+                    systemImage: actionSystemImage,
                     style: .secondary,
                     action: onRetry
                 )
