@@ -26,18 +26,48 @@ private final class GenerationEventProbe: @unchecked Sendable {
 private final class CancellationProbe: @unchecked Sendable {
     private let lock = NSLock()
     private var cancellationCount = 0
+    private var waiters: [Int: [CheckedContinuation<Void, Never>]] = [:]
 
     func record(
         _ termination: AsyncThrowingStream<ConversationScreenState, any Error>.Continuation.Termination
     ) {
         guard case .cancelled = termination else { return }
-        lock.withLock {
+        let satisfied = lock.withLock { () -> [CheckedContinuation<Void, Never>] in
             cancellationCount += 1
+            let current = cancellationCount
+            var satisfied: [CheckedContinuation<Void, Never>] = []
+            for target in waiters.keys.filter({ $0 <= current }) {
+                satisfied += waiters.removeValue(forKey: target) ?? []
+            }
+            return satisfied
+        }
+        for continuation in satisfied {
+            continuation.resume()
         }
     }
 
     var count: Int {
         lock.withLock { cancellationCount }
+    }
+
+    /// Awaits until at least `target` `.cancelled` terminations have been
+    /// recorded. `discard`/`cancel` await the worker task (`Task.value`), but
+    /// the stream's `onTermination(.cancelled)` can still be in flight when
+    /// they return, so a bare `count` read is nondeterministic. This resumes
+    /// immediately when the target is already satisfied.
+    func waitForCancellations(_ target: Int) async {
+        await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
+            let resumeNow = lock.withLock { () -> Bool in
+                if cancellationCount >= target {
+                    return true
+                }
+                waiters[target, default: []].append(continuation)
+                return false
+            }
+            if resumeNow {
+                continuation.resume()
+            }
+        }
     }
 }
 
@@ -253,6 +283,7 @@ final class ConversationGenerationCoordinatorTests: XCTestCase {
         let isGeneratingB = await coordinator.isGenerating(conversationB)
         XCTAssertFalse(isGeneratingA)
         XCTAssertTrue(isGeneratingB)
+        await sourceA.cancellations.waitForCancellations(1)
         XCTAssertEqual(sourceA.cancellations.count, 1)
         XCTAssertEqual(sourceB.cancellations.count, 0)
         sourceB.finish()
@@ -436,6 +467,8 @@ final class ConversationGenerationCoordinatorTests: XCTestCase {
         let generatingB = await coordinator.isGenerating(conversationB)
         XCTAssertFalse(generatingA)
         XCTAssertFalse(generatingB)
+        await sourceA.cancellations.waitForCancellations(1)
+        await sourceB.cancellations.waitForCancellations(1)
         XCTAssertEqual(sourceA.cancellations.count, 1)
         XCTAssertEqual(sourceB.cancellations.count, 1)
     }
