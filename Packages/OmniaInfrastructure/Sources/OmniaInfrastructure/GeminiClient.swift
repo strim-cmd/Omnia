@@ -113,13 +113,20 @@ internal struct GeminiClient: Sendable {
         } catch {
             throw ProviderTransportError.invalidResponse
         }
-        let prefix = "models/"
         let names = (decoded.models ?? [])
             .compactMap(\.name)
-            .map { $0.hasPrefix(prefix) ? String($0.dropFirst(prefix.count)) : $0 }
-            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .map(Self.normalizedModelName)
             .filter { !$0.isEmpty }
         return Array(Set(names)).sorted().map(ModelReference.init(name:))
+    }
+
+    /// Strips the `models/` prefix the API uses on model names and trims
+    /// surrounding whitespace, so the same identifier compares equal across
+    /// the model list, connection validation, and request paths.
+    internal static func normalizedModelName(_ name: String) -> String {
+        let prefix = "models/"
+        let stripped = name.hasPrefix(prefix) ? String(name.dropFirst(prefix.count)) : name
+        return stripped.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
     private func makeRequest(
@@ -137,7 +144,7 @@ internal struct GeminiClient: Sendable {
             } catch {
                 throw ProviderTransportError.invalidRequest
             }
-            let modelPath = model.hasPrefix("models/") ? String(model.dropFirst("models/".count)) : model
+            let modelPath = Self.normalizedModelName(model)
             var base = endpoint.absoluteString
             if base.hasSuffix("/") {
                 base.removeLast()

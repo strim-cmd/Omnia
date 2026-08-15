@@ -135,6 +135,39 @@ final class GeminiProviderInspectorTests: XCTestCase {
         XCTAssertEqual(models.map(\.name), ["gemini-2.5-flash", "gemini-2.5-pro"])
     }
 
+    func testTestConnection_AcceptsTheAPIModelsPrefixFormOfARecordedModel() async throws {
+        let transport = FakeTransport(sendResult: .success(catalogPayload(names: ["gemini-2.5-flash"])))
+        let (storage, reference) = try await storedCredential()
+        let inspector = makeInspector(transport: transport, storage: storage, reference: reference)
+
+        let models = try await inspector.testConnection(model: ModelReference(name: "models/gemini-2.5-flash"))
+
+        XCTAssertEqual(models.map(\.name), ["gemini-2.5-flash"])
+    }
+
+    func testTestConnection_RejectsAModelsPrefixedModelTheEndpointDoesNotOffer() async throws {
+        let transport = FakeTransport(sendResult: .success(catalogPayload(names: ["gemini-2.5-flash"])))
+        let (storage, reference) = try await storedCredential()
+        let inspector = makeInspector(transport: transport, storage: storage, reference: reference)
+
+        do {
+            _ = try await inspector.testConnection(model: ModelReference(name: "models/gemini-3"))
+            XCTFail("Expected modelUnavailable")
+        } catch let error as ProviderConnectionTestError {
+            XCTAssertEqual(error, .modelUnavailable)
+        }
+    }
+
+    func testTestConnection_TrimsWhitespaceFromTheRequestedModel() async throws {
+        let transport = FakeTransport(sendResult: .success(catalogPayload(names: ["gemini-2.5-flash"])))
+        let (storage, reference) = try await storedCredential()
+        let inspector = makeInspector(transport: transport, storage: storage, reference: reference)
+
+        let models = try await inspector.testConnection(model: ModelReference(name: "  gemini-2.5-flash  "))
+
+        XCTAssertEqual(models.map(\.name), ["gemini-2.5-flash"])
+    }
+
     func testTestConnection_RejectsARecordedModelTheEndpointDoesNotOffer() async throws {
         let transport = FakeTransport(sendResult: .success(catalogPayload(names: ["gemini-2.5-flash"])))
         let (storage, reference) = try await storedCredential()

@@ -68,8 +68,11 @@ public struct GeminiProviderInspector: ProviderInspector, Sendable {
     ) async throws -> [ModelReference] {
         do {
             let models = try await client.models(endpoint: endpoint, credential: credential)
-            if let model, !models.contains(model) {
-                throw ProviderConnectionTestError.modelUnavailable
+            if let model {
+                let requested = GeminiClient.normalizedModelName(model.name)
+                if !models.contains(where: { $0.name == requested }) {
+                    throw ProviderConnectionTestError.modelUnavailable
+                }
             }
             return models
         } catch let error as ProviderConnectionTestError {

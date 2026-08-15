@@ -425,6 +425,21 @@ final class GeminiClientTests: XCTestCase {
         XCTAssertEqual(models.map(\.name), ["a-model", "b-model", "z-model"])
     }
 
+    func testModels_TrimsWhitespaceAlongsideTheModelsPrefix() async throws {
+        let payload = Data(
+            """
+            {"models":[{"name":"models/ gemini-2.5-flash "},{"name":"  gemini-2.5-pro"},{"name":"models/"}]}
+            """.utf8
+        )
+        let transport = FakeTransport(sendResult: .success(payload))
+        let (storage, reference) = try await storedCredential()
+        let client = GeminiClient(transport: transport, credentialStorage: storage)
+
+        let models = try await client.models(endpoint: endpoint, credential: reference)
+
+        XCTAssertEqual(models.map(\.name), ["gemini-2.5-flash", "gemini-2.5-pro"])
+    }
+
     func testModels_TranslatesAnUndecodableBodyToInvalidResponse() async throws {
         let transport = FakeTransport(sendResult: .success(Data("{ not json }".utf8)))
         let (storage, reference) = try await storedCredential()

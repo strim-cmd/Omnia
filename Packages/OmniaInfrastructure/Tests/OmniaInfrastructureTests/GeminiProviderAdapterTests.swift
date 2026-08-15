@@ -318,6 +318,27 @@ final class GeminiProviderAdapterTests: XCTestCase {
         XCTAssertNil(decoded.systemInstruction)
     }
 
+    func testGenerateText_StripsTheModelsPrefixFromTheRequestedModel() async throws {
+        let transport = FakeTransport(sendResult: .success(Self.generateResponseJSON(text: "Hello!")))
+        let (adapter, _) = try await makeAdapter(transport: transport)
+
+        _ = try await adapter.generateText(
+            from: TextGenerationRequest(
+                identity: CapabilityRequestIdentity(),
+                prompt: "Write a haiku",
+                model: ModelReference(name: "models/gemini-2.5-flash")
+            )
+        )
+
+        let sent = try XCTUnwrap(transport.requests.first)
+        XCTAssertEqual(
+            sent.url.absoluteString,
+            "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent"
+        )
+        XCTAssertEqual(sent.method, "POST")
+        XCTAssertEqual(sent.headers["x-goog-api-key"], "gemini-adapter-secret")
+    }
+
     func testGenerateText_SurfacesInvalidResponseWhenThePayloadCannotBeDecoded() async throws {
         let transport = FakeTransport(sendResult: .success(Data("[]".utf8)))
         let (adapter, _) = try await makeAdapter(transport: transport)
