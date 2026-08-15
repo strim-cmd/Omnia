@@ -1,7 +1,7 @@
 ---
 title: OmniaDomain Public API Contract
 document_id: DES-009
-version: 0.3.0
+version: 0.4.0
 status: Ratified
 owner: Founder
 project: Omnia
@@ -10,7 +10,7 @@ authors:
 reviewers:
   - Chief Architect
 created: 2026-08-03
-last_updated: 2026-08-05
+last_updated: 2026-08-15
 related_documents:
   - Documentation/Product/Roadmap/DOMAIN_SPRINT_1_ROADMAP.md
   - Documentation/Product/Roadmap/DOMAIN_SPRINT_2_ROADMAP.md
@@ -56,6 +56,8 @@ The Domain layer is what keeps Omnia platform-independent: it imports no UI, no 
 This document specifies the initial public API inventory, the package responsibility boundaries, the dependency rules, the design principles, the evolution rules, and the ordered sequence in which the contract is implemented. It is derived only from the Domain Sprint 1 Roadmap (`DOMAIN_SPRINT_1_ROADMAP.md`), the Product Charter (`PRODUCT_CHARTER.md`), the Product Principles (`PRODUCT_PRINCIPLES.md`), and the approved architecture (ARC-002, ARC-003, ARC-004, ARC-005, ARC-007, ARC-008, ARC-009, ADR-0001, ADR-0002). It introduces no concept that the roadmap and the architecture do not establish.
 
 This revision (v0.3.0) extends the capability contract of §3.1 with the capability value objects, the concrete capability methods on the three realized capability contracts, the capability errors of §3.9, and the streaming behavior of §3.3, exactly as the Domain Sprint 2 Roadmap sequences it (`DOMAIN_SPRINT_2_ROADMAP.md` §Requirements). The extension is additive and backward-compatible (§6.3); the existing public API of the frozen Domain API Freeze v1 is unchanged. The concrete design of the extension — the value-object inventory, the error taxonomy, the contract-method signatures, and the streaming state machine — is frozen in §3.11 and is the single source of truth for the implementation of the extension (PRD-004 Stage 2).
+
+This revision (v0.4.0) extends the Provider contract of §3.1 with the `ProviderAPIKind` value type — the wire API family a provider connection targets, with the currently supported cases `openAICompatible` and `gemini` and the OpenAI-compatible `default`. The kind is connection configuration the user owns (ARC-005): it selects the family of Infrastructure adapter that serves the connection (ARC-004), is recorded and resolved as a typed configuration value at the provider-settings level — never inside the provider model or the aggregates — and is the shared vocabulary the Application layer and the application edge carry between the settings surface and the runtime provider binding (DES-011 §3.11, DES-013 §3.3). The extension is additive and backward-compatible (§6.3); the existing public API of the frozen Domain API Freeze v1 and the v0.3.0 capability extension is unchanged. The new value surface is frozen in §3.1 and is the single source of truth for the implementation of the revision.
 
 The specification governs the package alone. It defines no behavior of the Foundation, Application, Infrastructure, Presentation, or application-shell layers; those are specified by their own documents.
 
@@ -106,7 +108,7 @@ The category comprises:
 - **Capability contract** — the provider-agnostic contract through which providers are consumed. It defines what the application needs, in the application's own terms (ARC-004 Capability Model).
 - **Capability set** — the capabilities defined by ARC-004. The capabilities realized by this contract are **Text Generation**, **Conversation**, and **Streaming**, grounded in the Product Charter In Scope (an OpenAI-compatible client with streaming responses) and the conversation flows of ARC-001. The remaining ARC-004 capabilities — **Vision**, **Image Generation**, **Embeddings**, **Tool Calling**, **Structured Output**, **Audio**, and **Reasoning** — are declared by the contract as extension points and are not realized by this contract (ARC-004, ARC-007).
 - **Provider model** — the provider connection the user has configured (ARC-004 Provider Model): identity, capabilities, configuration, availability, metadata, limits, and versioning. Authentication is realized by credential reference; the model MUST NOT contain credentials (ARC-004, ARC-005).
-- **Value objects** — `ProviderIdentity`, a stable identity within the application built on the Foundation `Identifier` primitive (DES-002) and the shared identity used for cross-aggregate references; `ModelReference`, the named model a provider offers, used by provider and model selection (ARC-001, ARC-004); `ProviderCapabilities`, the set of capabilities a provider can deliver (ARC-004); `ProviderMetadata`, descriptive provider information (ARC-004); `ProviderLimits`, constraints on usage such as rates and maximums (ARC-004).
+- **Value objects** — `ProviderIdentity`, a stable identity within the application built on the Foundation `Identifier` primitive (DES-002) and the shared identity used for cross-aggregate references; `ModelReference`, the named model a provider offers, used by provider and model selection (ARC-001, ARC-004); `ProviderCapabilities`, the set of capabilities a provider can deliver (ARC-004); `ProviderMetadata`, descriptive provider information (ARC-004); `ProviderLimits`, constraints on usage such as rates and maximums (ARC-004); `ProviderAPIKind`, the wire API family a provider connection targets (ARC-004) — the `Codable` value type with the currently supported cases `openAICompatible` (an OpenAI-compatible chat-completions endpoint) and `gemini` (a Gemini, Generative Language API, endpoint) and the `default` of the OpenAI-compatible family. The kind is recorded and resolved as typed connection configuration at the provider-settings level — it never enters the provider model or the aggregates — and is the vocabulary by which the application edge selects the family of adapter that serves the connection (DES-011 §3.11, DES-013 §3.3).
 - **Capability value objects** — the provider-agnostic request, response, and streaming value objects the concrete methods operate on, expressed in the existing Domain vocabulary (`Message`, `ModelReference`, §3.8): a text generation request (the prompt and the requested model) and a text generation response (the produced text); a conversation request (the message history and the requested model) and a conversation response (the assistant's reply, expressed as the existing `Message` value object so it appends to the history); a streaming request (the message history and the requested model) and the streaming updates — the incremental delivery events: content deltas, the completion event carrying the assembled assistant message, and the interruption event carrying the preserved partial content (ARC-004, ARC-001, DES-009 §3.3, §3.8).
 - **Capability methods** — the concrete, provider-agnostic methods that realize the three realized capability contracts: a text generation method that produces text from a text generation request and returns the text generation response; a conversation method that sends the conversation request (the message history) and returns the conversation response, the assistant `Message` to append to the history; and a streaming method that returns the stream of streaming updates — the stream delivers content deltas, ends with the completion event carrying the assembled assistant message, and on interruption ends with the interruption event carrying the preserved partial content. Each method is `async throws`, typed against the capability value objects, and expresses its failures in the capability errors (§3.9) (ARC-004, ARC-001, DES-009 §3.9).
 
@@ -118,6 +120,7 @@ Normative statements:
 - The capability methods MUST be provider-agnostic and typed against the capability value objects; they MUST NOT reference any provider, and the implementation of the methods belongs to the Infrastructure layer, never to the Domain (ARC-002, ARC-004, ARC-009).
 - The capability value objects MUST be immutable and equal by content (ARC-003), MUST carry their typed identities and model references built on the Foundation primitives (DES-002, DES-004), and MUST NOT contain any provider-specific concept (ARC-004).
 - The streaming method MUST deliver content incrementally and MUST end with a completion event carrying the assembled assistant message or, on interruption, an interruption event carrying the preserved partial content; partial content MUST NEVER be silently discarded (ARC-001, DES-009 §3.3).
+- `ProviderAPIKind` MUST remain a provider-agnostic, immutable Domain value type: it names the wire API family as the closed set of its cases (`openAICompatible`, `gemini`) with the OpenAI-compatible `default`, carries no transport, endpoint, or adapter detail (ARC-004), and MUST NOT enter the provider model, the `Provider`/`ProviderConnection` aggregates, or any capability value object — the kind is connection configuration, recorded and resolved at the provider-settings level outside the provider model (DES-011 §3.11).
 
 ### 3.2 Provider Lifecycle and Selection
 
@@ -239,7 +242,7 @@ Normative statements:
 - **Purpose**: the immutable, content-equal vocabulary of the Domain (ARC-003 Value Object, ARC-001 Immutable Domain Models).
 - **Intended consumers**: the whole package and its consumers; value objects cross every internal boundary.
 - **Stability expectations**: stable. Value objects are immutable once created; changes produce new values (ARC-001).
-- **Ownership**: the module that owns each value's meaning (ARC-007): Conversation owns `Message`; Provider owns `Capability`, `ProviderIdentity`, `ModelReference`, `ProviderCapabilities`, `ProviderMetadata`, `ProviderLimits`, and the capability value objects of §3.1 — the text generation, conversation, and streaming requests and responses and the streaming updates; Authentication owns `CredentialReference`; Configuration owns the configuration values and levels.
+- **Ownership**: the module that owns each value's meaning (ARC-007): Conversation owns `Message`; Provider owns `Capability`, `ProviderIdentity`, `ModelReference`, `ProviderCapabilities`, `ProviderMetadata`, `ProviderLimits`, `ProviderAPIKind`, and the capability value objects of §3.1 — the text generation, conversation, and streaming requests and responses and the streaming updates; Authentication owns `CredentialReference`; Configuration owns the configuration values and levels.
 
 Normative statements:
 
@@ -422,6 +425,7 @@ A significant removal is recorded in the package's version history and, when arc
 - The dependency graph MUST remain acyclic, and OmniaDomain MUST remain dependent only on OmniaFoundation (ARC-002, ADR-0002).
 - The initial contract is frozen as **Domain API Freeze v1**; a change to a frozen public API requires a specification revision, and every change to this contract updates this document in the same change (DES-004 §4, PRODUCT_PRINCIPLES — Documentation First).
 - The capability extension of this revision is frozen as **Domain Capability Contract Extension Freeze**; from this revision, the extension is part of the frozen contract, and a further change to it requires another specification revision, exactly as Domain API Freeze v1 does (PROJECT_STATE.md).
+- The API-kind value surface of this revision is frozen; from this revision, `ProviderAPIKind` is part of the frozen contract, and a further change to it — a new case, a new default, or a removal — requires another specification revision, exactly as the prior freezes do (PROJECT_STATE.md).
 
 ## 7. Initial Implementation Plan
 
@@ -433,9 +437,11 @@ The initial implementation follows the Domain Sprint 1 Roadmap (`DOMAIN_SPRINT_1
 
 The initial phases (Phase 1 through Phase 8) realize the contract of the frozen Domain API Freeze v1. The capability extension of this revision (v0.3.0) is implemented after those phases, in the order defined by the Domain Sprint 2 Roadmap (`DOMAIN_SPRINT_2_ROADMAP.md` §Implementation Order): the capability value objects, then the capability errors, then the concrete methods on `TextGenerationContract`, `ConversationContract`, and `StreamingContract`, then the package verification — with the extension specification frozen before any of its types are implemented (Domain Capability Contract Extension Freeze, `PROJECT_STATE.md`). The implementation realizes exactly the frozen design of §3.11; a deviation from that design is a defect and is resolved by correcting the implementation, never by silently changing the design (DES-004 §1).
 
+The API-kind value surface of this revision (v0.4.0) is implemented as part of the Provider value objects — `ProviderAPIKind` with its cases and default — verified against the completion criteria of Phase 8, additive over the v0.3.0 surface (DES-004 §1).
+
 ### Phase 1 — Value Objects and Shared Vocabulary
 
-Order: the value objects of §3.8 — `Message`, `Capability`, `ProviderIdentity`, `ModelReference`, `ProviderCapabilities`, `ProviderMetadata`, `ProviderLimits`, `CredentialReference`, and the configuration values and levels. Built on the OmniaFoundation primitives of Section 4.
+Order: the value objects of §3.8 — `Message`, `Capability`, `ProviderIdentity`, `ModelReference`, `ProviderCapabilities`, `ProviderMetadata`, `ProviderLimits`, `ProviderAPIKind`, `CredentialReference`, and the configuration values and levels. Built on the OmniaFoundation primitives of Section 4.
 
 ### Phase 2 — Capability Contract and Provider Model
 

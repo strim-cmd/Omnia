@@ -1,7 +1,7 @@
 ---
 title: OmniaApplication Public API Contract
 document_id: DES-011
-version: 1.2.0
+version: 1.3.0
 status: Ratified
 owner: Founder
 project: Omnia
@@ -10,7 +10,7 @@ authors:
 reviewers:
   - Chief Architect
 created: 2026-08-05
-last_updated: 2026-08-09
+last_updated: 2026-08-15
 related_documents:
   - Documentation/Product/Roadmap/APPLICATION_SPRINT_1_ROADMAP.md
   - Documentation/Product/Roadmap/MVP_V01_ROADMAP.md
@@ -59,6 +59,8 @@ This initial contract is frozen as **Application API Freeze v1**. From this revi
 This revision (v1.1.0) extends the contract with the minimal workspace application surface of §3.8 — `WorkspaceService` and `ConversationService.createConversation(in:)` — and the provider connection endpoint surface of §3.9 — `ProviderConnectionService.updateEndpoint(_:for:)` and `endpoint(for:)` — exactly as the MVP v0.1 Roadmap sequences it (`MVP_V01_ROADMAP.md`, PRD-008, The Integration Gap and Stage 1). The extension is additive and backward-compatible (§6.3); the existing public API of the frozen Application API Freeze v1 is unchanged. The new surfaces are frozen in §3.8 and §3.9 and are the single source of truth for the implementation of the revision (PRD-008, App Contract Freeze).
 
 This revision (v1.2.0) extends the contract with the provider connection model surface of §3.10 — `ProviderConnectionService.modelKey(for:)`, `updateModel(_:for:)`, `model(for:)`, and the `configure(_:endpoint:model:)` overload — the optional per-provider OpenAI-compatible model name (the OmniRoute combo, or any provider model name) that the app-edge selection and routing pass as the wire `model` (DES-013 §3.3, OMNIROUTE_INTEGRATION_PLAN.md). The extension is additive and backward-compatible (§6.3); the v1.1.0 `configure(_ request:)` and `remove(_:)` remain, with one documented behavior extension — `remove(_:)` also removes the recorded model key (§3.4). The new surface is frozen in §3.10 and is the single source of truth for the implementation of the revision.
+
+This revision (v1.3.0) extends the contract with the provider connection API kind surface of §3.11 — `ProviderConnectionService.apiKindKey(for:)`, `updateAPIKind(_:for:)`, `apiKind(for:)`, and the `apiKind`-bearing `configure(_:endpoint:model:apiKind:)` and `update(_:for:endpoint:model:apiKind:)` overloads — the wire API family a provider connection targets (the OpenAI-compatible chat-completions family or the Gemini family), selected by the user in the connection form and recorded as a typed configuration value, so the runtime provider adapter binding and model discovery construct the adapter of the recorded family (DES-013 §3.3, ARC-004). The extension is additive and backward-compatible (§6.3); the v1.2.0 surface remains, with one documented behavior extension — `remove(_:)` also removes the recorded API-kind key (§3.4). A provider with no recorded kind resolves to the OpenAI-compatible default, so connections configured before the kind was recorded keep serving unchanged (ARC-004). The new surface is frozen in §3.11 and is the single source of truth for the implementation of the revision.
 
 The specification governs the package alone. It defines no behavior of the Foundation, Domain, Infrastructure, Presentation, or application-shell layers; those are specified by their own documents.
 
@@ -339,6 +341,32 @@ Normative statements:
 - Configuration failures MUST surface as the Domain `RepositoryError`, never wrapped (§3.6, DES-009 §3.9).
 - `remove(_:)` (§3.4) MUST also remove the recorded model key, so stored data remains removable by the user (ARC-005).
 
+### 3.11 Provider Connection API Kind Surface
+
+- **Purpose**: record and resolve the wire API family of a provider connection — the OpenAI-compatible chat-completions family or the Gemini (Generative Language API) family — which selects the Infrastructure adapter that serves the connection. This is the v1.3.0 additive surface; it lets a user record the API family with the connection, and closes the loop so the runtime provider adapter binding and model discovery construct the adapter of the recorded family instead of always the OpenAI-compatible one (DES-013 §3.3, ARC-004).
+- **Intended consumers**: the Presentation layer (provider connection form and the API-kind picker, DES-012 §3.4 v1.3.0) and the Composition Root (runtime adapter binding and model discovery, DES-013 §3.3).
+- **Stability expectations**: stable. The API kind is connection configuration the user owns (ARC-005).
+- **Ownership**: Settings module (Application surface, ARC-007).
+
+The surface is realized by additions to the §3.4 `ProviderConnectionService`:
+
+| Method | Meaning |
+|---|---|
+| `apiKindKey(for identity: ProviderIdentity) -> ConfigurationKey<ProviderAPIKind>` | returns the documented provider-settings configuration key `providerAPIKind.<identity.canonicalString>` under which the API kind is recorded — public because the Composition Root's runtime adapter binding reads the same key the settings surface writes (DES-004 — writers and readers never diverge). |
+| `updateAPIKind(_ kind: ProviderAPIKind, for identity: ProviderIdentity) async throws` | records the provider connection's API family as a typed `ProviderAPIKind` configuration value at the provider-settings level, keyed by the provider's identity; recording is idempotent and replaces any previously recorded value. |
+| `apiKind(for identity: ProviderIdentity) async throws -> ProviderAPIKind` | returns the recorded API family, or `ProviderAPIKind.default` — the OpenAI-compatible family — when none is recorded, so connections configured before the kind was recorded keep serving unchanged (ARC-004). |
+| `configure(_ request: ConfigureProviderRequest, endpoint: String, model: String?, apiKind: ProviderAPIKind = ProviderAPIKind.default) async throws -> ProviderConnection` | additive extension of the §3.10 `configure(_:endpoint:model:)` — validates the endpoint and, when given, the model before any write, then records the endpoint, the model, and the API kind keyed by the fresh connection identity; a caller that omits `apiKind` records the OpenAI-compatible default, so existing call sites are unchanged (DES-013 §3.3). |
+| `update(_ request: ProviderUpdateRequest, for identity: ProviderIdentity, endpoint: String, model: String?, apiKind: ProviderAPIKind = ProviderAPIKind.default) async throws -> ProviderConnection` | the unified provider-edit surface — replaces the connection's declared display name, capabilities, limits, and version through the frozen `ProviderUpdateRequest`, and records the endpoint, the model, and the API kind in the same operation, preserving the lifecycle state; a caller that omits `apiKind` records the OpenAI-compatible default, so existing call sites are unchanged. |
+
+Normative statements:
+
+- The API kind MUST be recorded as a typed `ProviderAPIKind` configuration value at the provider-settings level under a documented key derived from the provider identity, exactly as the endpoint and the model are (§3.9, §3.10, DES-009 §3.6); raw or untyped values are never stored (DES-004). `ProviderAPIKind` is a `Codable` Domain value type, so the kind persists through the file-backed configuration repository (DES-010 §3.3).
+- The API kind MUST NOT enter the `ProviderConnection` or `Provider` aggregate or the `ConfigureProviderRequest`/`ProviderUpdateRequest`; the Domain provider model carries declared capabilities and metadata, never wire-family or transport values (ARC-004, DES-009 §3.1). The API kind is connection configuration, exactly like the endpoint and the model (§3.9, §3.10).
+- The service MUST NOT itself build a transport or an adapter; the API kind is resolved by the Composition Root when a request is built, in the layer that owns transport (DES-010 §3.9.3, DES-013 §3.3, ARC-004).
+- A provider with no recorded API kind MUST resolve to `ProviderAPIKind.default` — the OpenAI-compatible family — so connections configured before the kind was recorded keep serving unchanged (ARC-004).
+- Configuration failures MUST surface as the Domain `RepositoryError`, never wrapped (§3.6, DES-009 §3.9).
+- `remove(_:)` (§3.4) MUST also remove the recorded API-kind key, so stored data remains removable by the user (ARC-005).
+
 ## 4. Dependency Rules
 
 OmniaApplication occupies the Application position of the dependency graph (ARC-002, ADR-0002). Its dependency rules are absolute:
@@ -454,6 +482,12 @@ The v1.2.0 revision phase extends the realization:
 ### Phase 10 — Provider Connection Model Surface
 
 Order: `ProviderConnectionService.modelKey(for:)`, `updateModel(_:for:)`, `model(for:)`, and the `configure(_:endpoint:model:)` overload of §3.10 — the provider-settings configuration surface the Composition Root's offered-models closure and runtime adapter binding resolve (DES-013 §3.3), plus the `remove(_:)` model-key cleanup of §3.4. Verified against the completion criteria of Phase 6: the new surface matches §3.10 exactly; the v1.0.0 and v1.1.0 surfaces are unchanged; no forbidden dependency is imported; and the flows are testable without a network (ARC-001, ARC-006).
+
+The v1.3.0 revision phase extends the realization:
+
+### Phase 11 — Provider Connection API Kind Surface
+
+Order: `ProviderConnectionService.apiKindKey(for:)`, `updateAPIKind(_:for:)`, `apiKind(for:)`, and the `apiKind`-bearing `configure(_:endpoint:model:apiKind:)` and `update(_:for:endpoint:model:apiKind:)` overloads of §3.11 — the provider-settings configuration surface the Composition Root's runtime adapter binding and model discovery resolve (DES-013 §3.3), plus the `remove(_:)` API-kind-key cleanup of §3.4. Verified against the completion criteria of Phase 6: the new surface matches §3.11 exactly; the v1.0.0, v1.1.0, and v1.2.0 surfaces are unchanged; no forbidden dependency is imported; and the flows are testable without a network (ARC-001, ARC-006).
 
 ## Related Documents
 

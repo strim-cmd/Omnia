@@ -1,7 +1,7 @@
 ---
 title: OmniaInfrastructure Public API Contract
 document_id: DES-010
-version: 1.1.0
+version: 1.2.0
 status: Ratified
 owner: Founder
 project: Omnia
@@ -10,7 +10,7 @@ authors:
 reviewers:
   - Chief Architect
 created: 2026-08-04
-last_updated: 2026-08-05
+last_updated: 2026-08-15
 related_documents:
   - Documentation/Product/Roadmap/INFRASTRUCTURE_SPRINT_1_ROADMAP.md
   - Documentation/Product/Roadmap/INFRASTRUCTURE_SPRINT_2_ROADMAP.md
@@ -52,6 +52,8 @@ This document specifies the initial public API inventory, the package responsibi
 
 This revision (v1.1.0) extends the provider adapter category of §3.6 with the adapter's concrete capability surface — the three capability call methods, the Domain-to-DTO mapping rules, the error-translation rules, and the streaming lifecycle — exactly as the Infrastructure Sprint 2 Roadmap sequences it (`INFRASTRUCTURE_SPRINT_2_ROADMAP.md` §Requirements). The extension is additive and backward-compatible (§6.3); the existing public API of the frozen Infrastructure API Freeze v1 is unchanged. The concrete capability surface is specified in §3.9 and is the single source of truth for the implementation of the capabilities (PRD-005 Stage 1).
 
+This revision (v1.2.0) extends the Provider module surface with the Gemini (Generative Language API) provider family of §3.10 — the `GeminiClient` over the transport seam, the `GeminiProviderAdapter` realizing the same three capability contracts as the OpenAI-compatible adapter, the `GeminiMapping` translation rules over the Generate Content API, and the `GeminiProviderInspector` model-discovery and connection-validation surface — so the Composition Root can bind a provider connection of the Gemini family (DES-011 §3.11, DES-013 §3.3, ARC-004). The extension is additive and backward-compatible (§6.3); the OpenAI-compatible client and adapter of §3.5, §3.6, and §3.9 are unchanged. The Gemini surface is specified in §3.10 and is the single source of truth for the implementation of the family (PRD-008, ARC-004).
+
 The specification governs the package alone. It defines no behavior of the Foundation, Domain, Application, Presentation, or application-shell layers; those are specified by their own documents.
 
 ## 2. Package Responsibilities
@@ -64,8 +66,8 @@ OmniaInfrastructure owns the Infrastructure-layer content of the modules it real
 - the file-based JSON storage engine through which the repositories persist (Storage, ARC-005);
 - the aggregate serializers that map the Domain aggregates to and from their stored representation (Storage, ARC-009);
 - the secure credential storage implementation of the Domain credential storage protocol, over a platform backend seam (Authentication, DES-009 §3.7, ARC-005);
-- the provider transport abstraction and the OpenAI-compatible HTTP client, with their request/response models and serialization (Provider, ARC-004);
-- the provider adapters that expose the Domain capability contracts (Provider, DES-009 §3.1, ARC-004).
+- the provider transport abstraction and the provider HTTP clients — the OpenAI-compatible client and the Gemini client — with their request/response models and serialization (Provider, ARC-004);
+- the provider adapters and inspectors that expose the Domain capability contracts and the connection-validation surface (Provider, DES-009 §3.1, ARC-004).
 
 Everything public in the package is an implementation of a Domain contract and MUST be expressible only in terms the Domain declares (ARC-002, ARC-009). The package implements contracts; it never defines them (ARC-002).
 
@@ -150,9 +152,9 @@ Normative statements:
 - Credentials MUST never leave the device and MUST never enter logs, analytics, or request metadata (ARC-001, ARC-004, ARC-005).
 - Credentials MUST be isolated from application data; the data store holds references, never secrets (ARC-005).
 
-### 3.5 Provider Transport and OpenAI-Compatible Client
+### 3.5 Provider Transport and Provider Clients
 
-- **Purpose**: the networking foundation of the Provider module's Infrastructure surface: a `ProviderTransport` protocol that isolates HTTP interaction behind a seam, an OpenAI-compatible HTTP client, the request/response models, JSON serialization, and streaming primitives (ARC-004, ARC-009).
+- **Purpose**: the networking foundation of the Provider module's Infrastructure surface: a `ProviderTransport` protocol that isolates HTTP interaction behind a seam, the provider HTTP clients — the OpenAI-compatible client and the Gemini client — the request/response models, JSON serialization, and streaming primitives (ARC-004, ARC-009).
 - **Intended consumers**: the provider adapters within the package; nothing above the package references it directly (ARC-009).
 - **Stability expectations**: stable. The transport seam is the replaceability boundary for provider connectivity (ARC-001, ARC-006).
 - **Ownership**: Provider module (Infrastructure surface, ARC-007).
@@ -161,13 +163,14 @@ Normative statements:
 
 - The `ProviderTransport` protocol MUST isolate HTTP interaction so the client and its consumers are testable without a network (ARC-001, ARC-006).
 - The OpenAI-compatible client MUST construct requests, decode responses, deliver streaming output, and translate failures for OpenAI-compatible endpoints (PRODUCT_CHARTER, ARC-004).
+- The Gemini client MUST construct Generate Content requests, decode responses, deliver streamed events over the SSE transport stream, and translate failures for Gemini (Generative Language API) endpoints — authentication by the stored credential in the `x-goog-api-key` header (DES-010 §3.10, ARC-004).
 - Request/response models and serialization MUST be internal DTOs confined to the package (ARC-004).
 - Failures MUST be surfaced in the terms the Domain owns; provider and transport failures MUST be translated, never leaked as raw values (DES-009 §3.9, ARC-004).
 - Requests MUST use credentials by reference, resolved through the credential storage; secrets MUST never enter logs or request metadata (ARC-001, ARC-005).
 
 ### 3.6 Provider Adapters
 
-- **Purpose**: the adapter that conforms to the Domain capability contracts — `TextGenerationContract`, `ConversationContract`, and `StreamingContract` (DES-009 §3.1, ARC-004) — realizing their concrete capability methods over the transport seam (§3.9), and wiring the transport and the credential storage to the contracts the application consumes.
+- **Purpose**: the adapters that conform to the Domain capability contracts — `TextGenerationContract`, `ConversationContract`, and `StreamingContract` (DES-009 §3.1, ARC-004) — realizing their concrete capability methods over the transport seam (§3.9, §3.10), and wiring the transport and the credential storage to the contracts the application consumes: the `OpenAICompatibleProviderAdapter` for OpenAI-compatible endpoints and the `GeminiProviderAdapter` for Gemini (Generative Language API) endpoints (ARC-004, DES-011 §3.11).
 - **Intended consumers**: the Composition Root, which binds them to the Domain capability contracts consumed by the Application layer (ARC-006, ARC-009).
 - **Stability expectations**: stable. The adapters implement frozen Domain contracts (ARC-008, DES-009 §6).
 - **Ownership**: Provider module (Infrastructure surface, ARC-007).
@@ -176,7 +179,8 @@ Normative statements:
 
 - Adapters MUST contain no business logic (ARC-004).
 - Adapters MUST expose capabilities in Omnia's terms and MUST surface failures in Domain terms (ARC-004 Adapter Model, DES-009 §3.9).
-- Adapters MUST realize the concrete capability methods of the extended Domain capability contract over the transport seam; the concrete surface — the three call methods, the Domain-to-DTO mapping rules, the error-translation rules, and the streaming lifecycle — is specified in §3.9 (DES-009 §3.11.3, PRD-005 Stage 1).
+- Adapters MUST realize the concrete capability methods of the extended Domain capability contract over the transport seam; the OpenAI-compatible concrete surface — the three call methods, the Domain-to-DTO mapping rules, the error-translation rules, and the streaming lifecycle — is specified in §3.9, and the Gemini concrete surface in §3.10 (DES-009 §3.11.3, PRD-005 Stage 1, ARC-004).
+- Each API family is bound to the provider connection whose recorded kind selects it (DES-011 §3.11); the Composition Root constructs the adapter of the recorded family, and a provider with no recorded kind resolves to the OpenAI-compatible default (DES-013 §3.3, ARC-004).
 - Live availability MUST be reported by the Infrastructure layer, never by the Domain (ARC-004 Capability Discovery, DES-009 §3.1).
 - Provider-specific code MUST be confined to the adapters; provider APIs MUST NOT leak above the package (ARC-004, ARC-009).
 
@@ -263,6 +267,50 @@ Normative statements:
 - On interruption — cooperative through the stream lifecycle and the Foundation cancellation primitive (DES-008) — the stream MUST end with the `StreamingUpdate.interruption` event carrying the preserved partial content as incomplete; partial content MUST NEVER be silently discarded (ARC-001, DES-009 §3.11.4).
 - A cancelled stream ends with the interruption event, never a lost response (DES-008, PRD-005).
 - The adapter delivers exactly the events the Domain declares and invents no stream lifecycle of its own (ARC-002, DES-009 §3.11.4).
+
+### 3.10 Gemini Provider Surface (Frozen)
+
+This subsection records the concrete Gemini (Generative Language API) provider surface of the Provider module. It is the frozen single source of truth for the implementation of the Gemini family (PRD-008, ARC-004): the internal client realizes the Generate Content API over the transport seam of §3.5, the adapter realizes the three capability contracts of §3.9.1 over that client, and the inspector realizes model discovery and connection validation. The surface is additive and backward-compatible over Infrastructure API Freeze v1 and the §3.9 capability freeze (§6.3); it adds concrete declarations only and changes no existing public API.
+
+#### 3.10.1 The Gemini Client and DTOs
+
+- **`GeminiClient`** — internal (DES-010 §3.5): constructs Generate Content requests for Gemini endpoints (`POST {endpoint}/models/{model}:generateContent` and `:streamGenerateContent?alt=sse`), decodes non-streaming responses, delivers the SSE data events as the streamed `GenerateContentResponse` values, loads the provider's model list from `GET {endpoint}/models` (the `models/` prefix stripped from each name), and probes availability. Authentication is by reference — the stored credential is sent in the `x-goog-api-key` header, so the secret never enters URLs, logs, or request metadata (ARC-001, ARC-005). Every transport and decoding failure is translated into `ProviderTransportError` (DES-010 §3.7).
+- **`GeminiContentDTOs`** — internal request/response DTOs confined to the package (ARC-004): `GenerateContentRequest`, `GenerateContentResponse`, and `GeminiModelsResponse`, serialized through the package's JSON coders (DES-010 §3.5).
+- **`GeminiMapping`** — internal translation rules between the Domain capability vocabulary and the Generate Content wire shapes, including the `ProviderTransportError`-to-capability-error translation of §3.9.3.
+
+Normative statements:
+
+- The client MUST construct requests, decode responses, deliver streamed events, and translate failures for Gemini endpoints over the same transport seam of §3.5; it is internal to the package and only the provider adapters consume it (ARC-004).
+- The client MUST resolve the credential through the credential storage by reference and send it only in the `x-goog-api-key` header; the secret MUST never enter URLs, logs, analytics, or request metadata (ARC-001, ARC-005).
+- Request/response models and serialization MUST be internal DTOs confined to the package; provider wire shapes MUST NOT cross the package boundary (ARC-004, DES-010 §3.5).
+
+#### 3.10.2 The Gemini Adapter
+
+`GeminiProviderAdapter` (DES-010 §3.6) conforms to the three Domain capability contracts and realizes their concrete methods over the `GeminiClient` (DES-009 §3.11.3):
+
+| Contract (DES-009 §3.1, §3.11.3) | Adapter method |
+|---|---|
+| `TextGenerationContract` | `generateText(from request: TextGenerationRequest) async throws -> TextGenerationResponse` |
+| `ConversationContract` | `sendMessage(_ request: ConversationRequest) async throws -> ConversationResponse` |
+| `StreamingContract` | `stream(_ request: StreamingRequest) async throws -> AsyncThrowingStream<StreamingUpdate, Error>` |
+
+Normative statements:
+
+- The adapter MUST conform to the three Domain capability contracts and MUST realize the concrete methods exactly as the Domain declares them (DES-009 §3.11.3), with the same provider-agnostic boundary as §3.9.1: provider-specific request, response, and chunk shapes never cross the package boundary (ARC-004, DES-010 §2.2).
+- The adapter MUST translate the Domain requests through `GeminiMapping` — the Generate Content equivalents of the §3.9.2 mapping rules: a prompt or message history becomes the Generate Content request's contents, `ModelReference.name` becomes the model path, and streaming requests use the `streamGenerateContent` action with `alt=sse`; the Domain vocabulary is never altered (DES-010 §3.9.2, ARC-004).
+- The adapter MUST translate failures exactly as §3.9.3 prescribes: a credential-resolution failure surfaces as the Domain `CredentialStorageError`, never wrapped; a transport or decoding failure is translated into the Domain capability errors of DES-009 §3.11.2 (DES-010 §3.9.3).
+- The adapter MUST honor the streaming lifecycle of §3.9.4: content deltas become `StreamingUpdate.contentDelta`, the end of the stream becomes the `StreamingUpdate.completion` carrying the assembled assistant message, and cancellation or interruption becomes the `StreamingUpdate.interruption` carrying the preserved partial content — never silently discarded (ARC-001, DES-009 §3.11.4).
+- Availability (`isAvailable()`) MUST be reported by the adapter through the client's endpoint probe — by the Infrastructure layer, never by the Domain (ARC-004 Capability Discovery, DES-009 §3.1).
+
+#### 3.10.3 The Gemini Inspector
+
+`GeminiProviderInspector` realizes the `ProviderInspector` contract for Gemini endpoints: `discoverModels()` returns the provider's catalog as Domain `ModelReference` values, and `testConnection(model:)` validates a recorded model against the real catalog — the `GET /models` list is authoritative for the catalog and already validates the credential, so there is no fabricated fallback success path (DES-011 §3.4). The inspector is bound to one endpoint and credential and returns only Domain model identities and safe typed errors — `ProviderConnectionTestError` and the translated Domain catalog and connection errors — so HTTP bodies, private URLs, authorization headers, and credential values never cross its boundary (ARC-004, ARC-005). Both the persisted-connection initializer (over the credential storage) and the candidate-credential initializer for the connection form (a non-persisting in-memory storage) are public, mirroring the OpenAI-compatible inspector.
+
+Normative statements:
+
+- The inspector MUST return only Domain vocabulary — `ModelReference` identities and the typed errors of DES-009 §3.9 / DES-010 §3.7 — and MUST never expose provider wire values (ARC-004).
+- Model discovery MUST come from the provider's real catalog, never from fabricated data; a recorded model absent from the catalog MUST fail the test as `ProviderConnectionTestError.modelUnavailable` (DES-011 §3.4, ARC-001).
+- A candidate credential MUST remain opaque and MUST NEVER be written; the non-persisting inspector keeps it in memory only (ARC-001, ARC-005).
 
 ## 4. Dependency Rules
 
@@ -351,7 +399,7 @@ Order: the Workspace and Conversation repository implementations over the storag
 
 Order: the `CredentialStorageProtocol` implementation with the platform backend seam — the Keychain backend on Apple platforms and the in-memory backend for the Linux build and tests (§3.4).
 
-### Phase 5 — Provider Transport and OpenAI-Compatible Client
+### Phase 5 — Provider Transport and Provider Clients
 
 Order: the `ProviderTransport` protocol, the OpenAI-compatible HTTP client, the request/response models, JSON serialization, and the streaming primitives (§3.5).
 
@@ -366,6 +414,8 @@ The full verification of the package against the completion criteria of the road
 No API beyond the categories of Section 3 enters the package in these phases. Each phase ends in a state that is a valid, documented, tested increment of the public contract.
 
 The initial phases (Phase 1 through Phase 7) realize the contract of the frozen Infrastructure API Freeze v1. The capability surface of this revision (v1.1.0) is implemented after those phases, in the order defined by the Infrastructure Sprint 2 Roadmap (`INFRASTRUCTURE_SPRINT_2_ROADMAP.md` §Implementation Order): the capability mapping, then the text generation capability, then the conversation capability, then the streaming capability, then the package verification — with the surface specification frozen before any of its types are implemented (Infrastructure Capability Freeze, `PROJECT_STATE.md`). The implementation realizes exactly the frozen surface of §3.9; a deviation from that surface is a defect and is resolved by correcting the implementation, never by silently changing the surface (DES-004 §1).
+
+The Gemini surface of this revision (v1.2.0) is implemented after the v1.1.0 phases, in the order of §3.10: the Gemini client and DTOs, then the adapter, then the inspector, then the package verification — additive over the v1.1.0 surface and verified against the completion criteria of Phase 7, with the OpenAI-compatible client, adapter, and inspector unchanged (DES-004 §1).
 
 ## Related Documents
 

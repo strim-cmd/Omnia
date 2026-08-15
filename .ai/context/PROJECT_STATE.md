@@ -22,6 +22,7 @@ omnia_foundation: Complete
 application_api: Frozen (v1)
 presentation_api: Frozen (v1)
 app_contract_freeze: Frozen (v1)
+provider_api_kind_surface: Frozen (v1)
 omnia_app: Complete
 mvp_v0_1: Complete
 
@@ -339,6 +340,18 @@ milestones:
        - Stage 2d complete 2026-08-06 (issue #124): the app shell, entry point, and lifecycle delivered — the OmniaApp executable target (product `Omnia`) with the SwiftUI `@main` App shell launching the Composition Root, running the bootstrap, and hosting RootView with the resolved workspace and configuration keys (DES-012 §3.5, §3.6, DES-013 §3.5); the platform-independent `AppLaunch` sequencing (compose + prepare, idempotent across launches, ARC-005) tested on the Linux build with the @main entry point isolated behind platform availability (DES-013 §3.6); the shell owns session state at the application edge and never references an Infrastructure implementation (ARC-006); OmniaApp 22 tests green on the Linux build, the full integrated branch green (931 tests), the root package builds, and the milestone end-to-end flow is proven pending macOS launch verification (DES-013 §3.6, AC 6).
        - Stage 3 complete 2026-08-06 (issue #125): milestone verification — full unit-test pass across all six packages (OmniaFoundation 136, OmniaDomain 318, OmniaInfrastructure 183, OmniaApplication 151, OmniaPresentation 121, OmniaApp 22 = 931, 0 failures and 0 warnings), the root package builds, the Engineering Platform Validation Suite passes 7/7, and the layer and dependency verifications confirm the Composition Root is the only Infrastructure reference point with the public surfaces matching the frozen DES-013 v1.0.0/DES-011 v1.1.0/DES-012 v1.1.0 exactly; the macOS end-to-end launch is recorded as a pending environment-blocked platform-specific verification to be executed on a real Apple machine per DES-013 §3.6 and issue #124 — not a defect and not a failed acceptance criterion; closure report RETRO-005 recorded.
       - Milestone complete 2026-08-06: all issues #120-#125 closed, all stage PRs #127-#131 (plus the roadmap plan #126 and the Stage 3 PR) merged into feature/repository-foundation; milestone #10 closed; the next milestone is Release Engineering Sprint 1 (milestone #15, PRD-009).
+  Provider API Kind Surface Freeze:
+    Status: Ratified
+    Scope:
+      - DOMAIN_API v0.4.0 (ProviderAPIKind value type, DES-009 §3.1)
+      - DES-010 INFRASTRUCTURE_API v1.2.0 (Gemini Provider Surface §3.10; provider transport and provider clients §3.5; adapter family §3.6)
+      - DES-011 APPLICATION_API v1.3.0 (Provider Connection API Kind Surface §3.11)
+      - DES-012 PRESENTATION_API v1.3.0 (API Type picker, Editing.currentAPIKind)
+      - DES-013 APP_API v1.2.0 (family-routed runtime provider adapter binding)
+    Outcome:
+      - Public API extended additively over the frozen contracts.
+      - Provider API-kind surface frozen; a further change requires specification revision.
+      - Implementation of the API-kind surface proceeds against the frozen contract.
   Release Engineering Sprint 1 – Planning:
     Status: Active
     Scope:
@@ -379,4 +392,4 @@ blocked: []
 
 known_issues: []
 
-last_updated: 2026-08-07
+last_updated: 2026-08-15
