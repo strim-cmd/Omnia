@@ -6,13 +6,14 @@ import SwiftUI
 
 /// The SwiftUI connection-form intent of the providers surface (DES-012 §3.4,
 /// new_design.md §7): the unified provider form — compose and provider-edit —
-/// collecting the display name, capabilities, limits, version, endpoint, and
-/// the optional model of a provider connection, and, in compose, the credential
-/// entered by the user. In compose the form translates the declaration into the
-/// frozen `ConfigureProviderRequest`, the declared endpoint, and the declared
-/// model, handed to `SettingsSurface.configure`; in provider-edit the same form
-/// is presented pre-filled with the connection's current declaration, endpoint,
-/// and model, and translates the edited declaration into the frozen
+/// collecting the display name, capabilities, limits, version, API family,
+/// endpoint, and the optional model of a provider connection, and, in compose,
+/// the credential entered by the user. In compose the form translates the
+/// declaration into the frozen `ConfigureProviderRequest`, the declared
+/// endpoint, the declared model, and the declared API family, handed to
+/// `SettingsSurface.configure`; in provider-edit the same form is presented
+/// pre-filled with the connection's current declaration, endpoint, model, and
+/// API family, and translates the edited declaration into the frozen
 /// `ProviderUpdateRequest`, handed to `SettingsSurface.update` — one Edit
 /// Provider action replaces the separate endpoint and model editors. The view
 /// renders the form and translates intent; it owns no business logic (ARC-002).
@@ -28,13 +29,16 @@ import SwiftUI
 /// connection never requires re-entering the secret, and the stored credential
 /// is kept by reference (ARC-001, ARC-005).
 ///
-/// The endpoint and the optional model are collected with the connection
-/// declaration and recorded by the settings surface through the service's
-/// endpoint and model surfaces; they are connection configuration the user owns
+/// The API family, the endpoint, and the optional model are collected with the
+/// connection declaration and recorded by the settings surface through the
+/// service's surfaces; they are connection configuration the user owns
 /// (ARC-005) and never enter the `ConfigureProviderRequest`,
-/// `ProviderUpdateRequest`, or any Domain aggregate (DES-011 §3.9, §3.10,
-    /// ARC-004). An empty model records no manual fallback; discovery/cache may
-    /// still supply the provider's catalog.
+/// `ProviderUpdateRequest`, or any Domain aggregate (DES-011 §3.4, §3.9, §3.10,
+///     ARC-004). An empty model records no manual fallback; discovery/cache may
+///     still supply the provider's catalog. The Test Connection path exercises
+/// the API family's own inspector, so a Gemini family connection is validated
+/// against the Gemini endpoint and an OpenAI-compatible one against the
+/// chat-completions endpoint (DES-011 §3.4, ARC-004).
 ///
 /// The view is Apple-platform code, isolated behind platform availability; it
 /// is not exercised by the Linux test environment (§3.7) and is verified by
@@ -45,11 +49,11 @@ public struct ProviderConnectionFormView: View {
     /// `nil` when it is composing a new one.
     public let editing: SettingsState.Editing?
     /// Translates the compose-submit intent with the composed request, the
-    /// declared endpoint, and the declared model.
-    public let onConfigure: (ConfigureProviderRequest, String, String) -> Void
+    /// declared endpoint, the declared model, and the declared API family.
+    public let onConfigure: (ConfigureProviderRequest, String, String, ProviderAPIKind) -> Void
     /// Translates the edit-submit intent with the edited declaration, the
-    /// declared endpoint, and the declared model.
-    public let onUpdate: (ProviderUpdateRequest, String, String) -> Void
+    /// declared endpoint, the declared model, and the declared API family.
+    public let onUpdate: (ProviderUpdateRequest, String, String, ProviderAPIKind) -> Void
     /// Validates the real endpoint/credential/model path without persisting the
     /// candidate credential.
     public let onTestConnection: (ProviderConnectionTestRequest) -> Void
@@ -65,6 +69,7 @@ public struct ProviderConnectionFormView: View {
     @State private var versionPatch = "0"
     @State private var endpoint = ""
     @State private var model = ""
+    @State private var apiKind: ProviderAPIKind = .default
     @State private var credentialSecret = ""
     /// Ephemeral, process-randomized fingerprint of the exact values last
     /// tested. It contains no recoverable credential material and prevents a
@@ -75,8 +80,8 @@ public struct ProviderConnectionFormView: View {
     /// pre-filled with the connection's current declaration when editing.
     public init(
         editing: SettingsState.Editing? = nil,
-        onConfigure: @escaping (ConfigureProviderRequest, String, String) -> Void,
-        onUpdate: @escaping (ProviderUpdateRequest, String, String) -> Void,
+        onConfigure: @escaping (ConfigureProviderRequest, String, String, ProviderAPIKind) -> Void,
+        onUpdate: @escaping (ProviderUpdateRequest, String, String, ProviderAPIKind) -> Void,
         connectionTestCondition: SettingsState.ConnectionTestCondition = .idle,
         onTestConnection: @escaping (ProviderConnectionTestRequest) -> Void = { _ in },
         onCancel: @escaping () -> Void
@@ -100,6 +105,7 @@ public struct ProviderConnectionFormView: View {
         _versionPatch = State(initialValue: editing.map { String($0.version.patch) } ?? "0")
         _endpoint = State(initialValue: editing?.currentEndpoint ?? "")
         _model = State(initialValue: editing?.currentModel ?? "")
+        _apiKind = State(initialValue: editing?.currentAPIKind ?? .default)
         _credentialSecret = State(initialValue: "")
     }
 
@@ -179,6 +185,13 @@ public struct ProviderConnectionFormView: View {
                     .keyboardType(.URL)
                     .textInputAutocapitalization(.never)
                     #endif
+                Picker(Localized.apiKind, selection: $apiKind) {
+                    Text(Localized.apiKindOpenAICompatible).tag(ProviderAPIKind.openAICompatible)
+                    Text(Localized.apiKindGemini).tag(ProviderAPIKind.gemini)
+                }
+                .font(OmniaTheme.Typography.body)
+                .tint(OmniaTheme.Colors.accent)
+                .accessibilityLabel(Text(Localized.apiKind))
                 if !isEditing {
                     SecureField(Localized.apiKey, text: $credentialSecret)
                         .font(OmniaTheme.Typography.body)
@@ -346,7 +359,8 @@ public struct ProviderConnectionFormView: View {
                 provider: editing?.identity,
                 endpoint: trimmedEndpoint,
                 model: trimmedModel.isEmpty ? nil : trimmedModel,
-                credential: isEditing ? nil : Credential(secret: credentialSecret)
+                credential: isEditing ? nil : Credential(secret: credentialSecret),
+                apiKind: apiKind
             )
         )
     }
@@ -365,13 +379,14 @@ public struct ProviderConnectionFormView: View {
     }
 
     /// Submits the form (DES-012 §3.4): in compose, as a frozen
-    /// `ConfigureProviderRequest`, the declared endpoint, and the declared
-    /// model — the display name trimmed, the declared capabilities, the stated
-    /// limits and version, the endpoint, the optional model, and the entered
-    /// credential (the field cleared on submit, ARC-005); in provider-edit, as
-    /// a frozen `ProviderUpdateRequest` — the same declaration without a
-    /// credential, since editing never re-enters the secret — with the declared
-    /// endpoint and model. An empty model records no manual fallback, so
+    /// `ConfigureProviderRequest`, the declared endpoint, the declared model,
+    /// and the declared API family — the display name trimmed, the declared
+    /// capabilities, the stated limits and version, the endpoint, the optional
+    /// model, the API family, and the entered credential (the field cleared on
+    /// submit, ARC-005); in provider-edit, as a frozen
+    /// `ProviderUpdateRequest` — the same declaration without a credential,
+    /// since editing never re-enters the secret — with the declared endpoint,
+    /// model, and API family. An empty model records no manual fallback, so
     /// discovery/cache supplies any catalog. `canSubmit` guarantees
     /// the numeric fields are valid, so the submitted values never contain a
     /// silently coerced value.
@@ -395,7 +410,8 @@ public struct ProviderConnectionFormView: View {
                     version: version
                 ),
                 trimmedEndpoint,
-                trimmedModel
+                trimmedModel,
+                apiKind
             )
         } else {
             self.onConfigure(
@@ -407,7 +423,8 @@ public struct ProviderConnectionFormView: View {
                     credential: Credential(secret: credentialSecret)
                 ),
                 trimmedEndpoint,
-                trimmedModel
+                trimmedModel,
+                apiKind
             )
         }
         credentialSecret = ""
@@ -430,6 +447,7 @@ public struct ProviderConnectionFormView: View {
         hasher.combine(editing?.identity)
         hasher.combine(trimmedEndpoint)
         hasher.combine(trimmedModel)
+        hasher.combine(apiKind)
         hasher.combine(credentialSecret)
         return hasher.finalize()
     }

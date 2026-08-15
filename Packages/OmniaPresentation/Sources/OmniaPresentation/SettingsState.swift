@@ -74,13 +74,14 @@ public struct SettingsState: Equatable, Sendable {
     /// edited — the unified provider-edit flow, which presents the same
     /// connection form as compose, pre-filled — holding the connection's
     /// current declaration (display name, capabilities, limits, and version)
-    /// and its recorded endpoint and model, the values the form pre-fills.
+    /// and its recorded endpoint, model, and API family, the values the form
+    /// pre-fills.
     ///
     /// The condition holds only the configured connection state and the
-    /// recorded endpoint and model — never a credential or provider-specific
-    /// detail (ARC-001, ARC-004, ARC-005). The declaration, the endpoint, and
-    /// the model are connection configuration the user owns (ARC-005, DES-011
-    /// §3.1, §3.9, §3.10).
+    /// recorded endpoint, model, and API family — never a credential or
+    /// provider-specific detail (ARC-001, ARC-004, ARC-005). The declaration,
+    /// the endpoint, the model, and the API family are connection configuration
+    /// the user owns (ARC-005, DES-011 §3.1, §3.9, §3.10).
     public struct Editing: Equatable, Sendable {
         /// The identity of the provider connection being edited.
         public let identity: ProviderIdentity
@@ -98,10 +99,13 @@ public struct SettingsState: Equatable, Sendable {
         /// The model currently recorded for the connection, empty when none is
         /// recorded.
         public let currentModel: String
+        /// The API family currently recorded for the connection, or the
+        /// OpenAI-compatible default when none is recorded (ARC-004).
+        public let currentAPIKind: ProviderAPIKind
 
         /// Creates the provider-edit condition for the provider connection
-        /// with the given identity, declaration, current endpoint, and current
-        /// model.
+        /// with the given identity, declaration, current endpoint, current
+        /// model, and current API kind.
         public init(
             identity: ProviderIdentity,
             displayName: String,
@@ -109,7 +113,8 @@ public struct SettingsState: Equatable, Sendable {
             limits: ProviderLimits,
             version: SemanticVersion,
             currentEndpoint: String,
-            currentModel: String
+            currentModel: String,
+            currentAPIKind: ProviderAPIKind = ProviderAPIKind.default
         ) {
             self.identity = identity
             self.displayName = displayName
@@ -118,6 +123,7 @@ public struct SettingsState: Equatable, Sendable {
             self.version = version
             self.currentEndpoint = currentEndpoint
             self.currentModel = currentModel
+            self.currentAPIKind = currentAPIKind
         }
     }
 

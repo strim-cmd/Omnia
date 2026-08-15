@@ -106,24 +106,25 @@ private final class FakeProviderAdapter: TextGenerationContract, ConversationCon
     }
 }
 
-/// Records the endpoints and credentials the binding's adapter factory is asked
-/// to construct adapters for.
+/// Records the endpoints, credentials, and API kinds the binding's adapter
+/// factory is asked to construct adapters for.
 private final class RecordingAdapterFactory: @unchecked Sendable {
     private let lock = NSLock()
-    private var recordedCalls: [(endpoint: URL, credential: CredentialReference)] = []
+    private var recordedCalls: [(endpoint: URL, credential: CredentialReference, kind: ProviderAPIKind)] = []
     private let adapter = FakeProviderAdapter()
 
     func make(
         endpoint: URL,
-        credential: CredentialReference
+        credential: CredentialReference,
+        kind: ProviderAPIKind
     ) async throws -> any TextGenerationContract & ConversationContract & StreamingContract {
         lock.withLock {
-            recordedCalls.append((endpoint, credential))
+            recordedCalls.append((endpoint, credential, kind))
         }
         return adapter
     }
 
-    var calls: [(endpoint: URL, credential: CredentialReference)] {
+    var calls: [(endpoint: URL, credential: CredentialReference, kind: ProviderAPIKind)] {
         lock.withLock { recordedCalls }
     }
 
@@ -534,8 +535,8 @@ final class ProviderAdapterBindingTests: XCTestCase {
             lifecycleService: lifecycle,
             configurationService: configurationService,
             preferredModels: preferredModels,
-            adapterFactory: { resolvedEndpoint, resolvedReference in
-                try await factory.make(endpoint: resolvedEndpoint, credential: resolvedReference)
+            adapterFactory: { resolvedEndpoint, resolvedReference, kind in
+                try await factory.make(endpoint: resolvedEndpoint, credential: resolvedReference, kind: kind)
             }
         )
         return (binding, factory, providerIdentity)
@@ -546,7 +547,7 @@ final class ProviderAdapterBindingTests: XCTestCase {
             lifecycleService: ProviderLifecycleService(),
             configurationService: makeConfigurationService(),
             preferredModels: { _ in [modelReference] },
-            adapterFactory: { _, _ in throw CapabilityError.providerUnavailable }
+            adapterFactory: { _, _, _ in throw CapabilityError.providerUnavailable }
         )
     }
 
@@ -567,6 +568,7 @@ final class ProviderAdapterBindingTests: XCTestCase {
         XCTAssertEqual(factory.calls.count, 1)
         XCTAssertEqual(factory.calls[0].endpoint, URL(string: endpoint))
         XCTAssertEqual(factory.calls[0].credential, reference)
+        XCTAssertEqual(factory.calls[0].kind, .openAICompatible)
     }
 
     func testSendMessageResolvesTheProviderOfferingTheModel() async throws {
@@ -831,8 +833,8 @@ final class ProviderAdapterBindingTests: XCTestCase {
             lifecycleService: lifecycle,
             configurationService: configurationService,
             preferredModels: { _ in [modelReference] },
-            adapterFactory: { resolvedEndpoint, resolvedReference in
-                try await factory.make(endpoint: resolvedEndpoint, credential: resolvedReference)
+            adapterFactory: { resolvedEndpoint, resolvedReference, kind in
+                try await factory.make(endpoint: resolvedEndpoint, credential: resolvedReference, kind: kind)
             }
         )
         let request = TextGenerationRequest(
@@ -872,8 +874,8 @@ final class ProviderAdapterBindingTests: XCTestCase {
             lifecycleService: lifecycle,
             configurationService: configurationService,
             preferredModels: { _ in [modelReference] },
-            adapterFactory: { endpoint, credential in
-                try await factory.make(endpoint: endpoint, credential: credential)
+            adapterFactory: { endpoint, credential, kind in
+                try await factory.make(endpoint: endpoint, credential: credential, kind: kind)
             }
         )
         let request = StreamingRequest(
@@ -890,6 +892,87 @@ final class ProviderAdapterBindingTests: XCTestCase {
         XCTAssertEqual(factory.calls[0].endpoint, URL(string: "https://second.example.com/v1"))
         XCTAssertEqual(factory.adapterModels, [modelReference.name])
         XCTAssertEqual(factory.capturedAdapter.streamingRequests.first?.provider, second)
+    }
+
+    func testRecordedAPIKindRoutesTheAdapterFamily() async throws {
+        let providerIdentity = ProviderIdentity()
+        let lifecycle = ProviderLifecycleService()
+        try await register(lifecycle, identity: providerIdentity)
+        let configurationService = makeConfigurationService()
+        try await configurationService.store(
+            "https://generativelanguage.googleapis.com/v1beta",
+            for: ProviderConnectionService.endpointKey(for: providerIdentity),
+            at: .providerSettings
+        )
+        try await configurationService.store(
+            CredentialReference(),
+            for: ProviderConnectionService.credentialReferenceKey(for: providerIdentity),
+            at: .providerSettings
+        )
+        try await configurationService.store(
+            ProviderAPIKind.gemini,
+            for: ProviderConnectionService.apiKindKey(for: providerIdentity),
+            at: .providerSettings
+        )
+        let factory = RecordingAdapterFactory()
+        let binding = ProviderAdapterBinding(
+            lifecycleService: lifecycle,
+            configurationService: configurationService,
+            preferredModels: { _ in [modelReference] },
+            adapterFactory: { endpoint, credential, kind in
+                try await factory.make(endpoint: endpoint, credential: credential, kind: kind)
+            }
+        )
+        let request = TextGenerationRequest(
+            identity: CapabilityRequestIdentity(),
+            prompt: "Hello",
+            model: modelReference
+        )
+
+        _ = try await binding.generateText(from: request)
+
+        XCTAssertEqual(factory.calls.count, 1)
+        XCTAssertEqual(factory.calls[0].kind, .gemini)
+        XCTAssertEqual(
+            factory.calls[0].endpoint,
+            URL(string: "https://generativelanguage.googleapis.com/v1beta")
+        )
+    }
+
+    func testProviderWithoutRecordedAPIKindResolvesTheOpenAICompatibleDefault() async throws {
+        let providerIdentity = ProviderIdentity()
+        let lifecycle = ProviderLifecycleService()
+        try await register(lifecycle, identity: providerIdentity)
+        let configurationService = makeConfigurationService()
+        try await configurationService.store(
+            "https://api.example.com/v1",
+            for: ProviderConnectionService.endpointKey(for: providerIdentity),
+            at: .providerSettings
+        )
+        try await configurationService.store(
+            CredentialReference(),
+            for: ProviderConnectionService.credentialReferenceKey(for: providerIdentity),
+            at: .providerSettings
+        )
+        let factory = RecordingAdapterFactory()
+        let binding = ProviderAdapterBinding(
+            lifecycleService: lifecycle,
+            configurationService: configurationService,
+            preferredModels: { _ in [modelReference] },
+            adapterFactory: { endpoint, credential, kind in
+                try await factory.make(endpoint: endpoint, credential: credential, kind: kind)
+            }
+        )
+        let request = TextGenerationRequest(
+            identity: CapabilityRequestIdentity(),
+            prompt: "Hello",
+            model: modelReference
+        )
+
+        _ = try await binding.generateText(from: request)
+
+        XCTAssertEqual(factory.calls.count, 1)
+        XCTAssertEqual(factory.calls[0].kind, .openAICompatible)
     }
 
     func testStreamForwardsResolvedAttachmentsAndHistoryToTheAdapter() async throws {

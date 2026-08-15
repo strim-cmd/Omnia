@@ -7,17 +7,22 @@ public struct ProviderConnectionTestRequest: Sendable {
     public let endpoint: String
     public let model: String?
     public let credential: Credential?
+    /// The API family the candidate connection targets; the family selects
+    /// which Infrastructure inspector validates it (ARC-004, DES-011 §3.4).
+    public let apiKind: ProviderAPIKind
 
     public init(
         provider: ProviderIdentity? = nil,
         endpoint: String,
         model: String? = nil,
-        credential: Credential? = nil
+        credential: Credential? = nil,
+        apiKind: ProviderAPIKind = ProviderAPIKind.default
     ) {
         self.provider = provider
         self.endpoint = endpoint
         self.model = model
         self.credential = credential
+        self.apiKind = apiKind
     }
 }
 
@@ -30,29 +35,33 @@ public struct ProviderConnectionTestResult: Equatable, Sendable {
 }
 
 /// Validates either an unsaved provider candidate or an existing connection
-/// through injected generic transport paths.
+/// through injected transport paths selected by the connection's API family.
 public struct ProviderValidationService: Sendable {
     private let testCandidate: @Sendable (
         URL,
         Credential,
-        ModelReference?
+        ModelReference?,
+        ProviderAPIKind
     ) async throws -> [ModelReference]
     private let testExisting: @Sendable (
         ProviderIdentity,
         URL,
-        ModelReference?
+        ModelReference?,
+        ProviderAPIKind
     ) async throws -> [ModelReference]
 
     public init(
         testCandidate: @escaping @Sendable (
             URL,
             Credential,
-            ModelReference?
+            ModelReference?,
+            ProviderAPIKind
         ) async throws -> [ModelReference],
         testExisting: @escaping @Sendable (
             ProviderIdentity,
             URL,
-            ModelReference?
+            ModelReference?,
+            ProviderAPIKind
         ) async throws -> [ModelReference]
     ) {
         self.testCandidate = testCandidate
@@ -76,12 +85,12 @@ public struct ProviderValidationService: Sendable {
         let reference = model.flatMap { $0.isEmpty ? nil : ModelReference(name: $0) }
         let models: [ModelReference]
         if let provider = request.provider {
-            models = try await testExisting(provider, url, reference)
+            models = try await testExisting(provider, url, reference, request.apiKind)
         } else {
             guard let credential = request.credential else {
                 throw ProviderConnectionTestError.invalidCredential
             }
-            models = try await testCandidate(url, credential, reference)
+            models = try await testCandidate(url, credential, reference, request.apiKind)
         }
         return ProviderConnectionTestResult(models: models)
     }

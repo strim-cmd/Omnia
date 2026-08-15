@@ -306,8 +306,8 @@ final class SettingsSurfaceTests: XCTestCase {
             credentialStorage: InMemoryCredentialStorage(),
             configurationRepository: InMemoryConfigurationRepository(),
             validationService: ProviderValidationService(
-                testCandidate: { _, _, _ in [] },
-                testExisting: { _, _, _ in [] }
+                testCandidate: { _, _, _, _ in [] },
+                testExisting: { _, _, _, _ in [] }
             ),
             dataManagementService: DataManagementService {
                 await probe.record()
@@ -381,8 +381,8 @@ final class SettingsSurfaceTests: XCTestCase {
             credentialStorage: credentialStorage,
             configurationRepository: configurationRepository,
             validationService: ProviderValidationService(
-                testCandidate: { _, _, _ in [] },
-                testExisting: { _, _, _ in [] }
+                testCandidate: { _, _, _, _ in [] },
+                testExisting: { _, _, _, _ in [] }
             )
         )
 
@@ -557,13 +557,14 @@ final class SettingsSurfaceTests: XCTestCase {
             credentialStorage: credentialStorage,
             configurationRepository: configurationRepository,
             validationService: ProviderValidationService(
-                testCandidate: { endpoint, credential, model in
+                testCandidate: { endpoint, credential, model, kind in
                     XCTAssertEqual(endpoint.absoluteString, "https://api.example.com/v1")
                     XCTAssertEqual(model, expectedModel)
+                    XCTAssertEqual(kind, .openAICompatible)
                     XCTAssertEqual(credential.withValue { $0 }, secretValue)
                     return [expectedModel]
                 },
-                testExisting: { _, _, _ in
+                testExisting: { _, _, _, _ in
                     throw ProviderConnectionTestError.invalidResponse
                 }
             )
@@ -595,11 +596,12 @@ final class SettingsSurfaceTests: XCTestCase {
             credentialStorage: credentialStorage,
             configurationRepository: configurationRepository,
             validationService: ProviderValidationService(
-                testCandidate: { _, _, model in
+                testCandidate: { _, _, model, kind in
                     XCTAssertNil(model)
+                    XCTAssertEqual(kind, .openAICompatible)
                     return validatedModels
                 },
-                testExisting: { _, _, _ in [] }
+                testExisting: { _, _, _, _ in [] }
             )
         )
 
@@ -624,10 +626,10 @@ final class SettingsSurfaceTests: XCTestCase {
             credentialStorage: InMemoryCredentialStorage(),
             configurationRepository: InMemoryConfigurationRepository(),
             validationService: ProviderValidationService(
-                testCandidate: { _, _, _ in
+                testCandidate: { _, _, _, _ in
                     throw ProviderConnectionTestError.invalidCredential
                 },
-                testExisting: { _, _, _ in [] }
+                testExisting: { _, _, _, _ in [] }
             )
         )
 
@@ -664,11 +666,12 @@ final class SettingsSurfaceTests: XCTestCase {
             credentialStorage: credentialStorage,
             configurationRepository: configurationRepository,
             validationService: ProviderValidationService(
-                testCandidate: { _, _, _ in [] },
-                testExisting: { provider, endpoint, model in
+                testCandidate: { _, _, _, _ in [] },
+                testExisting: { provider, endpoint, model, kind in
                     XCTAssertEqual(provider, connection.identity)
                     XCTAssertEqual(endpoint.absoluteString, "https://api.changed.example.com/v1")
                     XCTAssertEqual(model?.name, "gpt-5")
+                    XCTAssertEqual(kind, .openAICompatible)
                     throw ProviderConnectionTestError.timedOut
                 }
             )

@@ -6,7 +6,7 @@ import OmniaDomain
 /// The inspector is bound to one endpoint and credential. It returns only
 /// Domain model identities and safe typed errors; HTTP bodies, private URLs,
 /// authorization headers, and credential values never cross this boundary.
-public struct OpenAICompatibleProviderInspector: Sendable {
+public struct OpenAICompatibleProviderInspector: ProviderInspector, Sendable {
     private let client: OpenAICompatibleClient
     private let endpoint: URL
     private let credential: CredentialReference
@@ -51,9 +51,9 @@ public struct OpenAICompatibleProviderInspector: Sendable {
         do {
             return try await client.models(endpoint: endpoint, credential: credential)
         } catch let error as CredentialStorageError {
-            throw Self.catalogError(from: error)
+            throw ProviderErrorMapping.catalogError(from: error)
         } catch let error as ProviderTransportError {
-            throw Self.catalogError(from: error)
+            throw ProviderErrorMapping.catalogError(from: error)
         }
     }
 
@@ -99,62 +99,7 @@ public struct OpenAICompatibleProviderInspector: Sendable {
         } catch is CredentialStorageError {
             throw ProviderConnectionTestError.invalidCredential
         } catch let error as ProviderTransportError {
-            throw Self.connectionError(from: error)
-        }
-    }
-
-    private static func catalogError(
-        from error: CredentialStorageError
-    ) -> ModelCatalogError {
-        switch error {
-        case .credentialNotFound, .storageUnavailable:
-            return .unauthorized
-        }
-    }
-
-    private static func catalogError(
-        from error: ProviderTransportError
-    ) -> ModelCatalogError {
-        switch error {
-        case .invalidRequest, .invalidResponse:
-            return .invalidResponse
-        case .networkFailure:
-            return .unreachable
-        case .timedOut:
-            return .timedOut
-        case .httpStatus(let code):
-            switch code {
-            case 401, 403: return .unauthorized
-            case 404, 405, 501: return .unsupported
-            case 408, 504: return .timedOut
-            case 429: return .rateLimited
-            case 500...599: return .serverFailure
-            default: return .invalidResponse
-            }
-        }
-    }
-
-    private static func connectionError(
-        from error: ProviderTransportError
-    ) -> ProviderConnectionTestError {
-        switch error {
-        case .invalidRequest:
-            return .invalidEndpoint
-        case .invalidResponse:
-            return .invalidResponse
-        case .networkFailure:
-            return .unreachable
-        case .timedOut:
-            return .timedOut
-        case .httpStatus(let code):
-            switch code {
-            case 401, 403: return .invalidCredential
-            case 404, 405: return .invalidEndpoint
-            case 408, 504: return .timedOut
-            case 429: return .rateLimited
-            case 500...599: return .serverFailure
-            default: return .invalidResponse
-            }
+            throw ProviderErrorMapping.connectionError(from: error)
         }
     }
 
@@ -171,23 +116,6 @@ public struct OpenAICompatibleProviderInspector: Sendable {
         if case .httpStatus(let code) = error, code == 400 || code == 404 {
             return .modelUnavailable
         }
-        return connectionError(from: error)
+        return ProviderErrorMapping.connectionError(from: error)
     }
-}
-
-/// Credential source used only for an unsaved Test Connection request.
-private struct FixedCredentialStorage: CredentialStorageProtocol, Sendable {
-    let credentialValue: Credential
-
-    init(credential: Credential) {
-        self.credentialValue = credential
-    }
-
-    func store(_ credential: Credential, for reference: CredentialReference) async throws {}
-
-    func credential(for reference: CredentialReference) async throws -> Credential {
-        credentialValue
-    }
-
-    func removeCredential(for reference: CredentialReference) async throws {}
 }

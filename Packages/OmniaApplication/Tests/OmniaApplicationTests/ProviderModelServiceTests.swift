@@ -295,11 +295,12 @@ final class ProviderValidationServiceTests: XCTestCase {
     func testCandidateSuccessReturnsDiscoveredModels() async throws {
         let expected = [ModelReference(name: "one"), ModelReference(name: "two")]
         let service = ProviderValidationService(
-            testCandidate: { _, _, model in
+            testCandidate: { _, _, model, kind in
                 XCTAssertEqual(model, ModelReference(name: "one"))
+                XCTAssertEqual(kind, .openAICompatible)
                 return expected
             },
-            testExisting: { _, _, _ in XCTFail("Wrong path"); return [] }
+            testExisting: { _, _, _, _ in XCTFail("Wrong path"); return [] }
         )
 
         let result = try await service.test(
@@ -316,10 +317,11 @@ final class ProviderValidationServiceTests: XCTestCase {
     func testExistingConnectionUsesStoredCredentialPath() async throws {
         let provider = ProviderIdentity()
         let service = ProviderValidationService(
-            testCandidate: { _, _, _ in XCTFail("Wrong path"); return [] },
-            testExisting: { identity, endpoint, _ in
+            testCandidate: { _, _, _, _ in XCTFail("Wrong path"); return [] },
+            testExisting: { identity, endpoint, _, kind in
                 XCTAssertEqual(identity, provider)
                 XCTAssertEqual(endpoint.absoluteString, "https://api.example.com/v1")
+                XCTAssertEqual(kind, .openAICompatible)
                 return [ModelReference(name: "model")]
             }
         )
@@ -332,10 +334,28 @@ final class ProviderValidationServiceTests: XCTestCase {
         XCTAssertEqual(result.models, [ModelReference(name: "model")])
     }
 
+    func testRequestAPIKindReachesTheFamilyPath() async throws {
+        let service = ProviderValidationService(
+            testCandidate: { _, _, _, kind in
+                XCTAssertEqual(kind, .gemini)
+                return [ModelReference(name: "gemini-model")]
+            },
+            testExisting: { _, _, _, _ in XCTFail("Wrong path"); return [] }
+        )
+        let result = try await service.test(
+            ProviderConnectionTestRequest(
+                endpoint: "https://generativelanguage.googleapis.com/v1beta",
+                credential: Credential(secret: "test-secret"),
+                apiKind: .gemini
+            )
+        )
+        XCTAssertEqual(result.models, [ModelReference(name: "gemini-model")])
+    }
+
     func testInvalidEndpointAndMissingCandidateCredentialAreTyped() async {
         let service = ProviderValidationService(
-            testCandidate: { _, _, _ in [] },
-            testExisting: { _, _, _ in [] }
+            testCandidate: { _, _, _, _ in [] },
+            testExisting: { _, _, _, _ in [] }
         )
         await assertTestError(.invalidEndpoint) {
             _ = try await service.test(ProviderConnectionTestRequest(endpoint: "not a URL"))
@@ -354,8 +374,8 @@ final class ProviderValidationServiceTests: XCTestCase {
         ]
         for expected in failures {
             let service = ProviderValidationService(
-                testCandidate: { _, _, _ in throw expected },
-                testExisting: { _, _, _ in throw expected }
+                testCandidate: { _, _, _, _ in throw expected },
+                testExisting: { _, _, _, _ in throw expected }
             )
             await assertTestError(expected) {
                 _ = try await service.test(

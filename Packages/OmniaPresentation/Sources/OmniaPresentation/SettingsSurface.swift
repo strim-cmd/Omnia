@@ -255,24 +255,30 @@ public struct SettingsSurface: Sendable {
     }
 
     /// Configures a new provider connection for `request`, records its
-    /// OpenAI-compatible endpoint, and records its optional model — the model
-    /// and endpoint collection of the connection form (DES-011 §3.9, §3.10,
-    /// PRESENTATION API §3.4).
+    /// OpenAI-compatible endpoint, records its optional model, and records its
+    /// API family — the endpoint, model, and API family collection of the
+    /// connection form (DES-011 §3.9, §3.10, PRESENTATION API §3.4).
     ///
-    /// The connection is configured and the endpoint and model are recorded
-    /// through the service's surfaces, keyed by the fresh connection identity;
-    /// the endpoint and model never enter the `ConfigureProviderRequest` or
-    /// any rendered state (ARC-001, ARC-004, ARC-005). The endpoint is
-    /// validated at the service boundary before any write; a malformed
-    /// endpoint surfaces as the typed `ApplicationValidationError`. `nil`
-    /// records no manual model, so discovery/cache supplies any catalog;
-    /// a non-empty model is validated at the service boundary before any
-    /// write, and an empty model surfaces as the typed
-    /// `ApplicationValidationError` (DES-011 §3.6, DES-009 §3.9).
+    /// The connection is configured and the endpoint, model, and API family
+    /// are recorded through the service's surfaces, keyed by the fresh
+    /// connection identity; the endpoint, model, and API family never enter
+    /// the `ConfigureProviderRequest` or any rendered state (ARC-001, ARC-004,
+    /// ARC-005). The endpoint is validated at the service boundary before any
+    /// write; a malformed endpoint surfaces as the typed
+    /// `ApplicationValidationError`. `nil` records no manual model, so
+    /// discovery/cache supplies any catalog; a non-empty model is validated at
+    /// the service boundary before any write, and an empty model surfaces as
+    /// the typed `ApplicationValidationError` (DES-011 §3.6, DES-009 §3.9).
+    /// The declared API family is validated against the candidate connection
+    /// before any write — the Test Connection path exercises the family's own
+    /// inspector (DES-011 §3.4, ARC-004). A caller that omits `apiKind`
+    /// records the OpenAI-compatible default, so existing call sites are
+    /// unchanged.
     public func configure(
         _ request: ConfigureProviderRequest,
         endpoint: String,
-        model: String?
+        model: String?,
+        apiKind: ProviderAPIKind = ProviderAPIKind.default
     ) async throws -> ProviderConnection {
         let validationResult: ProviderConnectionTestResult?
         if let validationService {
@@ -280,7 +286,8 @@ public struct SettingsSurface: Sendable {
                 ProviderConnectionTestRequest(
                     endpoint: endpoint,
                     model: model,
-                    credential: request.credential
+                    credential: request.credential,
+                    apiKind: apiKind
                 )
             )
         } else {
@@ -289,7 +296,8 @@ public struct SettingsSurface: Sendable {
         let connection = try await connectionService.configure(
             request,
             endpoint: endpoint,
-            model: model
+            model: model,
+            apiKind: apiKind
         )
         if let validationResult, let modelService {
             try await modelService.recordValidatedModels(
@@ -376,27 +384,33 @@ public struct SettingsSurface: Sendable {
     }
 
     /// Updates the declaration of the provider connection with `identity` and
-    /// records its OpenAI-compatible endpoint and optional model — the
-    /// provider-edit intent of the providers surface (DES-012 §3.4): the same
-    /// connection form as compose, submitted as the frozen `ProviderUpdateRequest`
-    /// (DES-011 §3.1).
+    /// records its OpenAI-compatible endpoint, optional model, and API family —
+    /// the provider-edit intent of the providers surface (DES-012 §3.4): the
+    /// same connection form as compose, submitted as the frozen
+    /// `ProviderUpdateRequest` (DES-011 §3.1).
     ///
-    /// The edited declaration, the endpoint, and the model are connection
-    /// configuration the user owns (ARC-005); the endpoint and model never
-    /// enter the `ProviderUpdateRequest` or any rendered state (DES-011 §3.9,
-    /// §3.10, ARC-001, ARC-004, ARC-005). The lifecycle state is preserved by
-    /// the service — a ready provider stays ready, so availability and the
-    /// runtime binding are unchanged. Input is validated at the service
-    /// boundary before any write; `nil` records no manual model, so
-    /// discovery/cache supplies any catalog (DES-011 §3.10). Failures surface as
-    /// they are — `ApplicationValidationError`, and the Domain `RepositoryError`
-    /// and `CredentialStorageError` — never wrapped (DES-011 §3.6, DES-009
+    /// The edited declaration, the endpoint, the model, and the API family are
+    /// connection configuration the user owns (ARC-005); the endpoint, model,
+    /// and API family never enter the `ProviderUpdateRequest` or any rendered
+    /// state (DES-011 §3.9, §3.10, ARC-001, ARC-004, ARC-005). The lifecycle
+    /// state is preserved by the service — a ready provider stays ready, so
+    /// availability and the runtime binding are unchanged. Input is validated
+    /// at the service boundary before any write; `nil` records no manual
+    /// model, so discovery/cache supplies any catalog (DES-011 §3.10). The
+    /// declared API family is validated against the existing connection before
+    /// any write — the Test Connection path exercises the family's own
+    /// inspector (DES-011 §3.4, ARC-004). A caller that omits `apiKind`
+    /// records the OpenAI-compatible default, so existing call sites are
+    /// unchanged. Failures surface as they are —
+    /// `ApplicationValidationError`, and the Domain `RepositoryError` and
+    /// `CredentialStorageError` — never wrapped (DES-011 §3.6, DES-009
     /// §3.9).
     public func update(
         _ request: ProviderUpdateRequest,
         for identity: ProviderIdentity,
         endpoint: String,
-        model: String?
+        model: String?,
+        apiKind: ProviderAPIKind = ProviderAPIKind.default
     ) async throws -> ProviderConnection {
         let validationResult: ProviderConnectionTestResult?
         if let validationService {
@@ -404,7 +418,8 @@ public struct SettingsSurface: Sendable {
                 ProviderConnectionTestRequest(
                     provider: identity,
                     endpoint: endpoint,
-                    model: model
+                    model: model,
+                    apiKind: apiKind
                 )
             )
         } else {
@@ -414,7 +429,8 @@ public struct SettingsSurface: Sendable {
             request,
             for: identity,
             endpoint: endpoint,
-            model: model
+            model: model,
+            apiKind: apiKind
         )
         if let validationResult, let modelService {
             try await modelService.recordValidatedModels(
@@ -423,6 +439,20 @@ public struct SettingsSurface: Sendable {
             )
         }
         return connection
+    }
+
+    /// Returns the provider connection's recorded API family, or the
+    /// OpenAI-compatible default when none is recorded — the value the API
+    /// family picker pre-fills when editing a connection (DES-012 §3.4,
+    /// DES-011 §3.4, ARC-004).
+    ///
+    /// The API family is connection configuration the user owns (ARC-005);
+    /// failures surface as the Domain `RepositoryError`, never wrapped (DES-011
+    /// §3.6).
+    public func apiKind(
+        for identity: ProviderIdentity
+    ) async throws -> ProviderAPIKind {
+        try await connectionService.apiKind(for: identity)
     }
 
     /// Stores `value` for `key` at `level`, replacing any previously stored

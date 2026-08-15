@@ -11,17 +11,19 @@ import OmniaInfrastructure
 /// that serves it. On each call it resolves, among the ready providers known to
 /// the lifecycle service, the deterministic provider that offers the requested
 /// model — in the canonical identity order the selection policy applies (DES-009
-/// §3.2) — reads that provider's recorded endpoint, credential reference, and
-/// optional model from the provider-settings configuration through the
-/// documented keys the settings surface writes (DES-011 §3.4, §3.9, §3.10), and
-/// constructs, on demand, the `OpenAICompatibleProviderAdapter` bound to them
-/// (DES-010 §3.6). A provider that records an OpenAI-compatible model (the
-/// OmniRoute combo, or any provider model name) serves the request with that
-/// recorded model; a provider with no recorded model serves the requested model
-/// unchanged. The provider is never bound at composition time; each request is
-/// served by an adapter constructed for the provider that serves its model, so a
-/// stored provider with no recorded endpoint or credential is never silently
-/// used (ARC-001).
+/// §3.2) — reads that provider's recorded endpoint, credential reference,
+/// recorded API kind, and optional model from the provider-settings configuration
+/// through the documented keys the settings surface writes (DES-011 §3.4, §3.9,
+/// §3.10), and constructs, on demand, the provider adapter of the recorded API
+/// family bound to them (DES-010 §3.6). A provider that records an
+/// OpenAI-compatible model (the OmniRoute combo, or any provider model name)
+/// serves the request with that recorded model; a provider with no recorded
+/// model serves the requested model unchanged. A provider with no recorded API
+/// kind resolves to the OpenAI-compatible default, so connections configured
+/// before the kind was recorded keep serving unchanged (ARC-004). The provider
+/// is never bound at composition time; each request is served by an adapter
+/// constructed for the provider that serves its model, so a stored provider
+/// with no recorded endpoint or credential is never silently used (ARC-001).
 ///
 /// The binding owns no business logic and no provider state (ARC-002, ARC-004):
 /// provider selection and lifecycle are the Domain's, the adapter is the
@@ -44,15 +46,15 @@ internal struct ProviderAdapterBinding: TextGenerationContract, ConversationCont
     /// §3.3).
     private let preferredModels: @Sendable (ProviderIdentity) async -> [ModelReference]
 
-    /// The adapter factory: the seam through which a bound
-    /// `OpenAICompatibleProviderAdapter` is constructed for the resolved
+    /// The adapter factory: the seam through which a bound provider adapter of
+    /// the provider's recorded API family is constructed for the resolved
     /// provider, so the binding is testable without a network (ARC-001,
     /// ARC-006).
-    private let adapterFactory: @Sendable (URL, CredentialReference) async throws -> any TextGenerationContract & ConversationContract & StreamingContract
+    private let adapterFactory: @Sendable (URL, CredentialReference, ProviderAPIKind) async throws -> any TextGenerationContract & ConversationContract & StreamingContract
 
     /// Creates the binding over the given Domain and Application contracts,
-    /// constructing each resolved provider's adapter over the default transport
-    /// and `credentialStorage`.
+    /// constructing each resolved provider's adapter of its recorded API family
+    /// over the default transport and `credentialStorage`.
     init(
         lifecycleService: ProviderLifecycleService,
         configurationService: ConfigurationService,
@@ -63,12 +65,21 @@ internal struct ProviderAdapterBinding: TextGenerationContract, ConversationCont
             lifecycleService: lifecycleService,
             configurationService: configurationService,
             preferredModels: preferredModels,
-            adapterFactory: { endpoint, reference in
-                OpenAICompatibleProviderAdapter(
-                    endpoint: endpoint,
-                    credential: reference,
-                    credentialStorage: credentialStorage
-                )
+            adapterFactory: { endpoint, reference, kind in
+                switch kind {
+                case .gemini:
+                    return GeminiProviderAdapter(
+                        endpoint: endpoint,
+                        credential: reference,
+                        credentialStorage: credentialStorage
+                    )
+                case .openAICompatible:
+                    return OpenAICompatibleProviderAdapter(
+                        endpoint: endpoint,
+                        credential: reference,
+                        credentialStorage: credentialStorage
+                    )
+                }
             }
         )
     }
@@ -79,7 +90,7 @@ internal struct ProviderAdapterBinding: TextGenerationContract, ConversationCont
         lifecycleService: ProviderLifecycleService,
         configurationService: ConfigurationService,
         preferredModels: @escaping @Sendable (ProviderIdentity) async -> [ModelReference],
-        adapterFactory: @escaping @Sendable (URL, CredentialReference) async throws -> any TextGenerationContract & ConversationContract & StreamingContract
+        adapterFactory: @escaping @Sendable (URL, CredentialReference, ProviderAPIKind) async throws -> any TextGenerationContract & ConversationContract & StreamingContract
     ) {
         self.lifecycleService = lifecycleService
         self.configurationService = configurationService
@@ -126,13 +137,17 @@ internal struct ProviderAdapterBinding: TextGenerationContract, ConversationCont
     }
 
     /// Resolves the ready provider serving `model` and constructs the adapter
-    /// bound to its recorded endpoint and credential reference (DES-013 §3.3).
+    /// of its recorded API family, bound to its recorded endpoint and
+    /// credential reference (DES-013 §3.3, DES-010 §3.6).
     ///
     /// The endpoint string recorded by the settings surface has been validated
     /// at the application boundary as an absolute `http` or `https` URL (DES-011
     /// §3.9), so restoring it as a `URL` here never fails for a recorded value;
     /// a provider without a recorded endpoint or credential reference cannot
-    /// serve the request and surfaces `CapabilityError.providerUnavailable`.
+    /// serve the request and surfaces `CapabilityError.providerUnavailable`. A
+    /// provider with no recorded API kind resolves to the OpenAI-compatible
+    /// default, so connections configured before the kind was recorded keep
+    /// serving unchanged (ARC-004).
     ///
     /// A provider that records an OpenAI-compatible model (the OmniRoute combo,
     /// or any provider model name) serves the request with that recorded model;
@@ -171,7 +186,11 @@ internal struct ProviderAdapterBinding: TextGenerationContract, ConversationCont
         else {
             throw CapabilityError.providerUnavailable
         }
-        return try await adapterFactory(url, reference)
+        let kind = try await configurationService.value(
+            for: ProviderConnectionService.apiKindKey(for: identity),
+            at: .providerSettings
+        ) ?? ProviderAPIKind.default
+        return try await adapterFactory(url, reference, kind)
     }
 
     /// The ready providers offering `model`, in canonical identity order — the

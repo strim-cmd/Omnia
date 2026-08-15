@@ -153,11 +153,24 @@ public struct CompositionRoot: Sendable {
             else {
                 throw ModelCatalogError.unauthorized
             }
-            return try await OpenAICompatibleProviderInspector(
-                endpoint: url,
-                credential: reference,
-                credentialStorage: credentialStorage
-            ).discoverModels()
+            let kind = try await configurationService.value(
+                for: ProviderConnectionService.apiKindKey(for: identity),
+                at: .providerSettings
+            ) ?? ProviderAPIKind.default
+            switch kind {
+            case .gemini:
+                return try await GeminiProviderInspector(
+                    endpoint: url,
+                    credential: reference,
+                    credentialStorage: credentialStorage
+                ).discoverModels()
+            case .openAICompatible:
+                return try await OpenAICompatibleProviderInspector(
+                    endpoint: url,
+                    credential: reference,
+                    credentialStorage: credentialStorage
+                ).discoverModels()
+            }
         }
         let providerModelService = ProviderModelService(
             configurationService: configurationService,
@@ -241,13 +254,21 @@ public struct CompositionRoot: Sendable {
             }
         )
         let providerValidationService = ProviderValidationService(
-            testCandidate: { endpoint, credential, model in
-                try await OpenAICompatibleProviderInspector(
-                    endpoint: endpoint,
-                    credential: credential
-                ).testConnection(model: model)
+            testCandidate: { endpoint, credential, model, kind in
+                switch kind {
+                case .gemini:
+                    return try await GeminiProviderInspector(
+                        endpoint: endpoint,
+                        credential: credential
+                    ).testConnection(model: model)
+                case .openAICompatible:
+                    return try await OpenAICompatibleProviderInspector(
+                        endpoint: endpoint,
+                        credential: credential
+                    ).testConnection(model: model)
+                }
             },
-            testExisting: { identity, endpoint, model in
+            testExisting: { identity, endpoint, model, kind in
                 guard
                     let reference = try await configurationService.value(
                         for: ProviderConnectionService.credentialReferenceKey(for: identity),
@@ -256,11 +277,20 @@ public struct CompositionRoot: Sendable {
                 else {
                     throw ProviderConnectionTestError.invalidCredential
                 }
-                return try await OpenAICompatibleProviderInspector(
-                    endpoint: endpoint,
-                    credential: reference,
-                    credentialStorage: credentialStorage
-                ).testConnection(model: model)
+                switch kind {
+                case .gemini:
+                    return try await GeminiProviderInspector(
+                        endpoint: endpoint,
+                        credential: reference,
+                        credentialStorage: credentialStorage
+                    ).testConnection(model: model)
+                case .openAICompatible:
+                    return try await OpenAICompatibleProviderInspector(
+                        endpoint: endpoint,
+                        credential: reference,
+                        credentialStorage: credentialStorage
+                    ).testConnection(model: model)
+                }
             }
         )
         let sendMessageUseCase = SendMessageUseCase(

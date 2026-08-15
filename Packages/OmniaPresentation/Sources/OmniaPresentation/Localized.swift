@@ -24,6 +24,9 @@ public enum Localized {
     }
     public static var allProviders: String { localized("all_providers") }
     public static var apiKey: String { localized("api_key") }
+    public static var apiKind: String { localized("api_kind") }
+    public static var apiKindOpenAICompatible: String { localized("api_kind_openai") }
+    public static var apiKindGemini: String { localized("api_kind_gemini") }
     public static var appearance: String { localized("appearance") }
     public static var assistantIsResponding: String { localized("assistant_is_responding") }
     public static var attachment: String { localized("attachment") }

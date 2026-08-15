@@ -31,14 +31,16 @@ public struct ProvidersView: View {
     public let onCompose: () -> Void
     /// Translates the cancel intent — the compose condition is cleared.
     public let onCancel: () -> Void
-    /// Translates the configure intent — the connection-form is submitted.
-    public let onConfigure: (ConfigureProviderRequest, String, String) -> Void
+    /// Translates the configure intent — the connection-form is submitted with
+    /// the composed request, the declared endpoint, the declared model, and the
+    /// declared API family.
+    public let onConfigure: (ConfigureProviderRequest, String, String, ProviderAPIKind) -> Void
     /// Translates the provider-edit intent — the connection form is presented
     /// pre-filled for the connection with the given identity.
     public let onEditProvider: (ProviderConnectionListItem) -> Void
     /// Translates the provider-update intent — the edit form is submitted for
     /// the connection with the given identity.
-    public let onUpdateProvider: (ProviderIdentity, ProviderUpdateRequest, String, String) -> Void
+    public let onUpdateProvider: (ProviderIdentity, ProviderUpdateRequest, String, String, ProviderAPIKind) -> Void
     public let onTestConnection: (ProviderConnectionTestRequest) -> Void
     /// Translates the cancel-provider-edit intent — the edit form is dismissed.
     public let onCancelEdit: () -> Void
@@ -58,9 +60,9 @@ public struct ProvidersView: View {
         state: SettingsState,
         onCompose: @escaping () -> Void,
         onCancel: @escaping () -> Void,
-        onConfigure: @escaping (ConfigureProviderRequest, String, String) -> Void,
+        onConfigure: @escaping (ConfigureProviderRequest, String, String, ProviderAPIKind) -> Void,
         onEditProvider: @escaping (ProviderConnectionListItem) -> Void,
-        onUpdateProvider: @escaping (ProviderIdentity, ProviderUpdateRequest, String, String) -> Void,
+        onUpdateProvider: @escaping (ProviderIdentity, ProviderUpdateRequest, String, String, ProviderAPIKind) -> Void,
         onTestConnection: @escaping (ProviderConnectionTestRequest) -> Void,
         onCancelEdit: @escaping () -> Void,
         onRemove: @escaping (ProviderIdentity) -> Void,
@@ -93,7 +95,7 @@ public struct ProvidersView: View {
                             if state.isComposing {
                                 ProviderConnectionFormView(
                                     onConfigure: onConfigure,
-                                    onUpdate: { _, _, _ in },
+                                    onUpdate: { _, _, _, _ in },
                                     connectionTestCondition: state.connectionTestCondition,
                                     onTestConnection: onTestConnection,
                                     onCancel: onCancel
@@ -101,9 +103,9 @@ public struct ProvidersView: View {
                             } else if let editing = state.editing {
                                 ProviderConnectionFormView(
                                     editing: editing,
-                                    onConfigure: { _, _, _ in },
-                                    onUpdate: { request, endpoint, model in
-                                        onUpdateProvider(editing.identity, request, endpoint, model)
+                                    onConfigure: { _, _, _, _ in },
+                                    onUpdate: { request, endpoint, model, apiKind in
+                                        onUpdateProvider(editing.identity, request, endpoint, model, apiKind)
                                     },
                                     connectionTestCondition: state.connectionTestCondition,
                                     onTestConnection: onTestConnection,

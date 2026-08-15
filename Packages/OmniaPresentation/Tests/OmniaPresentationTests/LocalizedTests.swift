@@ -18,6 +18,9 @@ final class LocalizedTests: XCTestCase {
             ("clear_data_confirmation", Localized.clearDataConfirmation),
             ("clear_data_scope", Localized.clearDataScope),
             ("manage_providers", Localized.manageProviders),
+            ("api_kind", Localized.apiKind),
+            ("api_kind_openai", Localized.apiKindOpenAICompatible),
+            ("api_kind_gemini", Localized.apiKindGemini),
         ]
 
         for (key, value) in resolvedValues {
@@ -26,6 +29,9 @@ final class LocalizedTests: XCTestCase {
 
         XCTAssertEqual(Localized.messagePlaceholder, "Message Omnia...")
         XCTAssertEqual(Localized.delete, "Delete")
+        XCTAssertEqual(Localized.apiKind, "API Type")
+        XCTAssertEqual(Localized.apiKindOpenAICompatible, "OpenAI-compatible")
+        XCTAssertEqual(Localized.apiKindGemini, "Gemini")
     }
 
     func testFormattedCopyUsesPresentationBundle() {

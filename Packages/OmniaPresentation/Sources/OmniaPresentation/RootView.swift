@@ -1214,12 +1214,18 @@ public struct RootView: View {
     }
 
     /// Translates the configure intent: the composed request, the declared
-    /// endpoint, and the declared model are handed to the settings surface —
-    /// the entered secret enters only the frozen `ConfigureProviderRequest`,
-    /// never any rendered state (ARC-001, ARC-005) — and the settings state
-    /// reloads. An empty model records no model and remains unavailable until
-    /// discovery or a later manual model declaration provides one.
-    private func configure(_ request: ConfigureProviderRequest, endpoint: String, model: String) {
+    /// endpoint, the declared model, and the declared API family are handed to
+    /// the settings surface — the entered secret enters only the frozen
+    /// `ConfigureProviderRequest`, never any rendered state (ARC-001, ARC-005) —
+    /// and the settings state reloads. An empty model records no model and
+    /// remains unavailable until discovery or a later manual model declaration
+    /// provides one.
+    private func configure(
+        _ request: ConfigureProviderRequest,
+        endpoint: String,
+        model: String,
+        apiKind: ProviderAPIKind
+    ) {
         connectionTestOperation = UUID()
         Task { @MainActor in
             do {
@@ -1228,7 +1234,8 @@ public struct RootView: View {
                 let connection = try await surface.settings.configure(
                     request,
                     endpoint: endpoint,
-                    model: trimmedModel.isEmpty ? nil : trimmedModel
+                    model: trimmedModel.isEmpty ? nil : trimmedModel,
+                    apiKind: apiKind
                 )
                 if wasFirstProvider, !trimmedModel.isEmpty {
                     do {
@@ -1373,20 +1380,21 @@ public struct RootView: View {
         }
     }
 
-    /// Translates the provider-edit intent: the connection's recorded endpoint
-    /// and model are resolved through the settings surface and the
+    /// Translates the provider-edit intent: the connection's recorded endpoint,
+    /// model, and API family are resolved through the settings surface and the
     /// provider-edit condition of the settings state is presented — the same
     /// connection form as compose, pre-filled with the connection's current
-    /// declaration, endpoint, and model, so a provider connection offers a way
-    /// to edit instead of only Remove (UX audit U7). The condition holds only
-    /// the configured connection state and the recorded endpoint and model,
-    /// never a credential (ARC-001, ARC-005).
+    /// declaration, endpoint, model, and API family, so a provider connection
+    /// offers a way to edit instead of only Remove (UX audit U7). The condition
+    /// holds only the configured connection state and the recorded endpoint,
+    /// model, and API family, never a credential (ARC-001, ARC-005).
     private func editProvider(_ item: ProviderConnectionListItem) {
         connectionTestOperation = UUID()
         Task { @MainActor in
             do {
                 let endpoint = try await surface.settings.endpoint(for: item.identity)
                 let model = try await surface.settings.model(for: item.identity)
+                let apiKind = try await surface.settings.apiKind(for: item.identity)
                 guard let current = settingsState else { return }
                 settingsState = SettingsState(
                     connections: current.connections,
@@ -1401,7 +1409,8 @@ public struct RootView: View {
                         limits: item.limits,
                         version: item.version,
                         currentEndpoint: endpoint ?? "",
-                        currentModel: model ?? ""
+                        currentModel: model ?? "",
+                        currentAPIKind: apiKind
                     ),
                     connectionTestCondition: .idle
                 )
@@ -1412,18 +1421,19 @@ public struct RootView: View {
     }
 
     /// Translates the provider-update intent: the edited declaration, the
-    /// declared endpoint, and the optional model are recorded through the
-    /// settings surface — validated at the service boundary before any write
-    /// (DES-011 §3.1, §3.9, §3.10, ARC-009) — the lifecycle state is preserved
-    /// by the service, and the settings state reloads, so the edit form closes
-    /// and the connection row reflects the change. An empty model records no
-    /// model and remains unavailable until discovery or a later manual model
-    /// declaration provides one.
+    /// declared endpoint, the optional model, and the declared API family are
+    /// recorded through the settings surface — validated at the service
+    /// boundary before any write (DES-011 §3.1, §3.9, §3.10, ARC-009) — the
+    /// lifecycle state is preserved by the service, and the settings state
+    /// reloads, so the edit form closes and the connection row reflects the
+    /// change. An empty model records no model and remains unavailable until
+    /// discovery or a later manual model declaration provides one.
     private func updateProvider(
         _ identity: ProviderIdentity,
         _ request: ProviderUpdateRequest,
         _ endpoint: String,
-        _ model: String
+        _ model: String,
+        _ apiKind: ProviderAPIKind
     ) {
         connectionTestOperation = UUID()
         Task { @MainActor in
@@ -1433,7 +1443,8 @@ public struct RootView: View {
                     request,
                     for: identity,
                     endpoint: endpoint,
-                    model: trimmedModel.isEmpty ? nil : trimmedModel
+                    model: trimmedModel.isEmpty ? nil : trimmedModel,
+                    apiKind: apiKind
                 )
                 await loadSettings()
             } catch {
