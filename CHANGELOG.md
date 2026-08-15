@@ -4,6 +4,19 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 ## [Unreleased]
 
+## [1.0.1] - 2026-08-15
+
+Hotfix for the v1.0 Gemini connection validation regression.
+
+### Fixed
+
+- Gemini Test Connection no longer rejects the canonical `models/<model>`
+  model format the API returns and AI Studio shows: entering a model with
+  the `models/` prefix failed with "Model unavailable" even when the
+  endpoint and API key were valid. Connection validation now normalizes
+  model names the same way the runtime request path does, so both
+  `gemini-2.5-flash` and `models/gemini-2.5-flash` validate and route.
+
 ## [0.5.0] - 2026-08-07
 
 The first distributable build (Beta v0.5 candidate): a native macOS and iOS
