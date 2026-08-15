@@ -33,6 +33,7 @@ as passed.
 |---|---|---|
 | No-provider state exposes Add Provider | NOT RUN | |
 | Add Provider, Test Connection, and save | NOT RUN | |
+| API Type (OpenAI-compatible vs Gemini) selector is offered when adding/editing a connection and persists per connection | NOT RUN | |
 | Edit provider and retest | NOT RUN | |
 | Invalid key, endpoint, and model errors are actionable | NOT RUN | |
 | Active/default provider and model remain coherent | NOT RUN | |

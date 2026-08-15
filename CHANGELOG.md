@@ -67,7 +67,7 @@ Public repository release readiness. No product behavior or API changes.
 - Removed an unused `import OmniaTheme` so the conversation screen builds on
   Linux.
 
-## [1.0.0] - 2026-08-14
+## [1.0.0] - 2026-08-15
 
 The first v1 release: provider/model discovery and defaults, capability-aware
 multimodal input, durable conversation management, production Markdown and
@@ -79,6 +79,13 @@ lifecycle.
 - Provider-scoped model discovery, cached fallback, coherent global defaults,
   per-conversation provider/model persistence, capability overrides, and a real
   Test Connection flow with redacted actionable errors.
+- Gemini provider support: the Gemini (Generative Language API) family with its
+  own client, mapping, provider adapter, and model inspector; a connection's API
+  Type (OpenAI-compatible or Gemini) is selected when adding/editing a provider
+  and recorded as typed connection configuration, and model discovery, Test
+  Connection, and the runtime adapter binding route to the connection's family —
+  connections configured before the API Type existed keep serving through the
+  OpenAI-compatible default (ARC-004).
 - Image, PDF, and plain-text attachment staging with count/size/capability
   validation, deterministic persistence, request resolution, history metadata,
   and deletion/orphan cleanup.
