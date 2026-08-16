@@ -29,3 +29,13 @@ Documentation/Design/public.md
 # Local UI audit work products (kept out of version control)
 Documentation/Development/UI_PRE_COMMIT_INSPECTION.md
 Documentation/Development/UI_REDESIGN_FINAL_AUDIT.md
+
+# Android (native app under Android/)
+Android/.gradle/
+Android/build/
+Android/**/build/
+Android/local.properties
+Android/.kotlin/
+Android/captures/
+Android/**/*.apk
+Android/**/*.aab

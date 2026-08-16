@@ -1,0 +1,7 @@
+<resources>
+    <string name="app_name">Omnia</string>
+    <string name="about_title">About</string>
+    <string name="about_version">Version %1$s</string>
+    <string name="about_back">Back</string>
+    <string name="about_foundation_note">Native Android foundation — M1 shell</string>
+</resources>

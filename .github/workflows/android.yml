@@ -1,0 +1,64 @@
+name: Android CI
+
+# M1 foundation gates for the native Android app: Gradle wrapper validation,
+# unit tests (JVM + Robolectric Compose UI tests + architecture verification),
+# lint, and the debug build. Runs only when the Android tree or this workflow
+# changes; never touches the Apple pipeline (release.yml).
+
+on:
+  push:
+    paths:
+      - 'Android/**'
+      - '.github/workflows/android.yml'
+  pull_request:
+    paths:
+      - 'Android/**'
+      - '.github/workflows/android.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: android-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Validate Gradle wrapper
+        uses: gradle/actions/wrapper-validation@v4
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Unit tests
+        working-directory: Android
+        run: ./gradlew test
+
+      - name: Lint
+        working-directory: Android
+        run: ./gradlew lint
+
+      - name: Assemble debug APK
+        working-directory: Android
+        run: ./gradlew assembleDebug
+
+      - name: Upload debug APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: omnia-android-debug
+          path: Android/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error

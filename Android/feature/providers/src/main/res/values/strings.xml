@@ -1,0 +1,7 @@
+<resources>
+    <string name="providers_title">Providers</string>
+    <string name="providers_empty_title">No providers configured</string>
+    <string name="providers_empty_body">Connect a provider to start using models in chat.</string>
+    <string name="providers_add">Add provider</string>
+    <string name="providers_back">Back</string>
+</resources>
