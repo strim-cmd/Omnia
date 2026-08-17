@@ -10,7 +10,7 @@ class ModelSelectionTest {
     @Test
     fun selection_carriesProviderAndModelPair() {
         val provider = ProviderIdentity(id = "openai")
-        val model = ModelIdentity(id = "gpt-4o")
+        val model = ModelReference(name = "gpt-4o")
         val selection = ProviderModelSelection(provider = provider, model = model)
 
         assertEquals(provider, selection.provider)
@@ -19,8 +19,8 @@ class ModelSelectionTest {
 
     @Test
     fun selection_isValueBased() {
-        val a = ProviderModelSelection(ProviderIdentity("openai"), ModelIdentity("gpt-4o"))
-        val b = ProviderModelSelection(ProviderIdentity("openai"), ModelIdentity("gpt-4o"))
+        val a = ProviderModelSelection(ProviderIdentity("openai"), ModelReference("gpt-4o"))
+        val b = ProviderModelSelection(ProviderIdentity("openai"), ModelReference("gpt-4o"))
         assertEquals(a, b)
         assertEquals(a.hashCode(), b.hashCode())
     }
@@ -28,17 +28,17 @@ class ModelSelectionTest {
     @Test
     fun selection_rejectsBlankIdentifiers() {
         assertThrows(IllegalArgumentException::class.java) {
-            ProviderModelSelection(ProviderIdentity(" "), ModelIdentity("gpt-4o"))
+            ProviderModelSelection(ProviderIdentity(" "), ModelReference("gpt-4o"))
         }
         assertThrows(IllegalArgumentException::class.java) {
-            ProviderModelSelection(ProviderIdentity("openai"), ModelIdentity(""))
+            ProviderModelSelection(ProviderIdentity("openai"), ModelReference(""))
         }
     }
 
     @Test
     fun distinctSelectionsAreNotEqual() {
-        val a = ProviderModelSelection(ProviderIdentity("openai"), ModelIdentity("gpt-4o"))
-        val b = ProviderModelSelection(ProviderIdentity("openai"), ModelIdentity("gpt-4o-mini"))
+        val a = ProviderModelSelection(ProviderIdentity("openai"), ModelReference("gpt-4o"))
+        val b = ProviderModelSelection(ProviderIdentity("openai"), ModelReference("gpt-4o-mini"))
         assertNotEquals(a, b)
     }
 }
