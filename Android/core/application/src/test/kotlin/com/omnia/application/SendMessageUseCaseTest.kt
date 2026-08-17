@@ -20,6 +20,7 @@ import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Assert.fail
 import org.junit.Before
@@ -308,6 +309,98 @@ class SendMessageUseCaseTest {
         uc.send(SendMessageRequest(conv2.identity, Message(MessageRole.user, "B"))).toList()
 
         assertEquals(2, ids.size)
+    }
+
+    @Test
+    fun resume_doesNotAddUserMessage() = runBlocking {
+        val interrupted = Conversation(
+            identity = ConversationIdentity("conv-1"),
+            history = listOf(Message(MessageRole.user, "Hi")),
+            streamingState = com.omnia.domain.ConversationStreamingState.Interrupted("partial "),
+        )
+        convRepo.save(interrupted)
+
+        val contract = FakeStreamingContract(
+            events = listOf(
+                StreamingUpdate.ContentDelta(id("req"), "more"),
+                StreamingUpdate.Completion(id("req"), Message(MessageRole.assistant, "partial more")),
+            )
+        )
+        val uc = useCaseWithContract(contract)
+
+        uc.resume(interrupted.identity).toList()
+
+        val stored = convRepo.get("conv-1")!!
+        val userMessages = stored.history.filter { it.role == MessageRole.user }
+        assertEquals("Resume must not add user messages", 1, userMessages.size)
+    }
+
+    @Test
+    fun send_retryAppendsExactlyOneUserMessage() = runBlocking {
+        val contract = FakeStreamingContract(
+            events = listOf(
+                StreamingUpdate.Completion(id("req"), Message(MessageRole.assistant, "response")),
+            )
+        )
+        val uc = useCaseWithContract(contract)
+        val conv = saveConversation("conv-1")
+
+        uc.send(SendMessageRequest(conv.identity, Message(MessageRole.user, "Hello"))).toList()
+        uc.send(SendMessageRequest(conv.identity, Message(MessageRole.user, "Hello"))).toList()
+
+        val stored = convRepo.get("conv-1")!!
+        val userMessages = stored.history.filter { it.role == MessageRole.user }
+        assertEquals("Each send() adds exactly one user message, no phantom duplicates", 2, userMessages.size)
+    }
+
+    @Test
+    fun send_independentConversationsDoNotCrossContaminate() = runBlocking {
+        val contract = object : StreamingContract {
+            override suspend fun stream(request: StreamingRequest): Flow<StreamingUpdate> = flowOf(
+                StreamingUpdate.ContentDelta(request.identity, "delta"),
+                StreamingUpdate.Completion(request.identity, Message(MessageRole.assistant, "done")),
+            )
+        }
+        val uc = useCaseWithContract(contract)
+        val conv1 = saveConversation("conv-1")
+        val conv2 = saveConversation("conv-2")
+
+        uc.send(SendMessageRequest(conv1.identity, Message(MessageRole.user, "A"))).toList()
+
+        val untouched = convRepo.get("conv-2")!!
+        assertEquals(0, untouched.history.size)
+
+        uc.send(SendMessageRequest(conv2.identity, Message(MessageRole.user, "B"))).toList()
+
+        val stored1 = convRepo.get("conv-1")!!
+        val stored2 = convRepo.get("conv-2")!!
+        assertFalse(stored1.history.any { it.role == MessageRole.user && it.content == "B" })
+        assertFalse(stored2.history.any { it.role == MessageRole.user && it.content == "A" })
+        assertEquals(1, stored1.history.count { it.role == MessageRole.assistant })
+        assertEquals(1, stored2.history.count { it.role == MessageRole.assistant })
+    }
+
+    @Test
+    fun send_lateChunksFromOldGenerationCannotCorruptNew() = runBlocking {
+        val oldIdentity = CapabilityRequestIdentity("old-generation")
+        val contract = object : StreamingContract {
+            override suspend fun stream(request: StreamingRequest): Flow<StreamingUpdate> = flowOf(
+                StreamingUpdate.ContentDelta(request.identity, "Hello"),
+                StreamingUpdate.ContentDelta(request.identity, " world"),
+                StreamingUpdate.ContentDelta(oldIdentity, "STALE"),
+                StreamingUpdate.Completion(request.identity, Message(MessageRole.assistant, "Hello world")),
+            )
+        }
+        val uc = useCaseWithContract(contract)
+        val conv = saveConversation("conv-1")
+
+        uc.send(SendMessageRequest(conv.identity, Message(MessageRole.user, "Hi"))).toList()
+
+        val stored = convRepo.get("conv-1")!!
+        val assistant = stored.history.lastOrNull { it.role == MessageRole.assistant }
+        assertNotNull(assistant)
+        assertEquals("Hello world", assistant!!.content)
+        assertFalse(stored.history.any { it.content.contains("STALE") })
     }
 
     // --- helpers ---
