@@ -34,4 +34,26 @@ class DataManagementServiceTest {
         service.clearAll()
         assertEquals(2, count)
     }
+
+    @Test
+    fun clearAll_wipesAllDataThroughLambda() = runBlocking {
+        val mutableStore = mutableMapOf(
+            "conversations" to mutableListOf("conv-1", "conv-2"),
+            "providers" to mutableListOf("prov-1"),
+            "credentials" to mutableListOf("cred-1", "cred-2"),
+        )
+        val service = DataManagementService {
+            mutableStore["conversations"]?.clear()
+            mutableStore["providers"]?.clear()
+            mutableStore["credentials"]?.clear()
+        }
+
+        assertTrue(mutableStore["conversations"]!!.isNotEmpty())
+
+        service.clearAll()
+
+        assertTrue(mutableStore["conversations"]!!.isEmpty())
+        assertTrue(mutableStore["providers"]!!.isEmpty())
+        assertTrue(mutableStore["credentials"]!!.isEmpty())
+    }
 }
