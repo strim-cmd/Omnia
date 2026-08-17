@@ -242,4 +242,111 @@ class OpenAIMappingTest {
         val ids = OpenAIMapping.modelIds(response)
         assertEquals(listOf("gpt-4"), ids)
     }
+
+    @Test
+    fun imageAttachmentMapsToDataUrl() {
+        val attachment = com.omnia.domain.MessageAttachment(
+            identity = com.omnia.domain.AttachmentIdentity(id = "att-1"),
+            kind = com.omnia.domain.AttachmentKind.image,
+            fileName = "photo.png",
+            mediaType = "image/png",
+            byteCount = 4,
+            storageKey = "key-1",
+        )
+        val resolved = com.omnia.domain.ResolvedAttachment(
+            attachment = attachment,
+            payload = com.omnia.domain.AttachmentPayload.Image(
+                mediaType = "image/png",
+                data = byteArrayOf(0x89.toByte(), 0x50, 0x4E, 0x47),
+            ),
+        )
+        val history = listOf(
+            Message(role = MessageRole.user, content = "Describe this image"),
+            Message(role = MessageRole.user, content = "", attachments = listOf(attachment)),
+        )
+        val request = OpenAIMapping.conversationRequest("gpt-4", history, listOf(resolved))
+
+        val userMsg = request.messages.last()
+        assertTrue(userMsg.content is OpenAIContent.Parts)
+        val parts = (userMsg.content as OpenAIContent.Parts).parts
+        assertEquals(1, parts.size)
+        assertEquals("image_url", parts[0].type)
+        assertTrue(parts[0].imageUrl!!.url.startsWith("data:image/png;base64,"))
+    }
+
+    @Test
+    fun pdfAttachmentMapsToTextPart() {
+        val attachment = com.omnia.domain.MessageAttachment(
+            identity = com.omnia.domain.AttachmentIdentity(id = "att-2"),
+            kind = com.omnia.domain.AttachmentKind.pdf,
+            fileName = "doc.pdf",
+            mediaType = "application/pdf",
+            byteCount = 100,
+            storageKey = "key-2",
+        )
+        val resolved = com.omnia.domain.ResolvedAttachment(
+            attachment = attachment,
+            payload = com.omnia.domain.AttachmentPayload.ExtractedText(text = "PDF content here"),
+        )
+        val history = listOf(
+            Message(role = MessageRole.user, content = "Summarize", attachments = listOf(attachment)),
+        )
+        val request = OpenAIMapping.conversationRequest("gpt-4", history, listOf(resolved))
+
+        val userMsg = request.messages.last()
+        assertTrue(userMsg.content is OpenAIContent.Parts)
+        val parts = (userMsg.content as OpenAIContent.Parts).parts
+        assertEquals(2, parts.size)
+        assertEquals("text", parts[0].type)
+        assertEquals("Summarize", parts[0].text)
+        assertEquals("text", parts[1].type)
+        assertTrue(parts[1].text!!.contains("PDF content here"))
+        assertTrue(parts[1].text!!.contains("doc.pdf"))
+    }
+
+    @Test
+    fun streamingUpdateIgnoresRoleOnlyDelta() {
+        val chunk = OpenAIChatCompletionChunk(
+            id = "1",
+            model = "gpt-4",
+            choices = listOf(
+                OpenAIChatCompletionChunkChoice(
+                    index = 0,
+                    delta = OpenAIChatCompletionChunkDelta(role = "assistant", content = null),
+                )
+            )
+        )
+        val identity = CapabilityRequestIdentity(id = "req-1")
+        val update = OpenAIMapping.streamingUpdate(chunk, identity)
+        assertNull(update)
+    }
+
+    @Test
+    fun streamingUpdateHandlesEmptyDelta() {
+        val chunk = OpenAIChatCompletionChunk(
+            id = "1",
+            model = "gpt-4",
+            choices = listOf(
+                OpenAIChatCompletionChunkChoice(
+                    index = 0,
+                    delta = OpenAIChatCompletionChunkDelta(),
+                )
+            )
+        )
+        val identity = CapabilityRequestIdentity(id = "req-1")
+        val update = OpenAIMapping.streamingUpdate(chunk, identity)
+        assertNull(update)
+    }
+
+    @Test
+    fun capabilityErrorHttp408() {
+        val result = OpenAIMapping.capabilityError(ProviderTransportError.httpStatus(408))
+        assertEquals(CapabilityError.TimedOut, result)
+    }
+
+    @Test
+    fun capabilityErrorOtherStatusMapsToProviderUnavailable() {
+        val result = OpenAIMapping.capabilityError(ProviderTransportError.httpStatus(418))
+        assertEquals(CapabilityError.ProviderUnavailable, result)
+    }
 }

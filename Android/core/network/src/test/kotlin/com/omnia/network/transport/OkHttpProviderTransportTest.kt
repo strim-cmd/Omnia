@@ -1,5 +1,7 @@
 package com.omnia.network.transport
 
+import kotlinx.coroutines.async
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.test.runTest
 import okhttp3.mockwebserver.MockResponse
@@ -7,6 +9,7 @@ import okhttp3.mockwebserver.MockWebServer
 import org.junit.After
 import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -151,6 +154,34 @@ class OkHttpProviderTransportTest {
 
         val response = transport.send(request)
         assertEquals(100_000, response.body.size)
+    }
+
+    @Test
+    fun sendCancellationPropagates() = runTest {
+        server.enqueue(MockResponse().setBody("ok").setResponseCode(200).throttleBody(1, 1, java.util.concurrent.TimeUnit.MINUTES))
+
+        val request = ProviderHTTPRequest(
+            url = server.url("/test").toString(),
+            method = "GET",
+            headers = emptyMap(),
+        )
+
+        var caughtCancellation = false
+        val deferred = async {
+            try {
+                transport.send(request)
+            } catch (_: kotlinx.coroutines.CancellationException) {
+                caughtCancellation = true
+            }
+        }
+        delay(50)
+        deferred.cancel()
+        try {
+            deferred.await()
+        } catch (_: kotlinx.coroutines.CancellationException) {
+            caughtCancellation = true
+        }
+        assertTrue(caughtCancellation)
     }
 
     @Test

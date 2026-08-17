@@ -158,4 +158,57 @@ class OpenAICompatibleClientTest {
         assertEquals("application/json", capturedRequest!!.headers["Content-Type"])
         assertEquals("https://api.example.com/v1/chat/completions", capturedRequest!!.url)
     }
+
+    @Test
+    fun endpointBasePathPreservedWithTrailingSlash() = runTest {
+        var capturedRequest: ProviderHTTPRequest? = null
+        val transport = object : ProviderTransport {
+            override suspend fun send(request: ProviderHTTPRequest): ProviderHTTPResponse {
+                capturedRequest = request
+                return ProviderHTTPResponse("""{"id":"1","model":"m","choices":[]}""".toByteArray())
+            }
+            override fun stream(request: ProviderHTTPRequest): Flow<ByteArray> = flow { }
+        }
+
+        val client = OpenAICompatibleClient(transport, fakeCredentialStorage("key"))
+        val request = OpenAIMapping.textGenerationRequest("gpt-4", "Hi")
+        client.chatCompletions(request, "https://proxy.example.com/my-api/v1/", credentialRef)
+
+        assertEquals("https://proxy.example.com/my-api/v1/chat/completions", capturedRequest!!.url)
+    }
+
+    @Test
+    fun endpointWithoutTrailingSlashWorks() = runTest {
+        var capturedRequest: ProviderHTTPRequest? = null
+        val transport = object : ProviderTransport {
+            override suspend fun send(request: ProviderHTTPRequest): ProviderHTTPResponse {
+                capturedRequest = request
+                return ProviderHTTPResponse("""{"id":"1","model":"m","choices":[]}""".toByteArray())
+            }
+            override fun stream(request: ProviderHTTPRequest): Flow<ByteArray> = flow { }
+        }
+
+        val client = OpenAICompatibleClient(transport, fakeCredentialStorage("key"))
+        val request = OpenAIMapping.textGenerationRequest("gpt-4", "Hi")
+        client.chatCompletions(request, "https://api.openai.com/v1", credentialRef)
+
+        assertEquals("https://api.openai.com/v1/chat/completions", capturedRequest!!.url)
+    }
+
+    @Test
+    fun modelsEndpointPreservesBasePath() = runTest {
+        var capturedRequest: ProviderHTTPRequest? = null
+        val transport = object : ProviderTransport {
+            override suspend fun send(request: ProviderHTTPRequest): ProviderHTTPResponse {
+                capturedRequest = request
+                return ProviderHTTPResponse("""{"data":[{"id":"gpt-4"}]}""".toByteArray())
+            }
+            override fun stream(request: ProviderHTTPRequest): Flow<ByteArray> = flow { }
+        }
+
+        val client = OpenAICompatibleClient(transport, fakeCredentialStorage("key"))
+        client.models("https://proxy.example.com/custom/v1", credentialRef)
+
+        assertEquals("https://proxy.example.com/custom/v1/models", capturedRequest!!.url)
+    }
 }

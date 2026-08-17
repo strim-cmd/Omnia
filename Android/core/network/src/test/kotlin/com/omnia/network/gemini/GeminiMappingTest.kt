@@ -204,4 +204,89 @@ class GeminiMappingTest {
         val url = GeminiMapping.buildEndpointUrl("https://generativelanguage.googleapis.com/v1", "models/gemini-pro", streaming = true)
         assertEquals("https://generativelanguage.googleapis.com/v1/models/gemini-pro:streamGenerateContent?alt=sse", url)
     }
+
+    @Test
+    fun imageAttachmentMapsToInlineData() {
+        val attachment = com.omnia.domain.MessageAttachment(
+            identity = com.omnia.domain.AttachmentIdentity(id = "att-1"),
+            kind = com.omnia.domain.AttachmentKind.image,
+            fileName = "photo.jpg",
+            mediaType = "image/jpeg",
+            byteCount = 2,
+            storageKey = "key-1",
+        )
+        val resolved = com.omnia.domain.ResolvedAttachment(
+            attachment = attachment,
+            payload = com.omnia.domain.AttachmentPayload.Image(
+                mediaType = "image/jpeg",
+                data = byteArrayOf(0xFF.toByte(), 0xD8.toByte()),
+            ),
+        )
+        val history = listOf(
+            Message(role = MessageRole.user, content = "Describe this", attachments = listOf(attachment)),
+        )
+        val request = GeminiMapping.conversationRequest("gemini-pro", history, listOf(resolved))
+
+        val parts = request.contents[0].parts
+        assertEquals(2, parts.size)
+        assertEquals("Describe this", parts[0].text)
+        assertNotNull(parts[1].inlineData)
+        assertEquals("image/jpeg", parts[1].inlineData!!.mimeType)
+        assertTrue(parts[1].inlineData!!.data.isNotEmpty())
+    }
+
+    @Test
+    fun pdfAttachmentMapsToTextPart() {
+        val attachment = com.omnia.domain.MessageAttachment(
+            identity = com.omnia.domain.AttachmentIdentity(id = "att-2"),
+            kind = com.omnia.domain.AttachmentKind.pdf,
+            fileName = "report.pdf",
+            mediaType = "application/pdf",
+            byteCount = 100,
+            storageKey = "key-2",
+        )
+        val resolved = com.omnia.domain.ResolvedAttachment(
+            attachment = attachment,
+            payload = com.omnia.domain.AttachmentPayload.ExtractedText(text = "PDF text content"),
+        )
+        val history = listOf(
+            Message(role = MessageRole.user, content = "Summarize", attachments = listOf(attachment)),
+        )
+        val request = GeminiMapping.conversationRequest("gemini-pro", history, listOf(resolved))
+
+        val parts = request.contents[0].parts
+        assertEquals(2, parts.size)
+        assertEquals("Summarize", parts[0].text)
+        assertNull(parts[1].inlineData)
+        assertTrue(parts[1].text!!.contains("PDF text content"))
+        assertTrue(parts[1].text!!.contains("report.pdf"))
+    }
+
+    @Test
+    fun systemMessagesNeverAppearInContents() {
+        val history = listOf(
+            Message(role = MessageRole.system, content = "Be helpful"),
+            Message(role = MessageRole.user, content = "Hi"),
+        )
+        val request = GeminiMapping.conversationRequest("gemini-pro", history, emptyList())
+
+        assertNotNull(request.systemInstruction)
+        assertEquals(1, request.contents.size)
+        assertEquals("user", request.contents[0].role)
+    }
+
+    @Test
+    fun capabilityErrorHttp408() {
+        assertEquals(CapabilityError.TimedOut, GeminiMapping.capabilityError(ProviderTransportError.httpStatus(408)))
+    }
+
+    @Test
+    fun capabilityErrorHttp404() {
+        assertEquals(CapabilityError.InvalidEndpoint, GeminiMapping.capabilityError(ProviderTransportError.httpStatus(404)))
+    }
+
+    @Test
+    fun capabilityErrorOtherStatus() {
+        assertEquals(CapabilityError.ProviderUnavailable, GeminiMapping.capabilityError(ProviderTransportError.httpStatus(418)))
+    }
 }

@@ -175,4 +175,85 @@ class GeminiClientTest {
             capturedRequest!!.url
         )
     }
+
+    @Test
+    fun streamTerminatesCleanlyWithoutDoneMarker() = runTest {
+        val chunk1 = """{"candidates":[{"content":{"parts":[{"text":"Hello"}]}}]}"""
+        val chunk2 = """{"candidates":[{"content":{"parts":[{"text":" world"}]}}]}"""
+        val sseData = "data: $chunk1\n\ndata: $chunk2\n\n"
+
+        val transport = object : ProviderTransport {
+            override suspend fun send(request: ProviderHTTPRequest): ProviderHTTPResponse = TODO()
+            override fun stream(request: ProviderHTTPRequest): Flow<ByteArray> = flow {
+                emit(sseData.toByteArray())
+            }
+        }
+
+        val client = GeminiClient(transport, fakeCredentialStorage("test-key"))
+        val request = GeminiMapping.streamingRequest(
+            "gemini-pro",
+            listOf(Message(role = MessageRole.user, content = "Hi")),
+            emptyList()
+        )
+
+        val responses = client.streamGenerateContent(
+            request, "gemini-pro", "https://generativelanguage.googleapis.com/v1", credentialRef
+        ).toList()
+
+        assertEquals(2, responses.size)
+        assertEquals("Hello", responses[0].candidates!![0].content!!.parts!![0].text)
+        assertEquals(" world", responses[1].candidates!![0].content!!.parts!![0].text)
+    }
+
+    @Test
+    fun streamHandlesEmptyDataEventsGracefully() = runTest {
+        val sseData = "data: \n\n" +
+            "data: {\"candidates\":[{\"content\":{\"parts\":[{\"text\":\"Hi\"}]}}]}\n\n"
+
+        val transport = object : ProviderTransport {
+            override suspend fun send(request: ProviderHTTPRequest): ProviderHTTPResponse = TODO()
+            override fun stream(request: ProviderHTTPRequest): Flow<ByteArray> = flow {
+                emit(sseData.toByteArray())
+            }
+        }
+
+        val client = GeminiClient(transport, fakeCredentialStorage("test-key"))
+        val request = GeminiMapping.streamingRequest(
+            "gemini-pro",
+            listOf(Message(role = MessageRole.user, content = "Hi")),
+            emptyList()
+        )
+
+        val responses = client.streamGenerateContent(
+            request, "gemini-pro", "https://generativelanguage.googleapis.com/v1", credentialRef
+        ).toList()
+
+        assertEquals(1, responses.size)
+        assertEquals("Hi", responses[0].candidates!![0].content!!.parts!![0].text)
+    }
+
+    @Test
+    fun streamApiKeyHeader() = runTest {
+        var capturedRequest: ProviderHTTPRequest? = null
+        val transport = object : ProviderTransport {
+            override suspend fun send(request: ProviderHTTPRequest): ProviderHTTPResponse = TODO()
+            override fun stream(request: ProviderHTTPRequest): Flow<ByteArray> {
+                capturedRequest = request
+                return flow { }
+            }
+        }
+
+        val client = GeminiClient(transport, fakeCredentialStorage("my-api-key"))
+        val request = GeminiMapping.streamingRequest(
+            "gemini-pro",
+            listOf(Message(role = MessageRole.user, content = "Hi")),
+            emptyList()
+        )
+        client.streamGenerateContent(
+            request, "gemini-pro", "https://generativelanguage.googleapis.com/v1", credentialRef
+        ).toList()
+
+        assertEquals("my-api-key", capturedRequest!!.headers["x-goog-api-key"])
+        assertTrue(capturedRequest!!.url.contains("streamGenerateContent"))
+    }
 }

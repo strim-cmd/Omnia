@@ -177,4 +177,54 @@ class ProviderErrorMappingTest {
     fun capability_http400() {
         assertEquals(CapabilityError.InvalidRequest, ProviderErrorMapping.capabilityError(ProviderTransportError.httpStatus(400)))
     }
+
+    @Test
+    fun capability_http408() {
+        assertEquals(CapabilityError.TimedOut, ProviderErrorMapping.capabilityError(ProviderTransportError.httpStatus(408)))
+    }
+
+    @Test
+    fun capability_http409() {
+        assertEquals(CapabilityError.InvalidRequest, ProviderErrorMapping.capabilityError(ProviderTransportError.httpStatus(409)))
+    }
+
+    @Test
+    fun capability_otherStatus() {
+        assertEquals(CapabilityError.ProviderUnavailable, ProviderErrorMapping.capabilityError(ProviderTransportError.httpStatus(418)))
+    }
+
+    @Test
+    fun catalog_transport_invalidResponse() {
+        assertEquals(ModelCatalogError.invalidResponse, ProviderErrorMapping.catalogError(ProviderTransportError.invalidResponse))
+    }
+
+    @Test
+    fun catalog_transport_http408() {
+        assertEquals(ModelCatalogError.timedOut, ProviderErrorMapping.catalogError(ProviderTransportError.httpStatus(408)))
+    }
+
+    @Test
+    fun catalog_transport_http504() {
+        assertEquals(ModelCatalogError.timedOut, ProviderErrorMapping.catalogError(ProviderTransportError.httpStatus(504)))
+    }
+
+    @Test
+    fun catalog_transport_http429() {
+        assertEquals(ModelCatalogError.rateLimited, ProviderErrorMapping.catalogError(ProviderTransportError.httpStatus(429)))
+    }
+
+    @Test
+    fun catalog_transport_otherStatus() {
+        assertEquals(ModelCatalogError.invalidResponse, ProviderErrorMapping.catalogError(ProviderTransportError.httpStatus(418)))
+    }
+
+    @Test
+    fun connectionTest_http504_mapsToTimedOut() {
+        assertEquals(ProviderConnectionTestError.timedOut, ProviderErrorMapping.connectionError(ProviderTransportError.httpStatus(504)))
+    }
+
+    @Test
+    fun connectionTest_otherStatus_mapsToInvalidResponse() {
+        assertEquals(ProviderConnectionTestError.invalidResponse, ProviderErrorMapping.connectionError(ProviderTransportError.httpStatus(418)))
+    }
 }

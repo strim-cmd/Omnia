@@ -253,6 +253,83 @@ class ProviderConnectionServiceTest {
         assertTrue(key1.name != key2.name)
     }
 
+    @Test
+    fun modelKey_isScopedByProvider() {
+        val key1 = ProviderConnectionService.modelKey(ProviderIdentity("p1"))
+        val key2 = ProviderConnectionService.modelKey(ProviderIdentity("p2"))
+        assertTrue(key1.name != key2.name)
+    }
+
+    @Test
+    fun apiKindKey_isScopedByProvider() {
+        val key1 = ProviderConnectionService.apiKindKey(ProviderIdentity("p1"))
+        val key2 = ProviderConnectionService.apiKindKey(ProviderIdentity("p2"))
+        assertTrue(key1.name != key2.name)
+    }
+
+    @Test
+    fun remove_preservesAllConfigKeys() = runBlocking {
+        val provider = service.configure(
+            testRequest(),
+            endpoint = "https://api.example.com/v1",
+            model = "gpt-4",
+            apiKind = ProviderAPIKind.openAICompatible,
+        )
+        assertNotNull(service.endpoint(provider.identity))
+        assertNotNull(service.model(provider.identity))
+        assertNotNull(service.apiKind(provider.identity))
+
+        service.remove(provider.identity)
+
+        assertNull(service.endpoint(provider.identity))
+        assertNull(service.model(provider.identity))
+        assertNull(configRepo.get(
+            ProviderConnectionService.apiKindKey(provider.identity),
+            ConfigurationLevel.providerSettings,
+        ))
+    }
+
+    @Test
+    fun remove_onProviderRepoFailureRollsBack() = runBlocking {
+        val provider = service.configure(testRequest())
+
+        val failingRepo = FailingDeleteProviderRepository(providerRepo)
+        val serviceWithFailingRepo = ProviderConnectionService(
+            failingRepo, credentialStorage, configRepo, lifecycle,
+        )
+
+        try {
+            serviceWithFailingRepo.remove(provider.identity)
+            throw AssertionError("Expected failure")
+        } catch (_: Exception) {
+            // Provider should still exist due to rollback
+            assertNotNull(providerRepo.providers[provider.identity.id])
+        }
+    }
+
+    @Test
+    fun configure_onFailureRollsBackPartialState() = runBlocking {
+        val failingRepo = object : FakeProviderRepository() {
+            var failOnSave = false
+            override suspend fun save(provider: Provider) {
+                if (failOnSave) throw RuntimeException("Simulated failure")
+                super.save(provider)
+            }
+        }
+        val failingService = ProviderConnectionService(
+            failingRepo, credentialStorage, configRepo, lifecycle,
+        )
+
+        failingRepo.failOnSave = true
+        try {
+            failingService.configure(testRequest())
+            throw AssertionError("Expected failure")
+        } catch (_: Exception) {
+            // No credential should have been stored
+            assertTrue(credentialStorage.stores.isEmpty())
+        }
+    }
+
     // --- helpers ---
 
     private fun testRequest(
@@ -267,12 +344,23 @@ class ProviderConnectionServiceTest {
         credential = Credential.of(credential),
     )
 
-    private class FakeProviderRepository : ProviderRepository {
+    private open class FakeProviderRepository : ProviderRepository {
         val providers = mutableMapOf<String, Provider>()
         override suspend fun save(provider: Provider) { providers[provider.identity.id] = provider }
         override suspend fun provider(identity: ProviderIdentity): Provider? = providers[identity.id]
         override suspend fun allProviders(): List<Provider> = providers.values.toList()
         override suspend fun delete(identity: ProviderIdentity) { providers.remove(identity.id) }
+    }
+
+    private class FailingDeleteProviderRepository(
+        private val delegate: FakeProviderRepository,
+    ) : ProviderRepository {
+        override suspend fun save(provider: Provider) = delegate.save(provider)
+        override suspend fun provider(identity: ProviderIdentity): Provider? = delegate.provider(identity)
+        override suspend fun allProviders(): List<Provider> = delegate.allProviders()
+        override suspend fun delete(identity: ProviderIdentity) {
+            throw RuntimeException("Simulated delete failure")
+        }
     }
 
     private class FakeCredentialStorage : CredentialStorageProtocol {

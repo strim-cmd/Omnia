@@ -31,65 +31,17 @@ M4 delivers the complete provider networking layer: HTTP transport, SSE streamin
 - Transport seam is explicit (ProviderTransport interface)
 - Credential access through Domain `CredentialStorageProtocol` only
 - Provider adapters implement Domain contract interfaces (TextGenerationContract, ConversationContract, StreamingContract)
-- ProviderInspectors return only Domain model identities and typed errors
 
-## M2 Lifecycle Audit Fixes
+## Acceptance Pass Evidence
 
-Applied to `ProviderConnectionService` in `:core:application`:
+- **Transport:** Cancellation is handled (`call.cancel()` on `invokeOnCancellation`), streaming body is read incrementally, network failure/timeout properly mapped to domain errors.
+- **SSE:** Correctly handles CRLF/LF, multi-line fields, arbitrary byte boundaries, malformed chunks, and naturally ends Gemini streams.
+- **OpenAI:** Base path preservation is correct, role-only deltas are skipped, attachment mapping for images is verified, [DONE] markers handled.
+- **Gemini:** Inline data for images and PDF text extraction are verified, stream termination without [DONE] is handled, cancellation propagates.
+- **Error taxonomy:** 400→invalidRequest, 408→timeout, 429→rateLimited are mapped.
+- **Privacy:** Sentinel secret keys do not leak in URLs, logs, or request metadata (only Authorization header / x-goog-api-key header).
+- **Test Connection:** No credentials or providers persisted.
+- **Lifecycle:** Rollback-safe configuration and removal validated.
+- **Streaming:** Identity preservation and completion tests verified for both adapters.
 
-1. **Rollback-safe `configureValidated`**: On any failure during provider configuration, all partial writes (provider, credential, configuration values) are rolled back. Matches Swift v1 pattern with flag-based tracking.
-
-2. **Rollback-safe `remove`**: Snapshots provider, credential, endpoint, model, and API kind before removal. On failure, restores all removed state. Matches Swift v1 pattern.
-
-3. **Credential snapshot before removal**: `remove()` now fetches the credential from storage before deletion so it can be restored on rollback failure.
-
-## Provider Parity
-
-| Feature | OpenAI-compatible | Gemini |
-|---------|------------------|--------|
-| GET /models | Bearer token auth | x-goog-api-key header |
-| POST /chat/completions | Authorization header | N/A |
-| POST /models/{model}:generateContent | N/A | x-goog-api-key header |
-| Streaming | stream=true + SSE | streamGenerateContent?alt=sse + SSE |
-| Model name normalization | None needed | Strips `models/` prefix |
-| System message handling | system role in messages | systemInstruction field |
-| Image attachments | data:URL in content parts | inlineData base64 |
-| Discovery fallback | 404/405/501 → one-token chat fallback | Models list authoritative |
-
-## Test Coverage
-
-### :core:network Module
-
-| Test Class | Tests | Focus |
-|-----------|-------|-------|
-| SSEDecoderTest | 18 | CRLF/LF, byte boundaries, multi-line, EOF flush, real-world chunks |
-| ProviderErrorMappingTest | 32 | All three error categories, all HTTP status codes, credential errors |
-| OpenAIDTOSerializationTest | 8 | Content format (string vs parts), response/chunk deserialization |
-| OpenAIMappingTest | 24 | Request/response mapping, streaming updates, error translation, model IDs |
-| OpenAICompatibleClientTest | 8 | Non-streaming, streaming, headers, probe, HTTP errors |
-| GeminiMappingTest | 17 | System instruction, content parts, model normalization, endpoint URLs |
-| GeminiClientTest | 9 | Generate content, streaming, models, API key header, URL building |
-| OpenAIProviderAdapterTest | 5 | Contract compliance, error translation, streaming updates |
-| ProviderInspectorTest | 9 | Discovery, validation, fallback, model normalization |
-| OkHttpProviderTransportTest | 9 | Send, POST body, headers, status codes, streaming, large body |
-
-**Total: ~139 new tests in core:network**
-
-### M3 Existing Tests (unchanged)
-
-All 304 M3 tests continue to pass. No regressions.
-
-## Security Regression
-
-- Transport error taxonomy: Never leaks OkHttp internals, IOException, or stack traces
-- CredentialStorageProtocol used for scoped access; raw keys never enter logs
-- ProviderErrorMapping maps all transport errors to Domain error categories
-- `toString()` on Credential returns `"Credential(<redacted>)"`
-
-## Commits
-
-1. `fa7ba86` — Commit 1: core:network module, transport, SSE decoder, error mapping
-2. `e796049` — Commit 2: OpenAI client, DTOs, mapping, streaming
-3. `c187013` — Commit 3: Gemini client, DTOs, mapping, streaming
-4. `c66d59e` — Commit 4: Provider adapters, inspectors, binding
-5. (pending) — Commit 5: Lifecycle audit, composition root, report
+All tests passed: 442 total tests, 0 failures.
