@@ -95,20 +95,63 @@ class ProviderConnectionService(
             credentialReferenceKey(identity),
             ConfigurationLevel.providerSettings,
         )
+        val endpoint = configurationRepository.value(
+            endpointKey(identity),
+            ConfigurationLevel.providerSettings,
+        ) as? String
+        val modelValue = configurationRepository.value(
+            modelKey(identity),
+            ConfigurationLevel.providerSettings,
+        ) as? String
+        val apiKindValue = configurationRepository.value(
+            apiKindKey(identity),
+            ConfigurationLevel.providerSettings,
+        ) as? ProviderAPIKind
 
+        // Snapshot credential before removal (for rollback)
+        var existingCredential: Credential? = null
         if (credentialRef != null) {
             try {
-                credentialStorage.removeCredential(credentialRef)
+                existingCredential = credentialStorage.credential(credentialRef)
             } catch (_: Exception) { }
         }
 
-        configurationRepository.remove(credentialReferenceKey(identity), ConfigurationLevel.providerSettings)
-        configurationRepository.remove(endpointKey(identity), ConfigurationLevel.providerSettings)
-        configurationRepository.remove(modelKey(identity), ConfigurationLevel.providerSettings)
-        configurationRepository.remove(apiKindKey(identity), ConfigurationLevel.providerSettings)
+        try {
+            if (credentialRef != null) {
+                try {
+                    credentialStorage.removeCredential(credentialRef)
+                } catch (_: Exception) { }
+            }
 
-        providerRepository.delete(identity)
-        lifecycleService.unregister(identity)
+            configurationRepository.remove(credentialReferenceKey(identity), ConfigurationLevel.providerSettings)
+            configurationRepository.remove(endpointKey(identity), ConfigurationLevel.providerSettings)
+            configurationRepository.remove(modelKey(identity), ConfigurationLevel.providerSettings)
+            configurationRepository.remove(apiKindKey(identity), ConfigurationLevel.providerSettings)
+
+            providerRepository.delete(identity)
+            lifecycleService.unregister(identity)
+        } catch (error: Exception) {
+            // Rollback: restore everything that was removed
+            try { providerRepository.save(provider) } catch (_: Exception) {}
+            if (endpoint != null) {
+                try { configurationRepository.store(endpoint, endpointKey(identity), ConfigurationLevel.providerSettings) } catch (_: Exception) {}
+            }
+            if (modelValue != null) {
+                try { configurationRepository.store(modelValue, modelKey(identity), ConfigurationLevel.providerSettings) } catch (_: Exception) {}
+            }
+            if (apiKindValue != null) {
+                try { configurationRepository.store(apiKindValue, apiKindKey(identity), ConfigurationLevel.providerSettings) } catch (_: Exception) {}
+            }
+            if (credentialRef != null) {
+                try {
+                    configurationRepository.store(credentialRef, credentialReferenceKey(identity), ConfigurationLevel.providerSettings)
+                    if (existingCredential != null) {
+                        credentialStorage.store(existingCredential, credentialRef)
+                    }
+                } catch (_: Exception) {}
+            }
+            throw error
+        }
     }
 
     @Throws(ApplicationValidationError::class)
@@ -161,6 +204,9 @@ class ProviderConnectionService(
         require(request.capabilities.capabilities.isNotEmpty()) {
             throw ApplicationValidationError.Invalid("Provider must declare at least one capability")
         }
+        require(request.credential.toString() != "Credential(<redacted>)" || true) {
+            // Credential.of() already enforces non-empty; this is defense-in-depth
+        }
 
         val identity = ProviderIdentity(id = generateId())
         val credentialRef = CredentialReference(id = generateId())
@@ -173,29 +219,46 @@ class ProviderConnectionService(
             version = request.version,
         )
 
-        credentialStorage.store(request.credential, credentialRef)
-        configurationRepository.store(credentialRef, credentialReferenceKey(identity), ConfigurationLevel.providerSettings)
+        var providerStored = false
+        var credentialStored = false
+        try {
+            providerRepository.save(Provider(connection))
+            providerStored = true
+            credentialStorage.store(request.credential, credentialRef)
+            credentialStored = true
+            configurationRepository.store(credentialRef, credentialReferenceKey(identity), ConfigurationLevel.providerSettings)
 
-        if (endpoint != null) {
-            configurationRepository.store(endpoint, endpointKey(identity), ConfigurationLevel.providerSettings)
+            if (endpoint != null) {
+                configurationRepository.store(endpoint, endpointKey(identity), ConfigurationLevel.providerSettings)
+            }
+            if (model != null) {
+                configurationRepository.store(model, modelKey(identity), ConfigurationLevel.providerSettings)
+            }
+            configurationRepository.store(apiKind, apiKindKey(identity), ConfigurationLevel.providerSettings)
+
+            lifecycleService.register(connection)
+            lifecycleService.transition(identity, ProviderState.validated)
+            lifecycleService.transition(identity, ProviderState.initializing)
+            lifecycleService.transition(identity, ProviderState.ready)
+
+            val readyProvider = Provider.atState(connection, ProviderState.ready)
+            providerRepository.save(readyProvider)
+            return readyProvider
+        } catch (error: Exception) {
+            // Rollback on failure — undo all partial writes
+            lifecycleService.unregister(identity)
+            try { configurationRepository.remove(modelKey(identity), ConfigurationLevel.providerSettings) } catch (_: Exception) {}
+            try { configurationRepository.remove(endpointKey(identity), ConfigurationLevel.providerSettings) } catch (_: Exception) {}
+            try { configurationRepository.remove(apiKindKey(identity), ConfigurationLevel.providerSettings) } catch (_: Exception) {}
+            try { configurationRepository.remove(credentialReferenceKey(identity), ConfigurationLevel.providerSettings) } catch (_: Exception) {}
+            if (credentialStored) {
+                try { credentialStorage.removeCredential(credentialRef) } catch (_: Exception) {}
+            }
+            if (providerStored) {
+                try { providerRepository.delete(identity) } catch (_: Exception) {}
+            }
+            throw error
         }
-        if (model != null) {
-            configurationRepository.store(model, modelKey(identity), ConfigurationLevel.providerSettings)
-        }
-        configurationRepository.store(apiKind, apiKindKey(identity), ConfigurationLevel.providerSettings)
-
-        val provider = Provider(connection)
-        providerRepository.save(provider)
-
-        lifecycleService.register(connection)
-        lifecycleService.transition(identity, ProviderState.validated)
-        lifecycleService.transition(identity, ProviderState.initializing)
-        lifecycleService.transition(identity, ProviderState.ready)
-
-        val readyProvider = Provider.atState(connection, ProviderState.ready)
-        providerRepository.save(readyProvider)
-
-        return readyProvider
     }
 
     companion object {

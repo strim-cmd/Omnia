@@ -54,6 +54,7 @@ dependencies {
     implementation(project(":core:common"))
     implementation(project(":core:domain"))
     implementation(project(":core:application"))
+    implementation(project(":core:network"))
     implementation(project(":feature:chat"))
     implementation(project(":feature:providers"))
     implementation(project(":feature:settings"))
