@@ -104,13 +104,15 @@ class ConversationServiceTest {
 
     @Test
     fun conversationsIn_returnsSorted() {
+        var time = 1000L
+        val svc = ConversationService(convRepo, wsRepo, now = { time })
         runBlocking {
             val ws = Workspace(WorkspaceIdentity("ws-1"), "Test")
             wsRepo.workspaces["ws-1"] = ws
-            val c1 = service.createConversationIn(WorkspaceIdentity("ws-1"))
-            Thread.sleep(2)
-            val c2 = service.createConversationIn(WorkspaceIdentity("ws-1"))
-            val convs = service.conversationsIn(WorkspaceIdentity("ws-1"))
+            val c1 = svc.createConversationIn(WorkspaceIdentity("ws-1"))
+            time = 2000L
+            val c2 = svc.createConversationIn(WorkspaceIdentity("ws-1"))
+            val convs = svc.conversationsIn(WorkspaceIdentity("ws-1"))
             assertEquals(2, convs.size)
             assertEquals(c2.identity, convs[0].identity)
         }

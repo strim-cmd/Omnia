@@ -49,10 +49,15 @@ class ProviderModelService(
             val cached = lock.withLock { cachedCatalogs[identity] ?: emptyList() }
             val fallback = try { configuredModel(identity) } catch (_: Exception) { null }
             val merged = merge(cached, fallback)
+            val status = when {
+                cached.isNotEmpty() -> ProviderModelCatalogStatus.stale(e.error)
+                fallback != null -> ProviderModelCatalogStatus.unavailable(e.error)
+                else -> ProviderModelCatalogStatus.failed(e.error)
+            }
             ProviderModelCatalog(
                 provider = identity,
                 models = merged,
-                status = ProviderModelCatalogStatus.stale(e.error),
+                status = status,
             )
         }
     }

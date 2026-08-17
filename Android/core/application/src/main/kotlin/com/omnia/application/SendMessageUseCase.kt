@@ -80,9 +80,10 @@ class SendMessageUseCase(
     private suspend fun prepareSend(request: SendMessageRequest): Pair<Conversation, ProviderModelSelection> {
         val conversation = loadConversation(request.conversation)
         val selection = resolveSelection(conversation, request.modelSelection)
-        val updated = conversation.append(request.message, timestampMillis = now())
-        conversationRepository.save(updated)
-        return updated to selection
+        val appended = conversation.append(request.message, timestampMillis = now())
+        val streaming = appended.beginStreaming()
+        conversationRepository.save(streaming)
+        return streaming to selection
     }
 
     private suspend fun prepareResume(conversation: Conversation): Conversation {

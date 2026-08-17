@@ -147,11 +147,74 @@ class ConversationTest {
     }
 
     @Test
+    fun mergeMetadata_takesNewerUserTitleWhenBothAreUser() {
+        val older = conversation().rename("Old Title")
+        val newer = conversation().rename("New Title")
+        val merged = older.mergeMetadata(newer)
+        assertEquals("New Title", merged.title)
+        assertEquals(ConversationTitleOrigin.user, merged.titleOrigin)
+    }
+
+    @Test
     fun mergeMetadata_adoptsAutoTitleWhenAutomatic() {
         val auto = conversation().copy(title = null, titleOrigin = ConversationTitleOrigin.automatic)
         val stored = conversation().copy(title = "Stored Title", titleOrigin = ConversationTitleOrigin.automatic)
         val merged = auto.mergeMetadata(stored)
         assertEquals("Stored Title", merged.title)
+    }
+
+    @Test
+    fun mergeMetadata_maxUpdatedAt() {
+        val older = conversation().copy(updatedAtEpochMillis = 100L)
+        val newer = conversation().copy(updatedAtEpochMillis = 200L)
+        val merged = older.mergeMetadata(newer)
+        assertEquals(200L, merged.updatedAtEpochMillis)
+    }
+
+    @Test
+    fun mergeMetadata_noOpForDifferentIdentity() {
+        val a = Conversation(ConversationIdentity("a"), title = "A")
+        val b = Conversation(ConversationIdentity("b"), title = "B")
+        val merged = a.mergeMetadata(b)
+        assertEquals("A", merged.title)
+    }
+
+    @Test
+    fun append_setsAutoTitleFromFirstUserMessage() {
+        val c = conversation().append(userMessage("Hello World"), 1L)
+        assertEquals("Hello World", c.title)
+        assertEquals(ConversationTitleOrigin.automatic, c.titleOrigin)
+    }
+
+    @Test
+    fun append_collapsesWhitespaceInAutoTitle() {
+        val c = conversation().append(userMessage("Hello   World"), 1L)
+        assertEquals("Hello World", c.title)
+    }
+
+    @Test
+    fun append_doesNotOverwriteUserTitle() {
+        val c = conversation().rename("User Title").append(userMessage("Hello"), 1L)
+        assertEquals("User Title", c.title)
+        assertEquals(ConversationTitleOrigin.user, c.titleOrigin)
+    }
+
+    @Test
+    fun append_autoTitleTruncatesTo80Chars() {
+        val text = "A".repeat(100)
+        val c = conversation().append(userMessage(text), 1L)
+        assertEquals(80, c.title?.length)
+    }
+
+    @Test
+    fun rename_normalizesWhitespace() {
+        val c = conversation().rename("Hello   World")
+        assertEquals("Hello World", c.title)
+    }
+
+    @Test
+    fun normalizeTitle_collapsesMultipleSpaces() {
+        assertEquals("Hello World", Conversation.normalizeTitle("  Hello   World  "))
     }
 
     // helpers

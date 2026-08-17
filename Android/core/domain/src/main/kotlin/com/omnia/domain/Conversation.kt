@@ -73,12 +73,12 @@ data class Conversation(
 
     @Throws(ConversationMetadataError::class)
     fun rename(value: String): Conversation {
-        val trimmed = value.trim()
-        require(trimmed.isNotEmpty()) { "Title must not be empty" }
-        val truncated = if (trimmed.length > MAX_USER_TITLE_LENGTH) {
-            trimmed.substring(0, MAX_USER_TITLE_LENGTH)
+        val normalized = normalizeTitle(value)
+        require(normalized.isNotEmpty()) { "Title must not be empty" }
+        val truncated = if (normalized.length > MAX_USER_TITLE_LENGTH) {
+            normalized.substring(0, MAX_USER_TITLE_LENGTH)
         } else {
-            trimmed
+            normalized
         }
         return copy(
             title = truncated,
@@ -87,20 +87,37 @@ data class Conversation(
     }
 
     /**
-     * Merges metadata from a newer snapshot. Preserves user titles.
-     * Used by SendMessageUseCase.savePreservingMetadata to prevent
-     * concurrent user renames from being lost.
+     * Merges metadata from a newer repository snapshot into this
+     * (older in-memory) snapshot. This is called after streaming completes
+     * to preserve concurrent user renames.
+     *
+     * Rules (matching Swift OmniaDomain):
+     * - If [from] (newer) has a user title → take it (user renamed during generation).
+     * - Else if this (older) has an automatic title AND [from] has any title → take from's.
+     * - Else keep this snapshot's title.
+     * - UpdatedAt is always the max of both.
      */
     fun mergeMetadata(from: Conversation): Conversation {
-        val mergedTitle = when (this.titleOrigin) {
-            ConversationTitleOrigin.user -> this.title
-            ConversationTitleOrigin.automatic -> from.title ?: this.title
+        if (this.identity != from.identity) return this
+        val mergedTitle: String?
+        val mergedOrigin: ConversationTitleOrigin
+        when {
+            from.titleOrigin == ConversationTitleOrigin.user -> {
+                mergedTitle = from.title
+                mergedOrigin = ConversationTitleOrigin.user
+            }
+            this.titleOrigin != ConversationTitleOrigin.user && from.title != null -> {
+                mergedTitle = from.title
+                mergedOrigin = this.titleOrigin
+            }
+            else -> {
+                mergedTitle = this.title
+                mergedOrigin = this.titleOrigin
+            }
         }
-        val mergedOrigin = this.titleOrigin
         return copy(
             title = mergedTitle,
             titleOrigin = mergedOrigin,
-            modelSelection = from.modelSelection ?: this.modelSelection,
             updatedAtEpochMillis = maxOf(this.updatedAtEpochMillis, from.updatedAtEpochMillis),
         )
     }
@@ -125,10 +142,20 @@ data class Conversation(
         if (streamingState is ConversationStreamingState.Streaming) {
             throw ConversationStreamError.StreamInProgress
         }
-        return copy(
+        var result = copy(
             history = history + message,
             updatedAtEpochMillis = timestampMillis,
         )
+        // Auto-title from first user message (matching Swift OmniaDomain)
+        if (titleOrigin == ConversationTitleOrigin.automatic && title == null && message.role == MessageRole.user) {
+            val contentTitle = normalizeTitle(message.content)
+            val attachmentTitle = message.attachments.firstOrNull()?.let { normalizeTitle(it.fileName) } ?: ""
+            val automatic = if (contentTitle.isEmpty()) attachmentTitle else contentTitle
+            if (automatic.isNotEmpty()) {
+                result = result.copy(title = automatic.take(MAX_AUTO_TITLE_LENGTH))
+            }
+        }
+        return result
     }
 
     @Throws(ConversationStreamError::class)
@@ -192,6 +219,15 @@ data class Conversation(
     companion object {
         const val MAX_AUTO_TITLE_LENGTH = 80
         const val MAX_USER_TITLE_LENGTH = 160
+
+        /**
+         * Collapses whitespace into single spaces and trims (matching Swift
+         * OmniaDomain normalizedTitle). Used for auto-title derivation and
+         * user rename normalization.
+         */
+        fun normalizeTitle(value: String): String {
+            return value.split(Regex("\\s+")).filter { it.isNotEmpty() }.joinToString(" ").trim()
+        }
     }
 }
 
