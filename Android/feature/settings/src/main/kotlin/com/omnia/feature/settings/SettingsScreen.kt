@@ -4,14 +4,20 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -38,6 +44,9 @@ fun SettingsScreen(
     onThemeModeSelected: (ThemeMode) -> Unit,
     onBack: () -> Unit,
     onOpenAbout: () -> Unit,
+    onShowClearDataDialog: () -> Unit,
+    onConfirmClearData: () -> Unit,
+    onDismissClearDataDialog: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     OmniaBackground(modifier = modifier) {
@@ -59,6 +68,7 @@ fun SettingsScreen(
             Column(
                 modifier = Modifier
                     .fillMaxSize()
+                    .verticalScroll(rememberScrollState())
                     .padding(innerPadding)
                     .padding(OmniaSpacing.md),
                 verticalArrangement = Arrangement.spacedBy(OmniaSpacing.md),
@@ -68,8 +78,37 @@ fun SettingsScreen(
                     onThemeModeSelected = onThemeModeSelected,
                 )
                 AboutRow(onOpenAbout = onOpenAbout)
+                Spacer(modifier = Modifier.height(OmniaSpacing.lg))
+                ClearDataRow(onShowClearDataDialog = onShowClearDataDialog)
             }
         }
+    }
+
+    if (uiState.showClearDataDialog) {
+        AlertDialog(
+            onDismissRequest = onDismissClearDataDialog,
+            title = { Text(text = stringResource(R.string.settings_clear_data_dialog_title)) },
+            text = { Text(text = stringResource(R.string.settings_clear_data_dialog_message)) },
+            confirmButton = {
+                TextButton(
+                    onClick = onConfirmClearData,
+                    enabled = !uiState.isClearingData,
+                ) {
+                    Text(
+                        text = stringResource(R.string.settings_clear_data_confirm),
+                        color = MaterialTheme.colorScheme.error,
+                    )
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = onDismissClearDataDialog,
+                    enabled = !uiState.isClearingData,
+                ) {
+                    Text(text = stringResource(R.string.settings_clear_data_cancel))
+                }
+            },
+        )
     }
 }
 
@@ -154,6 +193,38 @@ private fun AboutRow(
 }
 
 @Composable
+private fun ClearDataRow(
+    onShowClearDataDialog: () -> Unit,
+) {
+    OmniaCard(modifier = Modifier.fillMaxWidth(), onClick = onShowClearDataDialog) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(OmniaSpacing.md),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            OmniaIconButton(
+                icon = OmniaIcons.Delete,
+                contentDescription = stringResource(R.string.settings_clear_data),
+                onClick = onShowClearDataDialog,
+            )
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = stringResource(R.string.settings_clear_data),
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = MaterialTheme.colorScheme.error,
+                )
+                Text(
+                    text = stringResource(R.string.settings_clear_data_description),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+    }
+}
+
+@Composable
 fun SettingsRoute(
     dependencies: SettingsDependencies,
     onBack: () -> Unit,
@@ -167,6 +238,9 @@ fun SettingsRoute(
         onThemeModeSelected = viewModel::onThemeModeSelected,
         onBack = onBack,
         onOpenAbout = onOpenAbout,
+        onShowClearDataDialog = viewModel::showClearDataDialog,
+        onConfirmClearData = viewModel::confirmClearData,
+        onDismissClearDataDialog = viewModel::dismissClearDataDialog,
         modifier = modifier,
     )
 }

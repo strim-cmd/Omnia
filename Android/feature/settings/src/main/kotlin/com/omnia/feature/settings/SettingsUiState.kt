@@ -8,4 +8,6 @@ import com.omnia.designsystem.theme.ThemeMode
  */
 data class SettingsUiState(
     val themeMode: ThemeMode = ThemeMode.SYSTEM,
+    val showClearDataDialog: Boolean = false,
+    val isClearingData: Boolean = false,
 )

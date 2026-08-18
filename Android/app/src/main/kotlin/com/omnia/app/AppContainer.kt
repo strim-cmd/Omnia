@@ -31,6 +31,7 @@ import com.omnia.domain.ProviderLifecycleService
 import com.omnia.domain.ProviderSelectionPolicy
 import com.omnia.feature.chat.ChatDependencies
 import com.omnia.feature.providers.ProvidersDependencies
+import com.omnia.feature.settings.DataManagementService
 import com.omnia.feature.settings.SettingsDependencies
 import com.omnia.feature.settings.ThemeController
 import com.omnia.network.adapters.GeminiProviderInspector
@@ -173,9 +174,17 @@ class AppContainer(
         override val providerValidationService: ProviderValidationService get() = this@AppContainer.providerValidationService
     }
 
+    val dataManagementService: DataManagementService = DataManagementService {
+        val providers = providerConnectionService.allProviders()
+        providers.forEach { providerConnectionService.remove(it.identity) }
+        val conversations = conversationService.conversations()
+        conversations.forEach { conversationService.delete(it.identity) }
+    }
+
     val settingsDependencies: SettingsDependencies = object : SettingsDependencies {
         override val logger: Logger get() = this@AppContainer.logger
         override val dispatchers: DispatcherProvider get() = this@AppContainer.dispatchers
         override val themeController: ThemeController get() = this@AppContainer.themeController
+        override val dataManagementService: DataManagementService get() = this@AppContainer.dataManagementService
     }
 }

@@ -35,6 +35,9 @@ class SettingsScreenTest {
                     onThemeModeSelected = {},
                     onBack = {},
                     onOpenAbout = {},
+                    onShowClearDataDialog = {},
+                    onConfirmClearData = {},
+                    onDismissClearDataDialog = {},
                 )
             }
         }
@@ -54,6 +57,9 @@ class SettingsScreenTest {
                     onThemeModeSelected = {},
                     onBack = {},
                     onOpenAbout = {},
+                    onShowClearDataDialog = {},
+                    onConfirmClearData = {},
+                    onDismissClearDataDialog = {},
                 )
             }
         }
@@ -71,6 +77,9 @@ class SettingsScreenTest {
                     onThemeModeSelected = { selected = it },
                     onBack = {},
                     onOpenAbout = {},
+                    onShowClearDataDialog = {},
+                    onConfirmClearData = {},
+                    onDismissClearDataDialog = {},
                 )
             }
         }
@@ -90,6 +99,9 @@ class SettingsScreenTest {
                     onThemeModeSelected = {},
                     onBack = {},
                     onOpenAbout = { opened = true },
+                    onShowClearDataDialog = {},
+                    onConfirmClearData = {},
+                    onDismissClearDataDialog = {},
                 )
             }
         }
@@ -97,5 +109,25 @@ class SettingsScreenTest {
         composeTestRule.onNodeWithText("About Omnia").performClick()
 
         assertTrue(opened)
+    }
+
+    @Test
+    fun screen_rendersClearDataRow() {
+        composeTestRule.setContent {
+            OmniaTheme {
+                SettingsScreen(
+                    uiState = SettingsUiState(),
+                    onThemeModeSelected = {},
+                    onBack = {},
+                    onOpenAbout = {},
+                    onShowClearDataDialog = {},
+                    onConfirmClearData = {},
+                    onDismissClearDataDialog = {},
+                )
+            }
+        }
+
+        composeTestRule.onNodeWithText("Clear all data").assertIsDisplayed()
+        composeTestRule.onNodeWithText("Remove providers, conversations, and settings").assertIsDisplayed()
     }
 }

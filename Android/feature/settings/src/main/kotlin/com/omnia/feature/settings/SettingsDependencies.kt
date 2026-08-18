@@ -14,9 +14,14 @@ interface ThemeController {
     fun setThemeMode(mode: ThemeMode)
 }
 
+fun interface DataManagementService {
+    suspend operator fun invoke()
+}
+
 /** Dependencies the Settings feature needs, satisfied by the app's AppContainer. */
 interface SettingsDependencies {
     val themeController: ThemeController
     val logger: Logger
     val dispatchers: DispatcherProvider
+    val dataManagementService: DataManagementService
 }

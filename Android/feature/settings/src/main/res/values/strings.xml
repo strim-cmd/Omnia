@@ -7,4 +7,10 @@
     <string name="settings_theme_light">Light</string>
     <string name="settings_theme_dark">Dark</string>
     <string name="settings_about">About Omnia</string>
+    <string name="settings_clear_data">Clear all data</string>
+    <string name="settings_clear_data_description">Remove providers, conversations, and settings</string>
+    <string name="settings_clear_data_dialog_title">Clear all data?</string>
+    <string name="settings_clear_data_dialog_message">This will remove all providers, conversations, and settings. This cannot be undone.</string>
+    <string name="settings_clear_data_confirm">Clear</string>
+    <string name="settings_clear_data_cancel">Cancel</string>
 </resources>

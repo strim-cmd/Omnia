@@ -32,6 +32,25 @@ class SettingsViewModel(private val dependencies: SettingsDependencies) : ViewMo
         _uiState.update { it.copy(themeMode = mode) }
     }
 
+    fun showClearDataDialog() {
+        _uiState.update { it.copy(showClearDataDialog = true) }
+    }
+
+    fun dismissClearDataDialog() {
+        _uiState.update { it.copy(showClearDataDialog = false, isClearingData = false) }
+    }
+
+    fun confirmClearData() {
+        viewModelScope.launch(dependencies.dispatchers.default) {
+            _uiState.update { it.copy(isClearingData = true) }
+            try {
+                dependencies.dataManagementService()
+            } finally {
+                _uiState.update { it.copy(showClearDataDialog = false, isClearingData = false) }
+            }
+        }
+    }
+
     private companion object {
         const val TAG = "SettingsViewModel"
     }
