@@ -8,7 +8,7 @@ import com.omnia.domain.RepositoryError
 import kotlinx.serialization.json.Json
 import java.io.File
 
-class FileProviderRepository internal constructor(
+class FileProviderRepository constructor(
     private val store: JsonDocumentStore,
 ) : ProviderRepository {
 

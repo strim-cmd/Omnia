@@ -8,7 +8,7 @@ import com.omnia.domain.RepositoryError
 import kotlinx.serialization.json.Json
 import java.io.File
 
-class FileConversationRepository internal constructor(
+class FileConversationRepository constructor(
     private val store: JsonDocumentStore,
 ) : ConversationRepository {
 

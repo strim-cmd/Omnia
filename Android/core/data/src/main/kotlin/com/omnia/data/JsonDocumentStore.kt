@@ -6,7 +6,7 @@ import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.json.Json
 import java.io.File
 
-internal class JsonDocumentStore(private val directory: File) {
+class JsonDocumentStore(private val directory: File) {
     private val mutex = Mutex()
     private val json = Json {
         encodeDefaults = true

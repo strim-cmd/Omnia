@@ -9,7 +9,7 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonPrimitive
 import java.io.File
 
-class FileConfigurationRepository internal constructor(
+class FileConfigurationRepository constructor(
     private val store: JsonDocumentStore,
 ) : ConfigurationRepository {
 

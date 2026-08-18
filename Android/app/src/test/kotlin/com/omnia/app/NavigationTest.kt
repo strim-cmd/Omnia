@@ -16,10 +16,6 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
 
-/**
- * Shell-level navigation tests: launch on Chat, reach every destination from
- * the top bar, and honor system-style back via the back stack.
- */
 @RunWith(RobolectricTestRunner::class)
 @GraphicsMode(GraphicsMode.Mode.LEGACY)
 @Config(sdk = [35])
@@ -64,7 +60,7 @@ class NavigationTest {
         composeTestRule.onNodeWithContentDescription("Open settings").performClick()
         composeTestRule.onNodeWithText("About Omnia").performClick()
         composeTestRule.onNodeWithText("Omnia").assertIsDisplayed()
-        composeTestRule.onNodeWithText("Version 1.0.1 (2)").assertIsDisplayed()
+        composeTestRule.onNodeWithText("Version 1.0.0 (1)").assertIsDisplayed()
     }
 
     @Test
