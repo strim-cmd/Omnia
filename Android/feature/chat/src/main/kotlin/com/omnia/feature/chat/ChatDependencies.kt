@@ -4,6 +4,7 @@ import com.omnia.common.DispatcherProvider
 import com.omnia.common.Logger
 import com.omnia.application.ConversationService
 import com.omnia.application.ConversationDraftService
+import com.omnia.application.ConversationGenerationCoordinator
 import com.omnia.application.ProviderModelService
 import com.omnia.application.SendMessageUseCase
 
@@ -17,6 +18,7 @@ interface ChatDependencies {
     val dispatchers: DispatcherProvider
     val conversationService: ConversationService
     val conversationDraftService: ConversationDraftService
+    val conversationGenerationCoordinator: ConversationGenerationCoordinator
     val providerModelService: ProviderModelService
     val sendMessageUseCase: SendMessageUseCase
 }

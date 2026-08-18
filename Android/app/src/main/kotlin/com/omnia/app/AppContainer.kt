@@ -4,6 +4,7 @@ import android.content.Context
 import com.omnia.application.AppMetadata
 import com.omnia.application.ConfigurationService
 import com.omnia.application.ConversationDraftService
+import com.omnia.application.ConversationGenerationCoordinator
 import com.omnia.application.ConversationService
 import com.omnia.application.ProvideAppMetadata
 import com.omnia.application.ProviderConnectionService
@@ -146,6 +147,8 @@ class AppContainer(
 
     val conversationDraftService = ConversationDraftService(configurationService)
 
+    val generationCoordinator = ConversationGenerationCoordinator(dispatchers)
+
     val sendMessageUseCase = SendMessageUseCase(
         streamingContract = providerAdapterBinding,
         selectionPolicy = ProviderSelectionPolicy(),
@@ -157,6 +160,7 @@ class AppContainer(
         override val dispatchers: DispatcherProvider get() = this@AppContainer.dispatchers
         override val conversationService: ConversationService get() = this@AppContainer.conversationService
         override val conversationDraftService: ConversationDraftService get() = this@AppContainer.conversationDraftService
+        override val conversationGenerationCoordinator: ConversationGenerationCoordinator get() = this@AppContainer.generationCoordinator
         override val providerModelService: ProviderModelService get() = this@AppContainer.providerModelService
         override val sendMessageUseCase: SendMessageUseCase get() = this@AppContainer.sendMessageUseCase
     }

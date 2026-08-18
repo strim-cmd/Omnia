@@ -110,5 +110,11 @@ class ConversationService(
         }
     }
 
+    suspend fun conversations(): List<Conversation> =
+        conversationRepository.allConversations()
+            .sortedWith(compareByDescending<Conversation> { it.updatedAtEpochMillis }
+                .thenByDescending { it.createdAtEpochMillis }
+                .thenBy { it.identity.id })
+
     private fun generateId(): String = java.util.UUID.randomUUID().toString()
 }

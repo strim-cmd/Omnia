@@ -1,12 +1,36 @@
 package com.omnia.feature.chat
 
-/**
- * Immutable state of the Chat destination. The M1 shell only shows the empty
- * state; message bubbles, composer, streaming, and actions arrive in later
- * milestones.
- */
+import com.omnia.domain.ConversationIdentity
+import com.omnia.domain.Message
+import com.omnia.domain.ModelReference
+import com.omnia.domain.ProviderModelSelection
+
 data class ChatUiState(
-    val hasMessages: Boolean = false,
-    val isComposerEnabled: Boolean = false,
+    val conversations: List<ConversationListItem> = emptyList(),
+    val activeConversation: ConversationIdentity? = null,
+    val messages: List<Message> = emptyList(),
+    val partialContent: String? = null,
+    val isStreaming: Boolean = false,
+    val composerText: String = "",
+    val isComposerEnabled: Boolean = true,
     val title: String = "",
-)
+    val currentModel: ProviderModelSelection? = null,
+    val availableModels: List<ModelReference> = emptyList(),
+    val error: String? = null,
+    val isSearching: Boolean = false,
+    val searchQuery: String = "",
+    val searchResults: List<ConversationListItem> = emptyList(),
+    val isRenaming: Boolean = false,
+    val renameText: String = "",
+    val showConversationList: Boolean = true,
+    val showStopButton: Boolean = false,
+    val isInterrupted: Boolean = false,
+) {
+    data class ConversationListItem(
+        val id: String,
+        val title: String,
+        val lastMessage: String,
+        val updatedAt: Long,
+        val isActive: Boolean,
+    )
+}

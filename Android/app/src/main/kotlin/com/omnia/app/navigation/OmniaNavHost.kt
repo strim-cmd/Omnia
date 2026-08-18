@@ -36,6 +36,7 @@ fun OmniaNavHost(
         composable(OmniaDestination.CHAT.route) {
             ChatRoute(
                 dependencies = container.chatDependencies,
+                generationCoordinator = container.generationCoordinator,
                 onOpenProviders = { navController.navigate(OmniaDestination.PROVIDERS.route) },
                 onOpenSettings = { navController.navigate(OmniaDestination.SETTINGS.route) },
             )

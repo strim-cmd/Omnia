@@ -1,7 +1,7 @@
 package com.omnia.feature.providers
 
 import androidx.compose.ui.test.assertIsDisplayed
-import androidx.compose.ui.test.assertIsNotEnabled
+import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
@@ -25,8 +25,22 @@ class ProvidersScreenTest {
             com.omnia.designsystem.theme.OmniaTheme {
                 ProvidersScreen(
                     uiState = uiState,
+                    addProviderUiState = AddProviderUiState(),
                     onBack = {},
                     onAddProvider = {},
+                    onDismissAddProvider = {},
+                    onEditProvider = {},
+                    onDeleteProvider = {},
+                    onConfirmDelete = {},
+                    onDismissDelete = {},
+                    onDismissError = {},
+                    onDisplayNameChanged = {},
+                    onEndpointChanged = {},
+                    onApiKeyChanged = {},
+                    onApiKindChanged = {},
+                    onTestConnection = {},
+                    onSelectedModelChanged = {},
+                    onSaveProvider = {},
                 )
             }
         }
@@ -38,7 +52,7 @@ class ProvidersScreenTest {
 
         composeTestRule.onNodeWithText("No providers configured").assertIsDisplayed()
         composeTestRule.onNodeWithText("Add provider").assertIsDisplayed()
-        composeTestRule.onNodeWithText("Add provider").assertIsNotEnabled()
+        composeTestRule.onNodeWithText("Add provider").assertIsEnabled()
     }
 
     @Test

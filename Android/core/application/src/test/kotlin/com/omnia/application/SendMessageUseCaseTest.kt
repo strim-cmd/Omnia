@@ -457,6 +457,7 @@ class SendMessageUseCaseTest {
         }
         override suspend fun conversation(identity: ConversationIdentity): Conversation? = store[identity.id]
         override suspend fun delete(identity: ConversationIdentity) { store.remove(identity.id) }
+        override suspend fun allConversations(): List<Conversation> = store.values.toList()
         fun get(id: String): Conversation? = store[id]
     }
 

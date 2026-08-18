@@ -1,18 +1,24 @@
 package com.omnia.feature.providers
 
-/**
- * Immutable state of the Providers destination. The M1 shell shows the empty
- * list; connection, credentials, and model discovery arrive in later
- * milestones.
- */
+import com.omnia.domain.ProviderAPIKind
+import com.omnia.domain.ProviderState
+
 data class ProvidersUiState(
     val providers: List<ProviderListItem> = emptyList(),
-    val isAddProviderEnabled: Boolean = false,
+    val isLoading: Boolean = false,
+    val error: String? = null,
+    val showAddScreen: Boolean = false,
+    val editingProviderId: String? = null,
+    val deletingProviderId: String? = null,
 ) {
-    val isEmpty: Boolean get() = providers.isEmpty()
-}
+    val isEmpty: Boolean get() = providers.isEmpty() && !isLoading
+    val isAddProviderEnabled: Boolean get() = !showAddScreen
 
-data class ProviderListItem(
-    val id: String,
-    val name: String,
-)
+    data class ProviderListItem(
+        val id: String,
+        val name: String,
+        val apiKind: ProviderAPIKind,
+        val state: ProviderState,
+        val modelCount: Int,
+    )
+}

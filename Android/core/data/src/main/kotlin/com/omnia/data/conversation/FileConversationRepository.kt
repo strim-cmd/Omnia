@@ -36,7 +36,7 @@ class FileConversationRepository constructor(
         store.delete(identity.id)
     }
 
-    suspend fun allConversations(): List<Conversation> {
+    override suspend fun allConversations(): List<Conversation> {
         val keys = store.allKeys()
         val conversations = mutableListOf<Conversation>()
         for (key in keys) {

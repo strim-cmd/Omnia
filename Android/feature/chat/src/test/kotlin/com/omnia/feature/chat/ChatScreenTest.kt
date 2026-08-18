@@ -26,6 +26,22 @@ class ChatScreenTest {
                     uiState = uiState,
                     onOpenProviders = {},
                     onOpenSettings = {},
+                    onBack = {},
+                    onCreateConversation = {},
+                    onOpenConversation = {},
+                    onStartRename = {},
+                    onUpdateComposerText = {},
+                    onSendMessage = {},
+                    onStopGeneration = {},
+                    onRetryGeneration = {},
+                    onContinueGeneration = {},
+                    onSelectModel = {},
+                    onSearchQueryChanged = {},
+                    onClearSearch = {},
+                    onDismissError = {},
+                    onUpdateRenameText = {},
+                    onConfirmRename = {},
+                    onDismissRename = {},
                 )
             }
         }

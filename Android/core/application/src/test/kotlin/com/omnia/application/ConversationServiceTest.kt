@@ -125,6 +125,7 @@ class ConversationServiceTest {
         }
         override suspend fun conversation(identity: ConversationIdentity): Conversation? = conversations[identity.id]
         override suspend fun delete(identity: ConversationIdentity) { conversations.remove(identity.id) }
+        override suspend fun allConversations(): List<Conversation> = conversations.values.toList()
     }
 
     private class InMemoryWorkspaceRepository : WorkspaceRepository {

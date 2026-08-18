@@ -6,6 +6,7 @@ interface ConversationRepository {
     suspend fun save(conversation: Conversation)
     suspend fun conversation(identity: ConversationIdentity): Conversation?
     suspend fun delete(identity: ConversationIdentity)
+    suspend fun allConversations(): List<Conversation>
 }
 
 interface ProviderRepository {

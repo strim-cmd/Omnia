@@ -36,6 +36,7 @@ kotlin {
 dependencies {
     implementation(project(":core:designsystem"))
     implementation(project(":core:common"))
+    implementation(project(":core:domain"))
     implementation(project(":core:application"))
 
     implementation(libs.androidx.core.ktx)
