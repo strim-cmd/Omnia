@@ -119,10 +119,11 @@ class ProvidersViewModel(private val dependencies: ProvidersDependencies) : View
                 } else {
                     null
                 }
+                val credential = if (state.apiKey.isNotBlank()) Credential.of(state.apiKey) else null
                 val request = ProviderConnectionTestRequest(
                     providerIdentity = identity,
                     endpoint = state.endpoint,
-                    credential = Credential.of(state.apiKey),
+                    credential = credential,
                     apiKind = state.apiKind,
                 )
                 val result = dependencies.providerValidationService.test(request)
@@ -138,7 +139,7 @@ class ProvidersViewModel(private val dependencies: ProvidersDependencies) : View
                     it.copy(
                         isTesting = false,
                         testResult = AddProviderUiState.TestResult.Failure(
-                            e.message ?: "Unknown error",
+                            formatErrorMessage(e),
                         ),
                     )
                 }
@@ -190,7 +191,7 @@ class ProvidersViewModel(private val dependencies: ProvidersDependencies) : View
                 loadProviders()
             } catch (e: Exception) {
                 _addProviderUiState.update {
-                    it.copy(isSaving = false, error = e.message ?: "Unknown error")
+                    it.copy(isSaving = false, error = formatErrorMessage(e))
                 }
             }
         }
@@ -209,7 +210,7 @@ class ProvidersViewModel(private val dependencies: ProvidersDependencies) : View
                 loadProviders()
             } catch (e: Exception) {
                 _uiState.update {
-                    it.copy(deletingProviderId = null, error = e.message ?: "Unknown error")
+                    it.copy(deletingProviderId = null, error = formatErrorMessage(e))
                 }
             }
         }
@@ -222,5 +223,22 @@ class ProvidersViewModel(private val dependencies: ProvidersDependencies) : View
     fun dismissError() {
         _uiState.update { it.copy(error = null) }
         _addProviderUiState.update { it.copy(error = null) }
+    }
+
+    private fun formatErrorMessage(e: Throwable): String {
+        val raw = e.message ?: "Unknown error"
+        return when {
+            raw.contains("invalidCredential") -> "Invalid API key or credential"
+            raw.contains("unreachable") -> "Cannot reach server. Check endpoint URL and internet connection."
+            raw.contains("invalidEndpoint") -> "Invalid endpoint URL"
+            raw.contains("modelUnavailable") -> "The specified model is not available"
+            raw.contains("rateLimited") -> "Rate limit exceeded. Please try again later."
+            raw.contains("timedOut") -> "Connection timed out"
+            raw.contains("serverFailure") -> "Server returned an error"
+            raw.contains("invalidResponse") -> "Invalid response from server"
+            raw.startsWith("Invalid endpoint:") -> raw
+            raw.startsWith("Credential is required") -> "API key is required"
+            else -> raw
+        }
     }
 }

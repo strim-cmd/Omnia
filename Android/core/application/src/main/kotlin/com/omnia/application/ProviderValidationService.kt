@@ -20,12 +20,13 @@ class ProviderValidationService(
         }
 
         val credential = request.credential
-            ?: throw ApplicationValidationError.Invalid("Credential is required")
 
         val models = if (request.providerIdentity != null) {
             testExisting(request.providerIdentity, endpoint, model, apiKind)
         } else {
-            testCandidate(endpoint, credential, model, apiKind)
+            val resolvedCredential = credential
+                ?: throw ApplicationValidationError.Invalid("Credential is required")
+            testCandidate(endpoint, resolvedCredential, model, apiKind)
         }
 
         return ProviderConnectionTestResult(models = models)

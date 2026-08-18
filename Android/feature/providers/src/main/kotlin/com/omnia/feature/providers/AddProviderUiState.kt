@@ -18,7 +18,7 @@ data class AddProviderUiState(
     val error: String? = null,
 ) {
     val isTestEnabled: Boolean get() =
-        displayName.isNotBlank() && endpoint.isNotBlank() && apiKey.isNotBlank() && !isTesting && !isSaving
+        displayName.isNotBlank() && endpoint.isNotBlank() && (apiKey.isNotBlank() || isEditing) && !isTesting && !isSaving
 
     val isSaveEnabled: Boolean get() =
         isTestEnabled && testResult is TestResult.Success && selectedModel.isNotBlank() && !isSaving
