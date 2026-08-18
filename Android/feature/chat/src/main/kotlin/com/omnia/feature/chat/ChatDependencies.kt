@@ -6,6 +6,7 @@ import com.omnia.application.ConversationService
 import com.omnia.application.ConversationDraftService
 import com.omnia.application.ConversationGenerationCoordinator
 import com.omnia.application.ProviderModelService
+import com.omnia.application.AttachmentService
 import com.omnia.application.SendMessageUseCase
 
 /**
@@ -21,4 +22,5 @@ interface ChatDependencies {
     val conversationGenerationCoordinator: ConversationGenerationCoordinator
     val providerModelService: ProviderModelService
     val sendMessageUseCase: SendMessageUseCase
+    val attachmentService: AttachmentService
 }

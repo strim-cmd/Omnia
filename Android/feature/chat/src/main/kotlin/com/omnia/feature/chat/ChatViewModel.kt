@@ -2,6 +2,7 @@ package com.omnia.feature.chat
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.omnia.application.AttachmentImportCandidate
 import com.omnia.application.ConversationGenerationCoordinator
 import com.omnia.application.GenerationState
 import com.omnia.application.SendMessageRequest
@@ -171,16 +172,19 @@ class ChatViewModel(
         val state = _uiState.value
         val identity = state.activeConversation ?: return
         val text = state.composerText.trim()
-        if (text.isEmpty()) return
+        if (text.isEmpty() && state.draftAttachments.isEmpty()) return
 
         val userMessage = Message(
             role = MessageRole.user,
             content = text,
+            attachments = state.draftAttachments,
         )
 
         _uiState.update {
             it.copy(
                 composerText = "",
+                draftAttachments = emptyList(),
+                attachmentIssue = null,
                 isStreaming = true,
                 showStopButton = true,
                 isComposerEnabled = false,
@@ -254,6 +258,41 @@ class ChatViewModel(
                 }
             }
         }
+    }
+
+    fun stageAttachments(candidates: List<AttachmentImportCandidate>) {
+        val state = _uiState.value
+        viewModelScope.launch(dependencies.dispatchers.default) {
+            try {
+                val staged = dependencies.attachmentService.stage(
+                    candidates = candidates,
+                    existing = state.draftAttachments,
+                )
+                _uiState.update {
+                    it.copy(
+                        draftAttachments = it.draftAttachments + staged,
+                        attachmentIssue = null,
+                    )
+                }
+            } catch (e: Exception) {
+                _uiState.update {
+                    it.copy(attachmentIssue = e.message ?: "Failed to add attachment")
+                }
+            }
+        }
+    }
+
+    fun removeAttachment(attachment: com.omnia.domain.MessageAttachment) {
+        _uiState.update {
+            it.copy(draftAttachments = it.draftAttachments.filter { a -> a.identity != attachment.identity })
+        }
+        viewModelScope.launch(dependencies.dispatchers.default) {
+            try { dependencies.attachmentService.remove(attachment) } catch (_: Exception) { }
+        }
+    }
+
+    fun dismissAttachmentIssue() {
+        _uiState.update { it.copy(attachmentIssue = null) }
     }
 
     fun stopGeneration() {

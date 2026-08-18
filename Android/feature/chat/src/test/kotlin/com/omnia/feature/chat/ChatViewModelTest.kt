@@ -30,6 +30,7 @@ class ChatViewModelTest {
             override val conversationGenerationCoordinator get() = throw NotImplementedError()
             override val providerModelService get() = throw NotImplementedError()
             override val sendMessageUseCase get() = throw NotImplementedError()
+            override val attachmentService get() = throw NotImplementedError()
         }
 
     @Test

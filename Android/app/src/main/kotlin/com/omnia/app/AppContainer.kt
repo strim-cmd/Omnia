@@ -2,6 +2,7 @@ package com.omnia.app
 
 import android.content.Context
 import com.omnia.application.AppMetadata
+import com.omnia.application.AttachmentService
 import com.omnia.application.ConfigurationService
 import com.omnia.application.ConversationDraftService
 import com.omnia.application.ConversationGenerationCoordinator
@@ -21,6 +22,7 @@ import com.omnia.common.SystemClock
 import com.omnia.data.StorageLayout
 import com.omnia.data.configuration.FileConfigurationRepository
 import com.omnia.data.conversation.FileConversationRepository
+import com.omnia.data.attachment.FileAttachmentStorage
 import com.omnia.data.provider.FileProviderRepository
 import com.omnia.data.workspace.FileWorkspaceRepository
 import com.omnia.domain.CredentialReference
@@ -150,6 +152,14 @@ class AppContainer(
 
     val generationCoordinator = ConversationGenerationCoordinator(dispatchers)
 
+    val attachmentStorage: com.omnia.domain.AttachmentStorageProtocol = FileAttachmentStorage(
+        directory = storageLayout.attachmentsDir,
+    )
+
+    val attachmentService = AttachmentService(
+        storage = attachmentStorage,
+    )
+
     val sendMessageUseCase = SendMessageUseCase(
         streamingContract = providerAdapterBinding,
         selectionPolicy = ProviderSelectionPolicy(),
@@ -164,6 +174,7 @@ class AppContainer(
         override val conversationGenerationCoordinator: ConversationGenerationCoordinator get() = this@AppContainer.generationCoordinator
         override val providerModelService: ProviderModelService get() = this@AppContainer.providerModelService
         override val sendMessageUseCase: SendMessageUseCase get() = this@AppContainer.sendMessageUseCase
+        override val attachmentService: AttachmentService get() = this@AppContainer.attachmentService
     }
 
     val providersDependencies: ProvidersDependencies = object : ProvidersDependencies {

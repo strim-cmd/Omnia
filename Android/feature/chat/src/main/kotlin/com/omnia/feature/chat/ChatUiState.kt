@@ -2,6 +2,7 @@ package com.omnia.feature.chat
 
 import com.omnia.domain.ConversationIdentity
 import com.omnia.domain.Message
+import com.omnia.domain.MessageAttachment
 import com.omnia.domain.ModelReference
 import com.omnia.domain.ProviderModelSelection
 
@@ -25,6 +26,8 @@ data class ChatUiState(
     val showConversationList: Boolean = true,
     val showStopButton: Boolean = false,
     val isInterrupted: Boolean = false,
+    val draftAttachments: List<MessageAttachment> = emptyList(),
+    val attachmentIssue: String? = null,
 ) {
     data class ConversationListItem(
         val id: String,
