@@ -26,12 +26,15 @@ import com.omnia.data.conversation.FileConversationRepository
 import com.omnia.data.attachment.FileAttachmentStorage
 import com.omnia.data.provider.FileProviderRepository
 import com.omnia.data.workspace.FileWorkspaceRepository
+import com.omnia.domain.Capability
 import com.omnia.domain.CredentialReference
 import com.omnia.domain.CredentialStorageProtocol
 import com.omnia.domain.ModelReference
 import com.omnia.domain.ProviderAPIKind
+import com.omnia.domain.ProviderCandidate
 import com.omnia.domain.ProviderLifecycleService
 import com.omnia.domain.ProviderSelectionPolicy
+import com.omnia.domain.ProviderState
 import com.omnia.feature.chat.ChatDependencies
 import com.omnia.feature.providers.ProvidersDependencies
 import com.omnia.feature.settings.DataManagementService
@@ -167,6 +170,21 @@ class AppContainer(
         streamingContract = providerAdapterBinding,
         selectionPolicy = ProviderSelectionPolicy(),
         conversationRepository = conversationRepository,
+        candidatesFor = { capability ->
+            providerConnectionService.allProviders()
+                .filter { provider ->
+                    provider.state == ProviderState.ready &&
+                        provider.canDeliver(capability)
+                }
+                .mapNotNull { provider ->
+                    val catalog = providerModelService.cachedCatalog(provider.identity)
+                    if (catalog.models.isEmpty()) null
+                    else ProviderCandidate(
+                        provider = provider.identity,
+                        models = catalog.models,
+                    )
+                }
+        },
     )
 
     val chatDependencies: ChatDependencies = object : ChatDependencies {

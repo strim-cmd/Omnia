@@ -198,7 +198,7 @@ class ChatViewModel(
             }
         }
 
-        streamingJob = generationCoordinator.startGeneration(identity) { context ->
+        streamingJob = generationCoordinator.startGeneration(identity) { _ ->
             try {
                 val request = SendMessageRequest(
                     conversation = identity,
@@ -209,38 +209,32 @@ class ChatViewModel(
                 dependencies.sendMessageUseCase.send(request).collect { update ->
                     when (update) {
                         is StreamingUpdate.ContentDelta -> {
-                            if (update.identity == context.requestId) {
-                                _uiState.update { s ->
-                                    s.copy(
-                                        partialContent = (s.partialContent ?: "") + update.content,
-                                    )
-                                }
+                            _uiState.update { s ->
+                                s.copy(
+                                    partialContent = (s.partialContent ?: "") + update.content,
+                                )
                             }
                         }
                         is StreamingUpdate.Completion -> {
-                            if (update.identity == context.requestId) {
-                                refreshConversation(identity)
-                                _uiState.update { s ->
-                                    s.copy(
-                                        partialContent = null,
-                                        isStreaming = false,
-                                        showStopButton = false,
-                                        isComposerEnabled = true,
-                                    )
-                                }
+                            refreshConversation(identity)
+                            _uiState.update { s ->
+                                s.copy(
+                                    partialContent = null,
+                                    isStreaming = false,
+                                    showStopButton = false,
+                                    isComposerEnabled = true,
+                                )
                             }
                         }
                         is StreamingUpdate.Interruption -> {
-                            if (update.identity == context.requestId) {
-                                refreshConversation(identity)
-                                _uiState.update { s ->
-                                    s.copy(
-                                        partialContent = null,
-                                        isStreaming = false,
-                                        showStopButton = false,
-                                        isComposerEnabled = true,
-                                    )
-                                }
+                            refreshConversation(identity)
+                            _uiState.update { s ->
+                                s.copy(
+                                    partialContent = null,
+                                    isStreaming = false,
+                                    showStopButton = false,
+                                    isComposerEnabled = true,
+                                )
                             }
                         }
                     }
@@ -334,43 +328,37 @@ class ChatViewModel(
             )
         }
 
-        streamingJob = generationCoordinator.startGeneration(identity) { context ->
+        streamingJob = generationCoordinator.startGeneration(identity) { _ ->
             try {
                 dependencies.sendMessageUseCase.resume(identity).collect { update ->
                     when (update) {
                         is StreamingUpdate.ContentDelta -> {
-                            if (update.identity == context.requestId) {
-                                _uiState.update { s ->
-                                    s.copy(
-                                        partialContent = (s.partialContent ?: "") + update.content,
-                                    )
-                                }
+                            _uiState.update { s ->
+                                s.copy(
+                                    partialContent = (s.partialContent ?: "") + update.content,
+                                )
                             }
                         }
                         is StreamingUpdate.Completion -> {
-                            if (update.identity == context.requestId) {
-                                refreshConversation(identity)
-                                _uiState.update { s ->
-                                    s.copy(
-                                        partialContent = null,
-                                        isStreaming = false,
-                                        showStopButton = false,
-                                        isComposerEnabled = true,
-                                    )
-                                }
+                            refreshConversation(identity)
+                            _uiState.update { s ->
+                                s.copy(
+                                    partialContent = null,
+                                    isStreaming = false,
+                                    showStopButton = false,
+                                    isComposerEnabled = true,
+                                )
                             }
                         }
                         is StreamingUpdate.Interruption -> {
-                            if (update.identity == context.requestId) {
-                                refreshConversation(identity)
-                                _uiState.update { s ->
-                                    s.copy(
-                                        partialContent = null,
-                                        isStreaming = false,
-                                        showStopButton = false,
-                                        isComposerEnabled = true,
-                                    )
-                                }
+                            refreshConversation(identity)
+                            _uiState.update { s ->
+                                s.copy(
+                                    partialContent = null,
+                                    isStreaming = false,
+                                    showStopButton = false,
+                                    isComposerEnabled = true,
+                                )
                             }
                         }
                     }

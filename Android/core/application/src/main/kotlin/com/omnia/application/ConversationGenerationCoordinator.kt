@@ -5,13 +5,13 @@ import com.omnia.domain.CapabilityRequestIdentity
 import com.omnia.domain.ConversationIdentity
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.sync.Mutex
-import kotlinx.coroutines.sync.withLock
 
 sealed class GenerationState {
     data object Idle : GenerationState()
@@ -53,35 +53,35 @@ class ConversationGenerationCoordinator(private val dispatchers: DispatcherProvi
             try {
                 updateGeneration(identity, GenerationState.Streaming("", requestId))
                 block(context)
-                updateGeneration(identity, GenerationState.Idle)
+                onTerminal(identity, GenerationState.Idle)
             } catch (e: Exception) {
                 if (e is kotlinx.coroutines.CancellationException) {
-                    updateGeneration(identity, GenerationState.Idle)
+                    onTerminal(identity, GenerationState.Idle)
                 } else {
-                    updateGeneration(identity, GenerationState.Failed(e.message ?: "Generation failed"))
+                    onTerminal(identity, GenerationState.Failed(e.message ?: "Generation failed"))
                 }
             }
         }
 
-        scope.launch {
-            mutex.withLock {
-                jobs[identity]?.cancel()
-                jobs[identity] = job
-            }
+        synchronized(jobs) {
+            jobs[identity]?.cancel()
+            jobs[identity] = job
         }
 
         return job
     }
 
     fun stopGeneration(identity: ConversationIdentity) {
-        val currentJob = runCatching { jobs[identity] }.getOrNull()
-        currentJob?.cancel()
-        updateGeneration(identity, GenerationState.Idle)
-        scope.launch {
-            mutex.withLock {
+        val captured: Job?
+        synchronized(jobs) { captured = jobs[identity] }
+        captured?.cancel()
+        synchronized(jobs) {
+            val current = jobs[identity]
+            if (current != null && current === captured) {
                 jobs.remove(identity)
             }
         }
+        updateGeneration(identity, GenerationState.Idle)
     }
 
     fun isGenerating(identity: ConversationIdentity): Boolean {
@@ -90,28 +90,30 @@ class ConversationGenerationCoordinator(private val dispatchers: DispatcherProvi
     }
 
     fun cleanup(identity: ConversationIdentity) {
-        val currentJob = runCatching { jobs[identity] }.getOrNull()
-        currentJob?.cancel()
+        val captured: Job?
+        synchronized(jobs) { captured = jobs.remove(identity) }
+        captured?.cancel()
         _activeGenerations.update { it - identity }
-        scope.launch {
-            mutex.withLock {
-                jobs.remove(identity)
-            }
-        }
     }
 
     fun cleanupAll() {
         jobs.values.forEach { it.cancel() }
+        jobs.clear()
         _activeGenerations.value = emptyMap()
-        scope.launch {
-            mutex.withLock {
-                jobs.clear()
-            }
-        }
     }
 
     fun generationState(identity: ConversationIdentity): GenerationState =
         _activeGenerations.value[identity] ?: GenerationState.Idle
+
+    private suspend fun onTerminal(identity: ConversationIdentity, state: GenerationState) {
+        mutex.withLock {
+            val current = jobs[identity]
+            if (current != null && !current.isActive) {
+                jobs.remove(identity)
+                updateGeneration(identity, state)
+            }
+        }
+    }
 
     private fun updateGeneration(identity: ConversationIdentity, state: GenerationState) {
         _activeGenerations.update { current ->
