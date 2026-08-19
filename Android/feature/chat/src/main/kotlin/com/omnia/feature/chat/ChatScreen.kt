@@ -3,7 +3,9 @@ package com.omnia.feature.chat
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -12,22 +14,31 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextField
+import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -36,6 +47,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -91,7 +103,6 @@ fun ChatRoute(
     )
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ChatScreen(
     uiState: ChatUiState,
@@ -116,39 +127,31 @@ fun ChatScreen(
     modifier: Modifier = Modifier,
 ) {
     OmniaBackground(modifier = modifier) {
-        Scaffold(
-            containerColor = MaterialTheme.colorScheme.background,
-        ) { innerPadding ->
-            if (uiState.activeConversation == null) {
-                ConversationListContent(
-                    uiState = uiState,
-                    onCreateConversation = onCreateConversation,
-                    onOpenConversation = onOpenConversation,
-                    onSearchQueryChanged = onSearchQueryChanged,
-                    onClearSearch = onClearSearch,
-                    onOpenProviders = onOpenProviders,
-                    onOpenSettings = onOpenSettings,
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(innerPadding),
-                )
-            } else {
-                ChatContent(
-                    uiState = uiState,
-                    onBack = onBack,
-                    onOpenSettings = onOpenSettings,
-                    onStartRename = onStartRename,
-                    onUpdateComposerText = onUpdateComposerText,
-                    onSendMessage = onSendMessage,
-                    onStopGeneration = onStopGeneration,
-                    onRetryGeneration = onRetryGeneration,
-                    onContinueGeneration = onContinueGeneration,
-                    onSelectModel = onSelectModel,
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(innerPadding),
-                )
-            }
+        if (uiState.activeConversation == null) {
+            ConversationListContent(
+                uiState = uiState,
+                onCreateConversation = onCreateConversation,
+                onOpenConversation = onOpenConversation,
+                onSearchQueryChanged = onSearchQueryChanged,
+                onClearSearch = onClearSearch,
+                onOpenProviders = onOpenProviders,
+                onOpenSettings = onOpenSettings,
+                modifier = Modifier.fillMaxSize(),
+            )
+        } else {
+            ChatContent(
+                uiState = uiState,
+                onBack = onBack,
+                onOpenSettings = onOpenSettings,
+                onStartRename = onStartRename,
+                onUpdateComposerText = onUpdateComposerText,
+                onSendMessage = onSendMessage,
+                onStopGeneration = onStopGeneration,
+                onRetryGeneration = onRetryGeneration,
+                onContinueGeneration = onContinueGeneration,
+                onSelectModel = onSelectModel,
+                modifier = Modifier.fillMaxSize(),
+            )
         }
     }
 
@@ -191,13 +194,16 @@ private fun ConversationListContent(
 
     Scaffold(
         modifier = modifier,
-        containerColor = MaterialTheme.colorScheme.background,
+        containerColor = Color.Transparent,
         topBar = {
             TopAppBar(
                 title = { Text(text = stringResource(R.string.chat_title)) },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = Color.Transparent,
+                ),
                 actions = {
                     OmniaIconButton(
-                        icon = OmniaIcons.Chat,
+                        icon = OmniaIcons.Search,
                         contentDescription = stringResource(R.string.chat_search_placeholder),
                         onClick = { searchActive = !searchActive },
                     )
@@ -239,9 +245,7 @@ private fun ConversationListContent(
             ) {
                 OutlinedTextField(
                     value = uiState.searchQuery,
-                    onValueChange = { query ->
-                        onSearchQueryChanged(query)
-                    },
+                    onValueChange = onSearchQueryChanged,
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = OmniaSpacing.md, vertical = OmniaSpacing.xs),
@@ -264,9 +268,7 @@ private fun ConversationListContent(
                             OmniaIconButton(
                                 icon = OmniaIcons.Add,
                                 contentDescription = stringResource(R.string.chat_error_dismiss),
-                                onClick = {
-                                    onSearchQueryChanged("")
-                                },
+                                onClick = { onSearchQueryChanged("") },
                             )
                         }
                     },
@@ -292,9 +294,7 @@ private fun ConversationListContent(
                     ) { item ->
                         ConversationListItem(
                             item = item,
-                            onClick = {
-                                onOpenConversation(ConversationIdentity(item.id))
-                            },
+                            onClick = { onOpenConversation(ConversationIdentity(item.id)) },
                         )
                     }
                 }
@@ -365,7 +365,6 @@ private fun ChatContent(
     modifier: Modifier = Modifier,
 ) {
     val listState = rememberLazyListState()
-    var showModelSelector by remember { mutableStateOf(false) }
 
     LaunchedEffect(uiState.messages.size, uiState.partialContent) {
         if (uiState.messages.isNotEmpty() || uiState.partialContent != null) {
@@ -375,129 +374,110 @@ private fun ChatContent(
         }
     }
 
-    Scaffold(
-        modifier = modifier,
-        containerColor = MaterialTheme.colorScheme.background,
-        topBar = {
-            TopAppBar(
-                title = {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(end = OmniaSpacing.sm),
-                    ) {
+    Column(
+        modifier = modifier
+            .imePadding()
+            .navigationBarsPadding(),
+    ) {
+        TopAppBar(
+            title = {
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    Text(
+                        text = uiState.title,
+                        style = MaterialTheme.typography.titleMedium,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                    if (uiState.currentModel != null) {
                         Text(
-                            text = uiState.title,
-                            style = MaterialTheme.typography.titleMedium,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                        )
-                        if (uiState.currentModel != null) {
-                            Text(
-                                text = uiState.currentModel.model.name,
-                                style = MaterialTheme.typography.labelLarge,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                        }
-                    }
-                },
-                navigationIcon = {
-                    OmniaIconButton(
-                        icon = OmniaIcons.ArrowBack,
-                        contentDescription = stringResource(R.string.chat_back),
-                        onClick = onBack,
-                    )
-                },
-                actions = {
-                    OmniaIconButton(
-                        icon = OmniaIcons.Settings,
-                        contentDescription = stringResource(R.string.chat_rename),
-                        onClick = onStartRename,
-                    )
-                    OmniaIconButton(
-                        icon = OmniaIcons.Settings,
-                        contentDescription = stringResource(R.string.chat_open_settings),
-                        onClick = onOpenSettings,
-                    )
-                },
-            )
-        },
-    ) { innerPadding ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(innerPadding),
-        ) {
-            LazyColumn(
-                modifier = Modifier
-                    .weight(1f)
-                    .fillMaxWidth(),
-                state = listState,
-                contentPadding = PaddingValues(vertical = OmniaSpacing.sm),
-            ) {
-                items(
-                    items = uiState.messages,
-                    key = { "${it.role}-${it.content.hashCode()}" },
-                ) { message ->
-                    MessageBubble(
-                        content = message.content,
-                        isUser = message.role == com.omnia.domain.MessageRole.user,
-                        isStreaming = false,
-                    )
-                }
-
-                if (uiState.partialContent != null && uiState.partialContent.isNotEmpty()) {
-                    item(key = "streaming-partial") {
-                        MessageBubble(
-                            content = uiState.partialContent,
-                            isUser = false,
-                            isStreaming = true,
+                            text = uiState.currentModel.model.name,
+                            style = MaterialTheme.typography.labelLarge,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
                 }
-
-                if (uiState.isStreaming && uiState.partialContent == null) {
-                    item(key = "streaming-indicator") {
-                        StreamingLoadingIndicator()
-                    }
-                }
-            }
-
-            if (uiState.isInterrupted) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = OmniaSpacing.md, vertical = OmniaSpacing.xs),
-                    horizontalArrangement = Arrangement.Center,
-                ) {
-                    com.omnia.designsystem.components.OmniaOutlinedButton(
-                        text = stringResource(R.string.chat_continue),
-                        onClick = onContinueGeneration,
-                    )
-                }
-            }
-
-            ComposerBar(
-                text = uiState.composerText,
-                isEnabled = uiState.isComposerEnabled && !uiState.isStreaming,
-                isStreaming = uiState.isStreaming,
-                onTextChange = onUpdateComposerText,
-                onSend = onSendMessage,
-                onStop = onStopGeneration,
-                onRetry = if (uiState.error != null && !uiState.isStreaming) onRetryGeneration else null,
-            )
-        }
-    }
-
-    if (showModelSelector) {
-        ModelSelectorDialog(
-            models = uiState.availableModels,
-            currentModel = uiState.currentModel,
-            onSelect = { selection ->
-                onSelectModel(selection)
-                showModelSelector = false
             },
-            onDismiss = { showModelSelector = false },
+            navigationIcon = {
+                OmniaIconButton(
+                    icon = OmniaIcons.ArrowBack,
+                    contentDescription = stringResource(R.string.chat_back),
+                    onClick = onBack,
+                )
+            },
+            actions = {
+                OmniaIconButton(
+                    icon = OmniaIcons.Rename,
+                    contentDescription = stringResource(R.string.chat_rename),
+                    onClick = onStartRename,
+                )
+                OmniaIconButton(
+                    icon = OmniaIcons.Settings,
+                    contentDescription = stringResource(R.string.chat_open_settings),
+                    onClick = onOpenSettings,
+                )
+            },
+            colors = TopAppBarDefaults.topAppBarColors(
+                containerColor = Color.Transparent,
+            ),
+        )
+
+        LazyColumn(
+            modifier = Modifier
+                .weight(1f)
+                .fillMaxWidth(),
+            state = listState,
+            contentPadding = PaddingValues(vertical = OmniaSpacing.sm),
+        ) {
+            items(
+                items = uiState.messages,
+                key = { "${it.role}-${it.content.hashCode()}" },
+            ) { message ->
+                MessageBubble(
+                    content = message.content,
+                    isUser = message.role == com.omnia.domain.MessageRole.user,
+                    isStreaming = false,
+                )
+            }
+
+            if (uiState.partialContent != null && uiState.partialContent.isNotEmpty()) {
+                item(key = "streaming-partial") {
+                    MessageBubble(
+                        content = uiState.partialContent,
+                        isUser = false,
+                        isStreaming = true,
+                    )
+                }
+            }
+
+            if (uiState.isStreaming && uiState.partialContent == null) {
+                item(key = "streaming-indicator") {
+                    StreamingLoadingIndicator()
+                }
+            }
+        }
+
+        if (uiState.isInterrupted) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = OmniaSpacing.md, vertical = OmniaSpacing.xs),
+                horizontalArrangement = Arrangement.Center,
+            ) {
+                com.omnia.designsystem.components.OmniaOutlinedButton(
+                    text = stringResource(R.string.chat_continue),
+                    onClick = onContinueGeneration,
+                )
+            }
+        }
+
+        ComposerBar(
+            text = uiState.composerText,
+            isEnabled = uiState.isComposerEnabled && !uiState.isStreaming,
+            isStreaming = uiState.isStreaming,
+            onTextChange = onUpdateComposerText,
+            onSend = onSendMessage,
+            onStop = onStopGeneration,
+            onRetry = if (uiState.error != null && !uiState.isStreaming) onRetryGeneration else null,
         )
     }
 }
@@ -516,16 +496,22 @@ private fun ComposerBar(
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .imePadding()
-            .padding(horizontal = OmniaSpacing.md, vertical = OmniaSpacing.sm),
+            .background(MaterialTheme.colorScheme.surface)
+            .padding(horizontal = OmniaSpacing.sm, vertical = OmniaSpacing.xs),
         verticalAlignment = Alignment.Bottom,
-        horizontalArrangement = Arrangement.spacedBy(OmniaSpacing.sm),
+        horizontalArrangement = Arrangement.spacedBy(OmniaSpacing.xs),
     ) {
         if (onRetry != null) {
-            com.omnia.designsystem.components.OmniaOutlinedButton(
-                text = stringResource(R.string.chat_retry),
+            IconButton(
                 onClick = onRetry,
-            )
+                modifier = Modifier.size(40.dp),
+            ) {
+                Icon(
+                    imageVector = OmniaIcons.Rename,
+                    contentDescription = stringResource(R.string.chat_retry),
+                    tint = MaterialTheme.colorScheme.primary,
+                )
+            }
         }
 
         TextField(
@@ -537,18 +523,43 @@ private fun ComposerBar(
             },
             enabled = isEnabled,
             maxLines = 5,
+            shape = RoundedCornerShape(24.dp),
+            colors = TextFieldDefaults.colors(
+                focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                focusedIndicatorColor = Color.Transparent,
+                unfocusedIndicatorColor = Color.Transparent,
+            ),
         )
 
-        if (isStreaming) {
-            com.omnia.designsystem.components.OmniaButton(
-                text = stringResource(R.string.chat_stop),
-                onClick = onStop,
-            )
-        } else {
-            com.omnia.designsystem.components.OmniaButton(
-                text = stringResource(R.string.chat_send),
-                onClick = onSend,
-                enabled = text.isNotBlank() && isEnabled,
+        IconButton(
+            onClick = if (isStreaming) onStop else onSend,
+            modifier = Modifier
+                .size(40.dp)
+                .background(
+                    color = if (isStreaming) {
+                        MaterialTheme.colorScheme.error
+                    } else if (text.isNotBlank() && isEnabled) {
+                        MaterialTheme.colorScheme.primary
+                    } else {
+                        MaterialTheme.colorScheme.surfaceVariant
+                    },
+                    shape = CircleShape,
+                ),
+            enabled = if (isStreaming) true else text.isNotBlank() && isEnabled,
+        ) {
+            Icon(
+                imageVector = if (isStreaming) OmniaIcons.Stop else OmniaIcons.Send,
+                contentDescription = if (isStreaming) {
+                    stringResource(R.string.chat_stop)
+                } else {
+                    stringResource(R.string.chat_send)
+                },
+                tint = if (isStreaming || (text.isNotBlank() && isEnabled)) {
+                    MaterialTheme.colorScheme.onPrimary
+                } else {
+                    MaterialTheme.colorScheme.onSurfaceVariant
+                },
             )
         }
     }
