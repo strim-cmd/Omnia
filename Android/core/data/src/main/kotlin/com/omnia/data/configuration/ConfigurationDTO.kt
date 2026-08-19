@@ -59,7 +59,10 @@ object ConfigurationSerializer {
                 "kotlin.Boolean" -> rawString.toBooleanStrictOrNull()
                 "kotlin.Long" -> rawString.toLongOrNull()
                 "kotlin.Double" -> rawString.toDoubleOrNull()
-                else -> rawString
+                else -> throw IllegalStateException(
+                    "Type '$typeName' is not registered in ConfigurationSerializer. " +
+                        "Call ConfigurationBootstrap.ensureRegistered() before reading configuration."
+                )
             }
         }
     }

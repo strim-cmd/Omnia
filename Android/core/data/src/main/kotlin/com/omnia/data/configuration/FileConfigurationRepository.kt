@@ -49,7 +49,7 @@ class FileConfigurationRepository constructor(
             if (decoded == null) null else uncheckedCast(decoded)
         } catch (e: Exception) {
             if (e is RepositoryError) throw e
-            throw RepositoryError.StorageUnavailable
+            throw RepositoryError.CorruptedRecord(key.name, e)
         }
     }
 

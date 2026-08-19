@@ -20,16 +20,10 @@ class FileConfigurationRepositoryTest {
 
     @Before
     fun setup() {
+        ConfigurationBootstrap.resetForTesting()
+        ConfigurationBootstrap.ensureRegistered()
         tempDir = Files.createTempDirectory("ConfigRepoTests").toFile()
         repo = FileConfigurationRepository(tempDir)
-        repo.registerType(CredentialReference::class,
-            encode = { it.id },
-            decode = { CredentialReference(it) },
-        )
-        repo.registerType(ProviderAPIKind::class,
-            encode = { it.name },
-            decode = { ProviderAPIKind.valueOf(it) },
-        )
     }
 
     @After
@@ -184,10 +178,7 @@ class FileConfigurationRepositoryTest {
         repo.store(ProviderAPIKind.gemini, ConfigurationKey<ProviderAPIKind>("key3"), ConfigurationLevel.providerSettings)
 
         val freshRepo = FileConfigurationRepository(tempDir)
-        freshRepo.registerType(CredentialReference::class,
-            encode = { it.id }, decode = { CredentialReference(it) })
-        freshRepo.registerType(ProviderAPIKind::class,
-            encode = { it.name }, decode = { ProviderAPIKind.valueOf(it) })
+        ConfigurationBootstrap.ensureRegistered()
 
         assertEquals("hello", freshRepo.value(ConfigurationKey<String>("key1"), ConfigurationLevel.globalDefault))
         assertEquals(42, freshRepo.value(ConfigurationKey<Int>("key2"), ConfigurationLevel.workspaceOverride))

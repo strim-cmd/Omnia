@@ -20,6 +20,7 @@ import com.omnia.common.Logger
 import com.omnia.common.RandomIdentifierFactory
 import com.omnia.common.SystemClock
 import com.omnia.data.StorageLayout
+import com.omnia.data.configuration.ConfigurationBootstrap
 import com.omnia.data.configuration.FileConfigurationRepository
 import com.omnia.data.conversation.FileConversationRepository
 import com.omnia.data.attachment.FileAttachmentStorage
@@ -67,7 +68,9 @@ class AppContainer(
 
     val providerRepository = FileProviderRepository(storageLayout.providersDir)
     val conversationRepository = FileConversationRepository(storageLayout.conversationsDir)
-    val configurationRepository = FileConfigurationRepository(storageLayout.configurationDir)
+    val configurationRepository = FileConfigurationRepository(storageLayout.configurationDir).also {
+        ConfigurationBootstrap.ensureRegistered()
+    }
     val workspaceRepository = FileWorkspaceRepository(storageLayout.workspacesDir)
     val credentialStorage: CredentialStorageProtocol = testCredentialStorage
         ?: try { SecureCredentialStorage(context) } catch (_: Exception) { InMemoryCredentialStorage() }
