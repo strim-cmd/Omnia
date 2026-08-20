@@ -1,17 +1,17 @@
 package com.omnia.feature.chat
 
 import androidx.compose.ui.test.assertIsDisplayed
-import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
-import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.onRoot
 import com.omnia.domain.ConversationIdentity
 import com.omnia.domain.Message
 import com.omnia.domain.MessageRole
 import com.omnia.domain.ModelReference
 import com.omnia.domain.ProviderIdentity
 import com.omnia.domain.ProviderModelSelection
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -151,5 +151,83 @@ class ChatLayoutTest {
         setContent(uiState = state)
         composeTestRule.onNodeWithText("Chat").assertIsDisplayed()
         composeTestRule.onNodeWithText("gpt-4").assertIsDisplayed()
+    }
+
+    @Test
+    fun bubble_singleCharUserMessage_isNarrowerThanMaxWidth() {
+        val state = ChatUiState(
+            activeConversation = ConversationIdentity("conv1"),
+            title = "Chat",
+            showConversationList = false,
+            messages = listOf(
+                Message(role = MessageRole.user, content = "A"),
+            ),
+        )
+        setContent(uiState = state)
+        val rootBounds = composeTestRule.onRoot().fetchSemanticsNode().boundsInRoot
+        val rootWidth = rootBounds.width
+
+        val bubbleBounds = composeTestRule.onNodeWithText("A").fetchSemanticsNode().boundsInRoot
+        val bubbleWidth = bubbleBounds.width
+
+        val maxAllowedWidth = rootWidth * 0.82f
+        assertTrue(
+            "Single-char bubble width ($bubbleWidth) should be materially narrower than max ($maxAllowedWidth)",
+            bubbleWidth < maxAllowedWidth * 0.7f,
+        )
+    }
+
+    @Test
+    fun bubble_shortAssistantMessage_isNarrowerThanMaxWidth() {
+        val state = ChatUiState(
+            activeConversation = ConversationIdentity("conv1"),
+            title = "Chat",
+            showConversationList = false,
+            messages = listOf(
+                Message(role = MessageRole.assistant, content = "Hello!"),
+            ),
+        )
+        setContent(uiState = state)
+        val rootBounds = composeTestRule.onRoot().fetchSemanticsNode().boundsInRoot
+        val rootWidth = rootBounds.width
+
+        val bubbleBounds = composeTestRule.onNodeWithText("Hello!").fetchSemanticsNode().boundsInRoot
+        val bubbleWidth = bubbleBounds.width
+
+        val maxAllowedWidth = rootWidth * 0.82f
+        assertTrue(
+            "Short assistant bubble width ($bubbleWidth) should be materially narrower than max ($maxAllowedWidth)",
+            bubbleWidth < maxAllowedWidth * 0.7f,
+        )
+    }
+
+    @Test
+    fun bubble_longMessage_isWiderThanShortMessage() {
+        val longMessage = "This is a very long message that should wrap and fill up to the maximum bubble width limit because it contains many words that will not fit on a single line."
+        val state = ChatUiState(
+            activeConversation = ConversationIdentity("conv1"),
+            title = "Chat",
+            showConversationList = false,
+            messages = listOf(
+                Message(role = MessageRole.user, content = "A"),
+                Message(role = MessageRole.user, content = longMessage),
+            ),
+        )
+        setContent(uiState = state)
+        val rootBounds = composeTestRule.onRoot().fetchSemanticsNode().boundsInRoot
+        val rootWidth = rootBounds.width
+
+        val shortBounds = composeTestRule.onNodeWithText("A").fetchSemanticsNode().boundsInRoot
+        val longBounds = composeTestRule.onNodeWithText(longMessage).fetchSemanticsNode().boundsInRoot
+
+        val maxAllowedWidth = rootWidth * 0.82f
+        assertTrue(
+            "Long message (${longBounds.width}) should be wider than short (${shortBounds.width})",
+            longBounds.width > shortBounds.width,
+        )
+        assertTrue(
+            "Long message (${longBounds.width}) should not exceed max ($maxAllowedWidth)",
+            longBounds.width <= maxAllowedWidth + 10f,
+        )
     }
 }

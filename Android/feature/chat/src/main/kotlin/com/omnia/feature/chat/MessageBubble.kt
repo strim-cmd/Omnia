@@ -9,11 +9,13 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -98,44 +100,49 @@ fun MessageBubble(
     val horizontalAlignment = if (isUser) Alignment.End else Alignment.Start
     val rowArrangement = if (isUser) Arrangement.End else Arrangement.Start
 
-    Row(
+    BoxWithConstraints(
         modifier = modifier
             .fillMaxWidth()
             .padding(horizontal = OmniaSpacing.md, vertical = OmniaSpacing.xs),
-        horizontalArrangement = rowArrangement,
     ) {
-        Box(
-            modifier = Modifier
-                .widthIn(max = 300.dp)
-                .clip(shape)
-                .background(backgroundColor)
-                .combinedClickable(
-                    onClick = {},
-                    onLongClick = { copyToClipboard(context, content) },
-                )
-                .padding(OmniaSpacing.sm),
+        val bubbleMaxWidth = maxWidth * 0.82f
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = rowArrangement,
         ) {
-            Column(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalAlignment = horizontalAlignment,
+            Box(
+                modifier = Modifier
+                    .widthIn(max = bubbleMaxWidth)
+                    .clip(shape)
+                    .background(backgroundColor)
+                    .combinedClickable(
+                        onClick = {},
+                        onLongClick = { copyToClipboard(context, content) },
+                    )
+                    .padding(OmniaSpacing.sm),
             ) {
-                val segments = parseContent(content)
-                segments.forEach { segment ->
-                    when (segment) {
-                        is CodeBlock -> CodeBlockView(
-                            code = segment.code,
-                            language = segment.language,
-                            textColor = textColor,
-                        )
-                        is String -> Text(
-                            text = segment,
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = textColor,
-                        )
+                Column(
+                    modifier = Modifier.wrapContentWidth(),
+                    horizontalAlignment = horizontalAlignment,
+                ) {
+                    val segments = parseContent(content)
+                    segments.forEach { segment ->
+                        when (segment) {
+                            is CodeBlock -> CodeBlockView(
+                                code = segment.code,
+                                language = segment.language,
+                                textColor = textColor,
+                            )
+                            is String -> Text(
+                                text = segment,
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = textColor,
+                            )
+                        }
                     }
-                }
-                if (isStreaming) {
-                    StreamingIndicator(color = textColor)
+                    if (isStreaming) {
+                        StreamingIndicator(color = textColor)
+                    }
                 }
             }
         }
