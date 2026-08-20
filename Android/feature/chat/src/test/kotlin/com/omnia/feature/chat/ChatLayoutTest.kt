@@ -230,4 +230,52 @@ class ChatLayoutTest {
             longBounds.width <= maxAllowedWidth + 10f,
         )
     }
+
+    @Test
+    fun duplicateKeys_twoEmptyAssistantMessages_noCrash() {
+        val state = ChatUiState(
+            activeConversation = ConversationIdentity("conv1"),
+            title = "Chat",
+            showConversationList = false,
+            messages = listOf(
+                Message(role = MessageRole.user, content = "Hi"),
+                Message(role = MessageRole.assistant, content = ""),
+                Message(role = MessageRole.assistant, content = ""),
+            ),
+        )
+        setContent(uiState = state)
+        composeTestRule.onNodeWithText("Hi").assertIsDisplayed()
+    }
+
+    @Test
+    fun duplicateKeys_twoIdenticalAssistantMessages_noCrash() {
+        val state = ChatUiState(
+            activeConversation = ConversationIdentity("conv1"),
+            title = "Chat",
+            showConversationList = false,
+            messages = listOf(
+                Message(role = MessageRole.user, content = "Hi"),
+                Message(role = MessageRole.assistant, content = "Same"),
+                Message(role = MessageRole.assistant, content = "Same"),
+            ),
+        )
+        setContent(uiState = state)
+        composeTestRule.onNodeWithText("Hi").assertIsDisplayed()
+    }
+
+    @Test
+    fun duplicateKeys_twoIdenticalUserMessages_noCrash() {
+        val state = ChatUiState(
+            activeConversation = ConversationIdentity("conv1"),
+            title = "Chat",
+            showConversationList = false,
+            messages = listOf(
+                Message(role = MessageRole.user, content = "Hi"),
+                Message(role = MessageRole.user, content = "Hello"),
+            ),
+        )
+        setContent(uiState = state)
+        composeTestRule.onNodeWithText("Hi").assertIsDisplayed()
+        composeTestRule.onNodeWithText("Hello").assertIsDisplayed()
+    }
 }

@@ -221,7 +221,7 @@ class SendMessageUseCaseTest {
     }
 
     @Test
-    fun send_completesWithEmptyContentFromProvider() = runBlocking {
+    fun send_emptyContentFromProvider_interruptsInsteadOfCompleting() = runBlocking {
         val contract = FakeStreamingContract(
             events = listOf(
                 StreamingUpdate.Completion(id("req"), Message(MessageRole.assistant, "")),
@@ -237,7 +237,61 @@ class SendMessageUseCaseTest {
         uc.send(request).toList()
 
         val stored = convRepo.get("conv-1")!!
-        assertTrue(stored.history.any { it.role == MessageRole.assistant })
+        assertFalse(
+            "Empty completion must not persist an assistant message",
+            stored.history.any { it.role == MessageRole.assistant },
+        )
+        assertTrue("Conversation should be in interrupted state", stored.isInterrupted)
+    }
+
+    @Test
+    fun send_zeroContentDeltasWithEmptyCompletion_interrupts() = runBlocking {
+        val contract = FakeStreamingContract(
+            events = listOf(
+                StreamingUpdate.ContentDelta(id("req"), ""),
+                StreamingUpdate.Completion(id("req"), Message(MessageRole.assistant, "")),
+            )
+        )
+        val uc = useCaseWithContract(contract)
+        val conv = saveConversation("conv-1")
+        val request = SendMessageRequest(
+            conversation = conv.identity,
+            message = Message(role = MessageRole.user, content: "Hi"),
+        )
+
+        uc.send(request).toList()
+
+        val stored = convRepo.get("conv-1")!!
+        assertFalse(
+            "Empty-only deltas must not persist assistant message",
+            stored.history.any { it.role == MessageRole.assistant },
+        )
+        assertTrue(stored.isInterrupted)
+    }
+
+    @Test
+    fun send_contentDeltasWithCompletion_persistsAssistantMessage() = runBlocking {
+        val contract = FakeStreamingContract(
+            events = listOf(
+                StreamingUpdate.ContentDelta(id("req"), "Hello"),
+                StreamingUpdate.ContentDelta(id("req"), " world"),
+                StreamingUpdate.Completion(id("req"), Message(MessageRole.assistant, "Hello world")),
+            )
+        )
+        val uc = useCaseWithContract(contract)
+        val conv = saveConversation("conv-1")
+        val request = SendMessageRequest(
+            conversation = conv.identity,
+            message = Message(role = MessageRole.user, content: "Hi"),
+        )
+
+        uc.send(request).toList()
+
+        val stored = convRepo.get("conv-1")!!
+        val assistant = stored.history.lastOrNull { it.role == MessageRole.assistant }
+        assertNotNull("Assistant message must be persisted when content deltas exist", assistant)
+        assertEquals("Hello world", assistant!!.content)
+        assertFalse(stored.isInterrupted)
     }
 
     @Test

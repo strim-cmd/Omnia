@@ -120,12 +120,14 @@ class SendMessageUseCase(
 
         var currentConversation = conversation
         var hasReceivedTerminal = false
+        var hasReceivedContentDelta = false
 
         return streamingContract.stream(streamingRequest)
             .onEach { update ->
                 when (update) {
                     is StreamingUpdate.ContentDelta -> {
                         if (update.identity == requestId) {
+                            hasReceivedContentDelta = true
                             currentConversation = currentConversation.appendPartial(update.content)
                             conversationRepository.save(currentConversation)
                         }
@@ -133,15 +135,20 @@ class SendMessageUseCase(
                     is StreamingUpdate.Completion -> {
                         if (update.identity == requestId && !hasReceivedTerminal) {
                             hasReceivedTerminal = true
-                            val delta = reconcilePartial(
-                                currentConversation.partialContent ?: "",
-                                update.message.content,
-                            )
-                            if (delta.isNotEmpty()) {
-                                currentConversation = currentConversation.appendPartial(delta)
+                            if (!hasReceivedContentDelta) {
+                                currentConversation = currentConversation.interruptStreaming()
+                                savePreservingMetadata(currentConversation)
+                            } else {
+                                val delta = reconcilePartial(
+                                    currentConversation.partialContent ?: "",
+                                    update.message.content,
+                                )
+                                if (delta.isNotEmpty()) {
+                                    currentConversation = currentConversation.appendPartial(delta)
+                                }
+                                currentConversation = currentConversation.completeStreaming(timestampMillis = now())
+                                savePreservingMetadata(currentConversation)
                             }
-                            currentConversation = currentConversation.completeStreaming(timestampMillis = now())
-                            savePreservingMetadata(currentConversation)
                         }
                     }
                     is StreamingUpdate.Interruption -> {
