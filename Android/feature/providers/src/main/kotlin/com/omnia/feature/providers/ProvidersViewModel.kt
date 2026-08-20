@@ -8,10 +8,12 @@ import com.omnia.application.ProviderConnectionTestRequest
 import com.omnia.application.ProviderUpdateRequest
 import com.omnia.domain.Capability
 import com.omnia.domain.Credential
+import com.omnia.domain.ModelReference
 import com.omnia.domain.ProviderAPIKind
 import com.omnia.domain.ProviderCapabilities
 import com.omnia.domain.ProviderIdentity
 import com.omnia.domain.ProviderLimits
+import com.omnia.domain.ProviderModelSelection
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -156,8 +158,10 @@ class ProvidersViewModel(private val dependencies: ProvidersDependencies) : View
         viewModelScope.launch(dependencies.dispatchers.default) {
             _addProviderUiState.update { it.copy(isSaving = true, error = null) }
             try {
+                val savedIdentity: ProviderIdentity
                 if (state.isEditing && state.editingProviderId != null) {
                     val identity = ProviderIdentity(state.editingProviderId)
+                    savedIdentity = identity
                     val request = ProviderUpdateRequest(
                         displayName = state.displayName,
                         capabilities = ProviderCapabilities(setOf(Capability.streaming)),
@@ -179,13 +183,23 @@ class ProvidersViewModel(private val dependencies: ProvidersDependencies) : View
                         limits = ProviderLimits(),
                         version = SemanticVersion(1, 0, 0),
                     )
-                    dependencies.providerConnectionService.configure(
+                    val provider = dependencies.providerConnectionService.configure(
                         request = request,
                         endpoint = state.endpoint,
                         model = state.selectedModel,
                         apiKind = state.apiKind,
                     )
+                    savedIdentity = provider.identity
                 }
+
+                if (state.selectedModel.isNotBlank()) {
+                    val selection = ProviderModelSelection(
+                        provider = savedIdentity,
+                        model = ModelReference(state.selectedModel),
+                    )
+                    dependencies.providerModelService.setDefaultSelection(selection)
+                }
+
                 _addProviderUiState.update { it.copy(isSaving = false) }
                 dismissAddProvider()
                 loadProviders()

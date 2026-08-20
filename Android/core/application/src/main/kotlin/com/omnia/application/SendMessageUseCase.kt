@@ -1,5 +1,7 @@
 package com.omnia.application
 
+import com.omnia.common.Logger
+import com.omnia.common.NoOpLogger
 import com.omnia.domain.Capability
 import com.omnia.domain.CapabilityRequestIdentity
 import com.omnia.domain.Conversation
@@ -25,6 +27,7 @@ class SendMessageUseCase(
     private val candidatesFor: suspend (capability: Capability) -> List<ProviderCandidate> = { emptyList() },
     private val resolveAttachments: suspend (List<Message>, ProviderModelSelection) -> List<ResolvedAttachment> = { _, _ -> emptyList() },
     private val now: () -> Long = { System.currentTimeMillis() },
+    private val logger: Logger = NoOpLogger(),
 ) {
     suspend fun send(request: SendMessageRequest): Flow<StreamingUpdate> {
         val validatedRequest = validateRequest(request)
@@ -59,11 +62,12 @@ class SendMessageUseCase(
         explicitSelection: ProviderModelSelection?,
     ): ProviderModelSelection {
         val candidates = candidatesFor(Capability.streaming)
+        val effectiveSelection = explicitSelection ?: conversation.modelSelection
         val result = selectionPolicy.select(
             candidates = candidates,
-            explicitSelection = explicitSelection ?: conversation.modelSelection,
+            explicitSelection = effectiveSelection,
         )
-        return when (result) {
+        val resolved = when (result) {
             is ProviderSelectionResult.Selected -> ProviderModelSelection(
                 provider = result.provider,
                 model = result.model,
@@ -75,6 +79,8 @@ class SendMessageUseCase(
                 throw com.omnia.domain.CapabilityError.ProviderUnavailable
             }
         }
+        logger.info(TAG, "provider=${resolved.provider.id} model=${resolved.model.name}")
+        return resolved
     }
 
     private suspend fun prepareSend(request: SendMessageRequest): Pair<Conversation, ProviderModelSelection> {
@@ -184,4 +190,8 @@ class SendMessageUseCase(
     }
 
     private fun generateId(): String = java.util.UUID.randomUUID().toString()
+
+    private companion object {
+        const val TAG = "SendMessageUseCase"
+    }
 }

@@ -150,7 +150,7 @@ class AppContainer(
     val conversationService = ConversationService(
         conversationRepository,
         workspaceRepository,
-        defaultModelSelection = { null },
+        defaultModelSelection = { providerModelService.defaultSelection() },
         cleanupAttachments = { },
     )
 
@@ -185,6 +185,7 @@ class AppContainer(
                     )
                 }
         },
+        logger = logger,
     )
 
     val chatDependencies: ChatDependencies = object : ChatDependencies {
